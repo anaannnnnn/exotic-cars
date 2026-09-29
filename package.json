@@ -1,0 +1,34 @@
+{
+  "name": "apex-studio",
+  "private": true,
+  "version": "2.0.0",
+  "type": "module",
+  "description": "3D car configurator backed by a Dubai-sourced fitment database",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "harvest": "node tools/harvest/crawl.mjs",
+    "db": "node --disable-warning=ExperimentalWarning tools/build-db.mjs",
+    "report": "node tools/report.mjs",
+    "stock": "node tools/harvest/exotic.mjs && node --disable-warning=ExperimentalWarning tools/build-stock.mjs --images"
+  },
+  "dependencies": {
+    "@fontsource-variable/bodoni-moda": "^5.3.0",
+    "@fontsource-variable/instrument-sans": "^5.3.0",
+    "@fontsource-variable/jost": "^5.3.0",
+    "@fontsource/ibm-plex-mono": "^5.3.0",
+    "clsx": "^2.1.1",
+    "lucide": "^1.48.0",
+    "lucide-svelte": "^1.0.1",
+    "simple-icons": "^16.33.0",
+    "svelte-motion": "^0.12.2",
+    "tailwind-merge": "^3.7.0"
+  },
+  "devDependencies": {
+    "sharp": "^0.35.5",
+    "vite": "^8.3.1",
+    "vitest": "^5.0.2"
+  }
+}
