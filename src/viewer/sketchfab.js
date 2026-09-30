@@ -51,6 +51,7 @@ export class Viewer {
     this.touched = {};
     this.baseCam = null;
     this.paintSource = null;
+    this.insets = { top: 0, right: 0, bottom: 0, left: 0 };   /* screen areas covered by floating UI, in px */
     this.axes = null;
     this.nodeMap = null;
     this.fov = 0;
@@ -131,20 +132,24 @@ export class Viewer {
    */
   async probePaint() {
     if (!this.api || this.paintSource === 'name') return false;
-    const w = this.iframe?.clientWidth || 0, h = this.iframe?.clientHeight || 0;
-    if (!w || !h) return false;
+    const fr = this.iframe?.getBoundingClientRect(), hr = this.host?.getBoundingClientRect();
+    if (!fr || !hr || !fr.width || !fr.height) return false;
+    /* the car sits in the middle of the free area (the page's floating menus take the rest); the iframe is larger than the host */
+    const ins = this.insets;
+    const boxL = ins.left, boxT = ins.top, boxW = Math.max(60, hr.width - ins.left - ins.right), boxH = Math.max(60, hr.height - ins.top - ins.bottom);
+    const dx = hr.left - fr.left, dy = hr.top - fr.top;
     const pick = (x, y) => new Promise((ok) => {
       const t = setTimeout(() => ok(null), 1500);
-      try { this.api.pickFromScreen([Math.round(x), Math.round(y)], (e, r) => { clearTimeout(t); ok(!e && r?.material?.id ? r.material.id : null); }); } catch { clearTimeout(t); ok(null); }
+      try { this.api.pickFromScreen([Math.round(x + dx), Math.round(y + dy)], (e, r) => { clearTimeout(t); ok(!e && r?.material?.id ? r.material.id : null); }); } catch { clearTimeout(t); ok(null); }
     });
     const pts = [];
-    for (const fx of [0.4, 0.47, 0.53, 0.6]) for (const fy of [0.46, 0.52]) pts.push([w * fx, h * fy]);
+    for (const fx of [0.36, 0.44, 0.5, 0.56, 0.64]) for (const fy of [0.4, 0.48, 0.56]) pts.push([boxL + boxW * fx, boxT + boxH * fy]);
     const seen = {};
     (await Promise.all(pts.map(([x, y]) => pick(x, y)))).forEach((id) => { if (id) seen[id] = (seen[id] || 0) + 1; });
-    const ranked = Object.entries(seen).filter(([id]) => !this.roles.rim[id] && !this.roles.caliper[id] && !this.roles.glass[id]).sort((a, b) => b[1] - a[1]);
+    const ranked = Object.entries(seen).filter(([id]) => !this.roles.rim[id] && !this.roles.caliper[id] && !this.roles.glass[id]).sort((p, q) => q[1] - p[1]);
     if (!ranked.length || ranked[0][1] < 3) return false;
     const id = ranked[0][0];
-    if (this.roles.paint[id] && Object.keys(this.roles.paint).length === 1) return false;
+    if (this.roles.paint[id] && Object.keys(this.roles.paint).length === 1) { this.paintSource = 'pick'; return false; }
     this.roles.paint = { [id]: true };
     this.paintSource = 'pick';
     this.#schedule();
@@ -358,7 +363,9 @@ export class Viewer {
       const L = ax.wheelbase * 1.75, W = L * 0.42, H = L * 0.34;
       /* the iframe is a little larger than the visible hero (its edge controls are cropped away), so size the car to what is visible */
       const fh = Math.max(1, this.iframe?.clientHeight || 400);
-      const vw = Math.max(1, this.host.clientWidth || 400), vh = Math.max(1, this.host.clientHeight || 300);
+      const hostW = Math.max(1, this.host.clientWidth || 400), hostH = Math.max(1, this.host.clientHeight || 300);
+      const ins = this.insets;
+      const vw = Math.max(140, hostW - ins.left - ins.right), vh = Math.max(120, hostH - ins.top - ins.bottom);
       const tan = Math.tan(((this.fov || 45) * deg) / 2);
       const fit = (w, hh, depth) => Math.max((w * fh) / (2 * tan * vw), (hh * fh) / (2 * tan * vh)) * 1.24 + depth / 2;
       target = [ax.c[0], ax.c[1], ax.z + ax.wheelbase * 0.13];
@@ -376,11 +383,13 @@ export class Viewer {
         }
       }[id] || (() => { dir = [Math.cos(h0), Math.sin(h0)]; el = el0; r = baseDist; });
       spec();
+      /* the visible middle is not the screen middle when the menus are lopsided: slide the car into it */
+      if (id !== 'top' && id !== 'wheel') target = [target[0], target[1], target[2] + ((ins.top - ins.bottom) / 2) * ((2 * r * tan) / fh)];
       /* where the road surface lands in the hero, so the page can place a soft contact shadow under the car */
       if (id !== 'top' && id !== 'wheel') {
         const px = (u) => (u * fh) / (2 * tan * r);
         const span = { side: ax.wheelbase * 1.75, front34: ax.wheelbase * 1.4, front: ax.wheelbase * 0.74, rear: ax.wheelbase * 0.74 }[id] || ax.wheelbase * 1.4;
-        floor = { y: vh / 2 + px(target[2] - (ax.z - ax.wheelbase * 0.115)), w: px(span) };
+        floor = { y: hostH / 2 + px(target[2] - (ax.z - ax.wheelbase * 0.115)), w: px(span) };
       }
     } else {
       const k = { side: 1.6, front34: 1.4, front: 1.4, rear: 1.4, top: 1.7, wheel: 0.55 }[id] || 1.4;

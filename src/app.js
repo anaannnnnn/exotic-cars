@@ -45,7 +45,7 @@ export async function boot() {
       const car = stockCar(configure[1]);
       const match = car && configuratorMatch(car);
       if (!car || !match) { location.hash = car ? `#/shop/${car.id}` : '#/shop'; return; }
-      next = mountCar(root, match.id, configure[2] || null, { toast, stock: car, base: `#/shop/${car.id}/configure`, back: { href: `#/shop/${car.id}`, label: 'Car details' } });
+      next = mountCar(root, match.id, configure[2] || null, { toast, stock: car, vehicle: match, base: `#/shop/${car.id}/configure`, back: { href: `#/shop/${car.id}`, label: 'Car details' } });
     } else if (shopCar) {
       next = mountShopCar(root, shopCar[1]);
       if (!next) { location.hash = '#/shop'; return; }

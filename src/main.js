@@ -1,5 +1,6 @@
 import '@fontsource-variable/jost/index.css';
 import './styles/main.css';
+import './styles/configurator.css';
 import { boot } from './app.js';
 
 boot().catch((err) => {
