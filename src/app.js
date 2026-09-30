@@ -3,8 +3,15 @@ import { loadStock, stockCar, configuratorMatch } from './data/stock.js';
 import { mountHome } from './pages/home.js';
 import { mountCar } from './pages/car.js';
 import { mountShop, mountShopCar } from './pages/shop.js';
+import { mountHub } from './pages/hub.js';
+import { mountConcierge } from './pages/concierge.js';
+import { mountService } from './pages/service.js';
+import { mountVR } from './pages/vr.js';
+import { mountAccount } from './pages/account.js';
 import { initSettings } from './state/settings.js';
 import { toast } from './ui/toast.js';
+import { initFloatTip } from './ui/float-tip.js';
+import { initFx } from './ui/fx.js';
 
 const BASE = import.meta.env.BASE_URL;
 
@@ -17,6 +24,8 @@ const BASE = import.meta.env.BASE_URL;
  */
 export async function boot() {
   initSettings();
+  initFloatTip();
+  initFx();
   await data.loadCatalog(`${BASE}data/`);
   const root = document.getElementById('app');
   let page = null;
@@ -52,14 +61,32 @@ export async function boot() {
     } else if (/^#\/shop\/?$/.test(hash)) {
       next = mountShop(root);
       restore = scroll.shop;
+    } else if (/^#\/home\/?$/.test(hash)) {
+      next = mountHub(root);
+    } else if (/^#\/service\/?$/.test(hash)) {
+      next = mountService(root);
+    } else if (/^#\/vr\/?$/.test(hash)) {
+      next = mountVR(root);
+    } else if (/^#\/account\/?$/.test(hash)) {
+      next = mountAccount(root);
+    } else if (/^#\/concierge(\/.*)?$/.test(hash)) {
+      const q = hash.match(/^#\/concierge\/(.+)$/);
+      /* the question in the address is asked once; going back to this page must not ask it again */
+      if (q) try { history.replaceState(null, '', '#/concierge'); } catch { /* ignore */ }
+      next = mountConcierge(root, q ? decodeURIComponent(q[1]) : '');
     } else {
       next = mountHome(root);
     }
     page = next;
     document.body.dataset.page = next.kind;
-    window.scrollTo(0, restore);
+    window.scrollTo(0, next.fresh ? 0 : restore);   /* a page opened afresh (e.g. the shop with a make chosen) starts at the top */
   }
 
-  window.addEventListener('hashchange', route);
+  /* page changes cross-fade with the View Transitions API where the browser has it (the dock keeps its place) */
+  window.addEventListener('hashchange', () => {
+    const calm = document.documentElement.dataset.motion === 'reduce' || matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (document.startViewTransition && !calm && !document.querySelector('.unveil')) document.startViewTransition(() => route());
+    else route();
+  });
   await route();
 }

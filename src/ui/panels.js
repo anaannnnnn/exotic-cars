@@ -150,6 +150,25 @@ export function openSettings() {
 }
 
 /* ------------------------------------------------------------------ VR */
+/** Full-screen Sketchfab viewer with its VR and AR buttons, for any model ({ uid }) - used by the VR page. */
+export function launchVRModel(model, title) {
+  if (!model?.uid) return;
+  closePanel();
+  const frame = h('iframe', {
+    class: 'vr__frame', title: `${title} in VR`, allow: 'autoplay; fullscreen; xr-spatial-tracking; accelerometer; gyroscope',
+    allowfullscreen: true, src: `https://sketchfab.com/models/${model.uid}/embed?autostart=1&dnt=1&ui_vr=1&ui_ar=1&ui_fullscreen=1&ui_infos=0&ui_watermark_link=0`
+  });
+  const onKey = (e) => { if (e.key === 'Escape') close(); };
+  const close = () => { el.remove(); document.body.classList.remove('is-locked'); document.removeEventListener('keydown', onKey); };
+  const el = h('div', { class: 'vr', role: 'dialog', 'aria-modal': 'true', 'aria-label': `${title} in VR` }, [
+    frame,
+    h('div', { class: 'vr__bar' }, [h('span', { text: title }), h('button', { class: 'round round--sm', type: 'button', 'aria-label': 'Close viewer', onclick: close }, icon('close'))])
+  ]);
+  document.body.append(el);
+  document.body.classList.add('is-locked');
+  document.addEventListener('keydown', onKey);
+}
+
 export function openVR() {
   const cars = data.listVehicles();
   const groups = new Map();

@@ -21,14 +21,14 @@ export function h(tag, attrs = {}, children = []) {
 import {
   createElement, ArrowLeft, ChevronDown, Search, Share, Camera, X, Check, CarFront, Printer, Copy, MousePointer2, RotateCw,
   CalendarClock, UserRound, Settings, Glasses, Store, Gauge, Calendar, Fuel, Zap, Leaf, ArrowRight, MapPin, Palette,
-  Disc3, Wind, SlidersHorizontal, CircleHelp, Box, ChevronUp, ChevronsRight
+  Disc3, Wind, SlidersHorizontal, CircleHelp, Box, ChevronUp, ChevronsRight, Shuffle, ChevronLeft, ChevronRight, Sparkles, House, ArrowUp, ArrowUpRight, ChevronsRight as Chevrons2, CircleUserRound, Wrench, ShieldCheck, Droplets, SunDim, ClipboardCheck, Phone, MessageCircle, ImagePlus, Clock, Eye, EyeOff, LogOut, Mail, Lock, Headset, Smartphone, Monitor, TriangleAlert, Truck, CircleCheck
 } from 'lucide';
 
 /* Lucide icons (https://lucide.dev), referenced by short names throughout the UI. */
 const ICONS = {
   back: ArrowLeft, forward: ArrowRight, chevron: ChevronDown, search: Search, share: Share, camera: Camera, close: X, check: Check, car: CarFront,
   print: Printer, copy: Copy, pick: MousePointer2, rotate: RotateCw, calendar: CalendarClock, user: UserRound, gear: Settings, vr: Glasses,
-  shop: Store, wheels: Disc3, aero: Wind, details: SlidersHorizontal, help: CircleHelp, model: Box, up: ChevronUp, swipe: ChevronsRight, gauge: Gauge, year: Calendar, fuel: Fuel, electric: Zap, hybrid: Leaf, pin: MapPin, paint: Palette
+  shop: Store, wheels: Disc3, aero: Wind, details: SlidersHorizontal, help: CircleHelp, model: Box, up: ChevronUp, swipe: ChevronsRight, gauge: Gauge, year: Calendar, fuel: Fuel, electric: Zap, hybrid: Leaf, pin: MapPin, paint: Palette, shuffle: Shuffle, left: ChevronLeft, right: ChevronRight, spark: Sparkles, home: House, send: ArrowUp, open: ArrowUpRight, more: Chevrons2, account: CircleUserRound, wrench: Wrench, shield: ShieldCheck, drops: Droplets, tint: SunDim, inspect: ClipboardCheck, phone: Phone, chat: MessageCircle, photo: ImagePlus, clock: Clock, eye: Eye, eyeoff: EyeOff, logout: LogOut, mail: Mail, lock: Lock, headset: Headset, phonedev: Smartphone, desktop: Monitor, alert: TriangleAlert, truck: Truck, done: CircleCheck
 };
 
 /** A Lucide icon as an <svg> element (stroke follows currentColor). */
