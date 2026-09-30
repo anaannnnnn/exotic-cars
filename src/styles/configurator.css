@@ -16,7 +16,7 @@ body[data-page='car'] #toast { bottom: 300px; }
   --edge: color-mix(in srgb, var(--ink) 88%, transparent);
   --glass: color-mix(in srgb, var(--bg) 80%, transparent);
   --tint: #c8102e;
-  position: fixed; inset: 0; z-index: 5; overflow: hidden; background: var(--bg); color: var(--ink);
+  position: fixed; inset: 0; z-index: 5; overflow: hidden; overflow: clip; background: var(--bg); color: var(--ink);
   height: 100dvh; user-select: none; -webkit-user-select: none;
 }
 
@@ -24,7 +24,11 @@ body[data-page='car'] #toast { bottom: 300px; }
 .cfg__bg { position: absolute; inset: 0; background: radial-gradient(85% 62% at 50% 46%, var(--bg) 0%, color-mix(in srgb, var(--bg) 94%, var(--ink)) 60%, color-mix(in srgb, var(--bg) 86%, var(--ink)) 100%); }
 .cfg__glow { position: absolute; left: 50%; top: 52%; width: 92vmin; height: 56vmin; transform: translate(-50%, -50%); border-radius: 50%; filter: blur(18px); background: radial-gradient(closest-side, color-mix(in srgb, var(--tint) 20%, transparent), transparent); transition: background 0.9s var(--ease); }
 .cfg__mark { position: absolute; left: 50%; top: 47%; transform: translate(-50%, -50%) skewX(-8deg); white-space: nowrap; text-transform: uppercase; font-weight: 800; letter-spacing: -0.05em; line-height: 0.8; color: color-mix(in srgb, var(--ink) 5.5%, transparent); pointer-events: none; }
-.cfg__stage { position: absolute; inset: 0; z-index: 2; }
+/* the stage overhangs the screen 30% each way so it can slide (--shift) to put the car above the colour strip
+   while the camera keeps looking at the car itself - a swipe turns the car in place */
+.cfg__stage { position: absolute; left: 0; right: 0; top: -30%; bottom: -30%; z-index: 2; transform: translate3d(0, var(--shift, 0px), 0); transition: transform 1s var(--ease-out, cubic-bezier(0.23, 1, 0.32, 1)); }
+.cfg.stage-instant .cfg__stage { transition-duration: 0.35s; }
+.cfg .hero__floor { transition: opacity 0.5s var(--ease), top 1s var(--ease-out, ease), width 1s var(--ease-out, ease); }
 .cfg .hero__floor { z-index: 1; }
 .cfg.has-floor .hero__floor { opacity: 1; }
 .cfg__loading {
@@ -150,8 +154,8 @@ body[data-page='car'] #toast { bottom: 300px; }
 .cfg__foot > * { pointer-events: auto; }
 .cfg__row { width: 100%; max-width: 560px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: end; pointer-events: none; }
 .cfg__row > * { pointer-events: auto; }
-.ask { display: grid; gap: 6px; justify-items: start; }
-.ask__label, .viewed__label { font-size: 12px; font-weight: 600; color: var(--ink-2); }
+.cfg-ask { display: grid; gap: 6px; justify-items: start; }
+.cfg-ask__label, .viewed__label { font-size: 12px; font-weight: 600; color: var(--ink-2); }
 .price { display: grid; justify-items: center; gap: 0; text-align: center; }
 .price__label { font-size: 15px; font-weight: 700; }
 .price__row { display: flex; align-items: baseline; justify-content: center; gap: 6px; line-height: 1; }
@@ -232,3 +236,26 @@ body[data-page='car'] #toast { bottom: 300px; }
 
 /* a soft floor under the bottom controls: keeps them legible and hides the viewer's own hint */
 .cfg__fade { position: absolute; z-index: 5; left: 0; right: 0; bottom: 0; height: calc(env(safe-area-inset-bottom) + 130px); pointer-events: none; background: linear-gradient(transparent, var(--bg) 62%); }
+
+/* ---------- body colour strip (bottom) ---------- */
+.cfg__strip { position: absolute; z-index: 6; left: 50%; transform: translateX(-50%); bottom: calc(env(safe-area-inset-bottom) + var(--foot) + 78px); display: none; padding: 12px 18px 2px; }
+.cfg.has-strip .cfg__strip:not([hidden]) { display: flex; }
+.cfg.has-strip .opts { bottom: calc(env(safe-area-inset-bottom) + var(--foot) + 160px); }
+.cfg.has-strip { --rb: 36px; --rbx: 62px; }
+.cfg.has-strip .rail { gap: 6px; }
+.container-items { transform-style: preserve-3d; perspective: 1000px; }
+.item-color { position: relative; flex-shrink: 0; width: 32px; height: 40px; border: none; outline: none; background: none; padding: 0; cursor: pointer; transition: 500ms cubic-bezier(0.175, 0.885, 0.32, 1.1); }
+.item-color::after { position: absolute; content: ""; inset: 0; width: 40px; height: 40px; background-color: var(--color); border-radius: 6px; transform: scale(1.2); pointer-events: none; transition: 500ms cubic-bezier(0.175, 0.885, 0.32, 1.1); box-shadow: inset 0 0 0 1px rgba(14, 14, 18, 0.18), 0 6px 14px -8px rgba(14, 14, 18, 0.5); }
+.item-color::before { position: absolute; content: attr(aria-color); left: 65%; bottom: 56px; white-space: nowrap; font-size: 10px; line-height: 14px; transform: translateX(-50%); padding: 3px 8px; background-color: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; pointer-events: none; opacity: 0; visibility: hidden; transition: 500ms cubic-bezier(0.175, 0.885, 0.32, 1.1); }
+.item-color:hover { transform: scale(1.5); z-index: 99999; }
+.item-color:hover::before { opacity: 1; visibility: visible; }
+.item-color:active::after { transform: scale(1.1); }
+.item-color:hover + * { transform: scale(1.3); z-index: 9999; }
+.item-color:hover + * + * { transform: scale(1.15); z-index: 999; }
+.item-color:has(+ *:hover) { transform: scale(1.3); z-index: 9999; }
+.item-color:has(+ * + *:hover) { transform: scale(1.15); z-index: 999; }
+.item-color.is-on { transform: translateY(-6px) scale(1.25); z-index: 99; }
+.item-color.is-on::after { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--ink), 0 12px 20px -10px rgba(14, 14, 18, 0.6); }
+.item-color.is-on:hover { transform: translateY(-6px) scale(1.5); }
+.item-color.in { animation: pop 0.5s var(--ease) both; animation-delay: calc(var(--i, 0) * 30ms); }
+@media (min-width: 900px) { .cfg__strip { bottom: calc(var(--foot) + 92px); } .cfg.has-strip .opts { bottom: calc(var(--foot) + 170px); } }

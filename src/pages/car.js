@@ -11,6 +11,9 @@ import { getSettings } from '../state/settings.js';
 /* A complete kit already contains these parts - selecting both would double count. */
 const FULL_KIT_COVERS = ['front-lip', 'front-bumper', 'rear-bumper', 'rear-diffuser', 'decklid-spoiler', 'side-skirts'];
 const TITLES = { paint: 'Colour', wheels: 'Wheels', aero: 'Aero', details: 'Details' };
+/* floating tooltip text for the customise menu */
+const CAT_TIPS = { paint: 'Colour and finish, live on the car', wheels: 'Wheels Dubai suppliers list for this car', aero: 'Body kits and carbon parts', details: 'Glass tint and brake calipers' };
+const VIEW_TIPS = { side: 'Profile', front34: 'Three-quarter front', front: 'Head on', rear: 'From behind', top: 'From above', wheel: 'Close up on the wheel' };
 const PAINT_TABS = [{ id: 'solid', label: 'Solid' }, { id: 'metallic', label: 'Metallic' }, { id: 'matte', label: 'Matte' }];
 
 /**
@@ -45,6 +48,7 @@ export function mountCar(root, id, share, { toast, stock = null, vehicle = null,
   const floor = h('div', { class: 'hero__floor' });
   const loading = h('div', { class: 'cfg__loading' }, [h('span', { class: 'spin' }), h('span', { class: 'hero__loadtext', text: 'Loading 3D model' })]);
   const viewer = new Viewer(stage);
+  viewer.anchor = 'bottom';   /* the car stands right above the colour strip, not in mid-air */
   window.__viewer = viewer; /* handy for debugging in the console */
   viewer.onPick = (m) => {
     if (!pickMode) return;
@@ -61,6 +65,32 @@ export function mountCar(root, id, share, { toast, stock = null, vehicle = null,
   const activeChip = h('div', { class: 'active__chip' }, [activeDot, activeText]);
   const active = h('div', { class: 'cfg__active', 'aria-live': 'polite' }, [h('span', { class: 'active__label', text: 'Active' }), activeChip]);
   const viewsEl = h('div', { class: 'cfg__views', role: 'group', 'aria-label': 'Camera view' });
+  /* body colours: a row at the bottom whose swatches swell as you slide over them */
+  const strip = h('div', { class: 'container-items cfg__strip', role: 'group', 'aria-label': 'Body colour' });
+  let stripOn = null;
+  function buildStrip(animate) {
+    clear(strip);
+    B.PAINTS.filter((p) => p.group === state.ptype).forEach((p, i) => {
+      const on = state.paint.preset === p.id;
+      strip.append(h('button', {
+        class: `item-color${on ? ' is-on' : ''}${animate ? ' in' : ''}`, type: 'button', 'aria-label': p.name, 'aria-pressed': String(on), 'aria-color': p.name, style: `--color:${p.color};--i:${i}`,
+        onclick: () => {
+          state.paint = { preset: p.id, color: p.color, roughness: p.roughness, metalness: p.metalness };
+          strip.querySelectorAll('.item-color').forEach((b) => { const m = b === strip.children[i]; b.classList.toggle('is-on', m); b.setAttribute('aria-pressed', String(m)); });
+          optsList.querySelector('.opt--custom')?.classList.remove('is-on');
+          applyLook(); renderActive(); sync();
+        }
+      }));
+    });
+  }
+  function showStrip(on) {
+    strip.hidden = !on;
+    if (stripOn === on) return;
+    const first = stripOn === null;
+    stripOn = on;
+    cfg.classList.toggle('has-strip', on);
+    if (!first) requestAnimationFrame(() => { try { updateInsets(); goToView(state.view); } catch { /* viewer not ready */ } });
+  }
 
   const top = h('header', { class: 'cfg__top' }, [
     h('a', { class: 'fbtn', href: back ? back.href : '#/shop', 'aria-label': back ? back.label : 'Back' }, icon('back')),
@@ -108,7 +138,7 @@ export function mountCar(root, id, share, { toast, stock = null, vehicle = null,
     const first = !rail.dataset.built;
     const prev = railSizes;
     categories().forEach((c, i) => rail.append(h('button', {
-      class: 'rbtn', type: 'button', 'aria-pressed': String(state.cat === c.id), 'aria-label': c.label, title: c.label, 'data-key': c.id, style: first ? `--i:${i + 1}` : 'animation:none',
+      class: 'rbtn', type: 'button', 'aria-pressed': String(state.cat === c.id), 'aria-label': c.label, 'data-tip': c.label, 'data-tip-desc': CAT_TIPS[c.id], 'data-key': c.id, style: first ? `--i:${i + 1}` : 'animation:none',
       onclick: () => { if (state.cat === c.id) return; state.cat = c.id; railSizes = sizesOf(rail); renderRail(); renderOpts(true); }
     }, [icon(c.icon), h('span', { text: c.label })])));
     rail.dataset.built = '1';
@@ -171,7 +201,8 @@ export function mountCar(root, id, share, { toast, stock = null, vehicle = null,
     const prev = animate ? null : sizesOf(optsList);
     optsTitle.textContent = TITLES[state.cat];
     clear(optsList);
-    if (state.cat === 'paint') paintOpts();
+    showStrip(state.cat === 'paint');
+    if (state.cat === 'paint') paintOpts(animate);
     else if (state.cat === 'wheels') wheelOpts();
     else if (state.cat === 'aero') aeroOpts();
     else detailOpts();
@@ -187,10 +218,10 @@ export function mountCar(root, id, share, { toast, stock = null, vehicle = null,
     renderActive();
   }
 
-  function paintOpts() {
+  function paintOpts(animate) {
     tabsFor(PAINT_TABS, state.ptype, (t) => { state.ptype = t; renderOpts(true); });
-    B.PAINTS.filter((p) => p.group === state.ptype).forEach((p) => optsList.append(swatchTile(p)));
-    const custom = h('input', { type: 'color', value: state.paint.color, 'aria-label': 'Custom colour', oninput: (e) => { state.paint = { ...state.paint, preset: 'custom', color: e.target.value }; applyLook(); renderActive(); sync(); } });
+    buildStrip(animate);
+    const custom = h('input', { type: 'color', value: state.paint.color, 'aria-label': 'Custom colour', oninput: (e) => { state.paint = { ...state.paint, preset: 'custom', color: e.target.value }; strip.querySelectorAll('.item-color.is-on').forEach((b) => { b.classList.remove('is-on'); b.setAttribute('aria-pressed', 'false'); }); applyLook(); renderActive(); sync(); } });
     optsList.append(
       h('label', { class: `opt opt--sw opt--custom${state.paint.preset === 'custom' ? ' is-on' : ''}`, title: 'Your own colour' }, [h('i', { class: 'sw sw--wheel' }), custom, h('span', { class: 'opt__cap', text: 'Your own' })]),
       h('button', { class: `opt opt--tool${pickMode ? ' is-on' : ''}`, type: 'button', 'aria-pressed': String(pickMode), 'aria-label': 'Colour a single part', title: 'Colour a single part', onclick: () => {
@@ -271,7 +302,7 @@ export function mountCar(root, id, share, { toast, stock = null, vehicle = null,
   /* ------------------------------------------------------------------ camera */
   function renderViews() {
     clear(viewsEl);
-    B.VIEWS.forEach((view) => viewsEl.append(h('button', { class: 'vbtn', type: 'button', 'aria-pressed': String(state.view === view.id), text: view.name, onclick: () => goToView(view.id) })));
+    B.VIEWS.forEach((view) => viewsEl.append(h('button', { class: 'vbtn', type: 'button', 'aria-pressed': String(state.view === view.id), text: view.name, 'data-tip': ` view`, 'data-tip-desc': VIEW_TIPS[view.id] || '', onclick: () => goToView(view.id) })));
   }
 
   const head = h('div', { class: 'cfg__head' }, [titleEl, active]);
@@ -279,14 +310,18 @@ export function mountCar(root, id, share, { toast, stock = null, vehicle = null,
 
   function goToView(vid, instant = false) {
     state.view = vid;
-    const fl = viewer.goToView(vid, instant ? 0 : 1);
+    const res = viewer.goToView(vid, instant ? 0 : 1);
+    const fl = res?.floor;
+    /* the camera stays on the car; the stage slides so the car lands above the strip (and glides with the camera) */
+    if (res) { cfg.classList.toggle('stage-instant', instant); cfg.style.setProperty('--shift', `${res.shift}px`); }
     cfg.classList.toggle('has-floor', !!fl);
     if (fl) { cfg.style.setProperty('--gy', `${fl.y}px`); cfg.style.setProperty('--gw', `${fl.w}px`); }
     renderViews();
   }
 
-  /** The car should sit in the free middle of the screen, a little under the floating menus. */
+  /** The free screen area between the floating menus; the car stands on its lower edge, just above the colour strip. */
   function updateInsets() {
+    viewer.viewport = cfg;
     const W = window.innerWidth, H = window.innerHeight;
     const rect = (el) => el.getBoundingClientRect();
     const wide = W >= 900;
@@ -295,9 +330,9 @@ export function mountCar(root, id, share, { toast, stock = null, vehicle = null,
     cfg.style.setProperty('--cols-top', `${Math.round(headBottom + 14)}px`);
     viewer.insets = {
       top: Math.round(headBottom + 4),
-      bottom: Math.round(H - rect(viewsEl).top + 4),
-      left: Math.round(wide ? l + 8 : l * 0.5),
-      right: Math.round(wide ? r + 8 : r * 0.5)
+      bottom: Math.round(H - rect(strip.hidden ? viewsEl : strip).top + 4),
+      left: Math.round(wide ? l + 8 : l * 0.15),
+      right: Math.round(wide ? r + 8 : r * 0.15)
     };
   }
   const onResize = () => { updateInsets(); goToView(state.view, true); };
@@ -342,6 +377,8 @@ export function mountCar(root, id, share, { toast, stock = null, vehicle = null,
     updateInsets();
     applyLook();
     goToView(state.view, true);
+    /* a model whose wheels were not found gets measured, so it is framed like the rest */
+    if (await viewer.calibrate().catch(() => false)) { if (!alive || my !== seq) return; goToView(state.view, true); }
     /* the viewer reports ready a moment before the car is drawn; keep the veil up for that gap */
     await new Promise((r) => setTimeout(r, 1500));
     if (!alive || my !== seq) return;
@@ -389,8 +426,8 @@ export function mountCar(root, id, share, { toast, stock = null, vehicle = null,
   const amount = h('strong', { class: 'price__amount' });
   const count = h('small', { class: 'price__count' });
   const priceEl = h('div', { class: 'price' }, [h('span', { class: 'price__label', text: 'Price' }), h('div', { class: 'price__row' }, [h('span', { class: 'price__cur', text: 'AED' }), amount]), count]);
-  const askBtn = h('div', { class: 'ask' }, [
-    h('span', { class: 'ask__label', text: 'Question' }),
+  const askBtn = h('div', { class: 'cfg-ask' }, [
+    h('span', { class: 'cfg-ask__label', text: 'Question' }),
     h('button', { class: 'fbtn fbtn--lg', type: 'button', 'aria-label': 'Ask a question or book a viewing', onclick: () => openService({ car: name, service: 'Configuration consultation' }) }, icon('help'))
   ]);
   const modelsEl = h('div', { class: 'viewed' });
@@ -531,7 +568,7 @@ export function mountCar(root, id, share, { toast, stock = null, vehicle = null,
   cfg.append(
     h('div', { class: 'cfg__bg' }, [h('div', { class: 'cfg__glow' }), markText]),
     floor, stage, loading,
-    h('div', { class: 'cfg__fade', 'aria-hidden': 'true' }), top, head, viewsEl, rail, opts, foot
+    h('div', { class: 'cfg__fade', 'aria-hidden': 'true' }), top, head, strip, viewsEl, rail, opts, foot
   );
   root.append(cfg);
 

@@ -1,0 +1,149 @@
+/* ==========================================================================
+   Mobile layer: made for an iPhone in the hand first. The landing orb, the liquid dock's new states, top bars that
+   step aside while reading, touch ripples, rails that focus their middle card, iOS fit (safe areas, no input zoom,
+   no double-tap zoom) and review fixes. Loaded last.
+   ========================================================================== */
+
+/* ---------- iOS fit ---------- */
+html { -webkit-tap-highlight-color: transparent; }
+body { overscroll-behavior-x: none; }
+a, button, [role='tab'], [role='radio'], label, summary { touch-action: manipulation; }
+/* iOS Safari zooms the whole page into any field set under 16px - keep every field at 16px on touch screens */
+@media (pointer: coarse) {
+  input, select, textarea, .ask__input, .search__input, .ff__input { font-size: 16px !important; }
+}
+img { -webkit-user-drag: none; }
+:where(.pill, .lq__item, .mk__item, .slot, .chip2, .sg__item, .prompt, .fchip) { -webkit-user-select: none; user-select: none; }
+
+/* ---------- touch ripple (fx.js) ---------- */
+/* under the element's content, over its background (the element is isolated when the host is added) */
+.tap-host { position: absolute; inset: 0; z-index: -1; border-radius: inherit; overflow: hidden; pointer-events: none; }
+.tap {
+  position: absolute; border-radius: 50%; pointer-events: none; background: currentColor; opacity: 0.14; scale: 0;
+  animation: tap-in 520ms cubic-bezier(0.2, 0.7, 0.2, 1) forwards;
+}
+.tap.is-out { animation: tap-in 520ms cubic-bezier(0.2, 0.7, 0.2, 1) forwards, tap-out 400ms ease-out forwards; }
+@keyframes tap-in { to { scale: 1; } }
+@keyframes tap-out { to { opacity: 0; } }
+
+/* ---------- rails focus their middle card (fx.js writes --f, 0 in the middle -> 1 at the edge) ---------- */
+.rail2 > *, .show__track > * { scale: calc(1 - var(--f, 0) * 0.07); transition: scale 160ms linear; transform-origin: 50% 70%; }
+.rail2 > .ncard { opacity: calc(1 - var(--f, 0) * 0.28); }
+.rail2 > .ncard.rv:not(.is-in) { opacity: 0; }
+.ncard:active, .slidew:active { scale: 0.96; }
+
+/* ---------- top bars: frosted when the page moves, slide up out of the way while scrolling down ---------- */
+.hub__top, .phead { position: sticky; top: 0; z-index: 40; isolation: isolate; transition: translate 420ms var(--ease-out); }
+.hub__top { padding-top: calc(env(safe-area-inset-top) + 10px); padding-bottom: 10px; margin-top: calc(-1 * (env(safe-area-inset-top) + 14px)); }
+.phead { padding-top: calc(env(safe-area-inset-top) + 8px); padding-bottom: 8px; margin-top: calc(-1 * (env(safe-area-inset-top) + 12px)); }
+.hub__top::before, .phead::before {
+  content: ''; position: absolute; z-index: -1; inset: calc(env(safe-area-inset-top) + 4px) 8px 2px; border-radius: var(--pill);
+  background: rgba(255, 255, 255, 0.74); -webkit-backdrop-filter: blur(18px) saturate(170%); backdrop-filter: blur(18px) saturate(170%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6), var(--shadow-2); opacity: 0; scale: 0.94 0.8;
+  transition: opacity 260ms var(--ease-out), scale 420ms var(--spring);
+}
+.hub__top.is-stuck::before, .phead.is-stuck::before { opacity: 1; scale: 1; }
+.tb, .hub__top, .phead { transition: translate 420ms var(--ease-out); }
+.tb.is-away, .hub__top.is-away, .phead.is-away { translate: 0 calc(-100% - 8px); }
+.tb.is-stuck .tb__word { letter-spacing: 0.26em; }
+.tb__word { transition: letter-spacing 400ms var(--ease-out); }
+.hub__top.is-stuck .hub__avatar { box-shadow: none; }
+.hub__top .hub__avatar, .hub__top .hub__icon { transition: scale 300ms var(--spring), box-shadow 300ms; }
+.hub__top.is-stuck .hub__avatar, .hub__top.is-stuck .hub__icon { scale: 0.9; }
+/* the account page's dark hero runs under its own header */
+.acct .phead::before { background: rgba(10, 10, 11, 0.55); box-shadow: none; }
+
+/* ---------- liquid dock: hide/handle, scrub, ripple, gloss, breathing core ---------- */
+.ldw { position: relative; display: grid; justify-items: center; }
+.ld { transition: translate 560ms var(--spring), opacity 280ms var(--ease-out), scale 560ms var(--spring); transform-origin: 50% 100%; }
+.ldw.is-hidden .ld { translate: 0 calc(100% + 30px + env(safe-area-inset-bottom)); opacity: 0; scale: 0.7; pointer-events: none; transition-duration: 380ms, 220ms, 380ms; transition-timing-function: cubic-bezier(0.4, 0, 0.8, 0.4); }
+.ld-handle {
+  position: absolute; bottom: 4px; display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px 0 6px; border-radius: var(--pill);
+  background: #0a0a0b; color: var(--acc); box-shadow: 0 10px 24px -10px rgba(10, 10, 11, 0.55), inset 0 0 0 1px rgba(0, 255, 242, 0.25);
+  opacity: 0; translate: 0 24px; scale: 0.6; pointer-events: none;
+  transition: opacity 240ms var(--ease-out), translate 520ms var(--spring), scale 520ms var(--spring);
+}
+.ldw.is-hidden .ld-handle { opacity: 1; translate: 0 0; scale: 1; pointer-events: auto; transition-delay: 120ms; }
+.ld-handle:active { scale: 0.92; }
+.ld-handle__ic { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: rgba(0, 255, 242, 0.12); }
+.ld-handle__ic svg { width: 16px; height: 16px; stroke-width: 1.8; }
+.ld-handle__ic .ld__avatar { width: 24px; height: 24px; font-size: 12px; }
+.ld-handle__bar { width: 22px; height: 4px; border-radius: 2px; background: currentColor; opacity: 0.85; }
+body.dock-off::after { opacity: 0; }
+body[data-page]::after { transition: opacity 300ms var(--ease-out); }
+
+.ld__gloss { fill: rgba(255, 255, 255, 0.75); pointer-events: none; }
+.ld__core::after { content: ''; position: absolute; inset: -3px; border-radius: 50%; box-shadow: 0 0 14px 2px rgba(0, 255, 242, 0.55); opacity: 0.35; animation: ld-breathe 2.8s ease-in-out infinite; }
+@keyframes ld-breathe { 50% { opacity: 0.9; } }
+.ld__ripple { position: absolute; top: 50%; translate: 0 -50%; border-radius: 50%; pointer-events: none; border: 2px solid var(--acc); animation: ld-ripple 620ms cubic-bezier(0.2, 0.7, 0.2, 1) forwards; }
+@keyframes ld-ripple { from { scale: 0.7; opacity: 0.9; } to { scale: 1.9; opacity: 0; } }
+.ld__btn svg { transition: scale 300ms var(--spring), translate 300ms var(--spring); }
+.ld__btn.is-over svg, .ld__btn:active svg { scale: 1.22; }
+.ld__btn[aria-current] svg { scale: 1.08; }
+.ld.is-scrub .ld__btn:not(.is-over) { color: rgba(255, 255, 255, 0.5); }
+.ld.is-scrub .ld__btn.is-over { color: var(--acc); }
+.ld__btn:active { scale: 1; }
+.dockbar { bottom: calc(env(safe-area-inset-bottom) + 10px); }
+
+/* ---------- review fixes ---------- */
+/* service time slots: centre the time in its pill and keep it on one line at any width */
+.slot { display: grid; place-items: center; padding: 0 4px; white-space: nowrap; font-size: clamp(12px, 3.5vw, 13.5px); }
+@media (max-width: 350px) { .slots { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+/* long make names in the shop make rail and make tiles never break the chip */
+.lq__item { max-width: 72vw; }
+.btile b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---------- iPhone scale: a touch more compact on small phones (SE / mini), the hero numerals stay in proportion ---------- */
+@media (max-width: 389px) {
+  .hub__num { font-size: clamp(64px, 22vw, 96px); }
+  .hub__unit { font-size: 19px; }
+  .sect-head { padding: 22px 16px 8px; }
+  .sect-head h2 { font-size: 19px; }
+  .shop__title { font-size: 34px; }
+  .bb__txt h2, .spot__head h2 { font-size: 26px; }
+}
+@media (max-height: 700px) {
+  .hub__hero { padding-top: 16px; }
+  .hub__ask { padding-top: 16px; }
+}
+
+/* ---------- motion preferences ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .tap, .ld__ripple, .ld__core::after { animation: none !important; }
+  .rail2 > *, .show__track > * { scale: none; }
+  .ld, .ld-handle, .tb, .hub__top, .phead { transition-duration: 0ms !important; }
+}
+:root[data-motion='reduce'] :is(.tap, .ld__ripple, .ld__core::after) { animation: none !important; }
+
+/* fields size from their row, not from the browser's default 20-character width (which pushed the ask bar past a
+   320px screen once its text went to 16px) */
+.ask__input, .search__input { width: 0; flex: 1 1 0; min-width: 0; }
+.hub__ask, .pg__tools { grid-template-columns: minmax(0, 1fr); }
+
+/* shop: cards in a row share one height and keep the price line on the bottom edge */
+.shop .scw { display: flex; }
+.shop .scw > .scard { flex: 1; min-width: 0; }
+.shop .scard__body { flex: 1; display: flex; flex-direction: column; }
+.shop .scard__foot { margin-top: auto; padding-top: 8px; }
+
+/* ---------- dark theme for the new surfaces ---------- */
+:root[data-theme='dark'] :is(.tb, .hub__top, .phead)::before { background: rgba(23, 23, 26, 0.78); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 10px 28px -14px rgba(0, 0, 0, 0.8); }
+:root[data-theme='dark'] .tb.is-stuck .tb__btn { background: rgba(255, 255, 255, 0.08); }
+:root[data-theme='dark'] .shop .scard, :root[data-theme='dark'] .ncard:not(.ncard--dark) { background: var(--card); }
+:root[data-theme='dark'] .lq__item[aria-selected='true'] { color: #fff; }
+
+/* ---------- dock: handle -> full dock, a proper grow with staggered pops ---------- */
+.ldw.is-show .ld { animation: ld-grow 640ms cubic-bezier(0.34, 1.5, 0.64, 1) both; }
+.ldw.is-show .ld__btn { animation: ld-pop 520ms cubic-bezier(0.34, 1.7, 0.64, 1) backwards; animation-delay: calc(140ms + var(--j, 0) * 55ms); }
+.ldw.is-show .ld__drop, .ldw.is-show .ld__core { animation: ld-fade 420ms ease-out 200ms backwards; }
+@keyframes ld-grow { 0% { clip-path: inset(30% 38% 0 38% round 999px); scale: 0.55 0.6; translate: 0 18px; opacity: 0.6; } 55% { clip-path: inset(0 0 0 0 round 999px); } 100% { clip-path: inset(0 0 0 0 round 999px); scale: 1; translate: 0 0; opacity: 1; } }
+@keyframes ld-pop { from { scale: 0.2; opacity: 0; } }
+@keyframes ld-fade { from { opacity: 0; } }
+.ldw.is-show .ld-handle { transition-delay: 0ms; }
+
+@media (prefers-reduced-motion: reduce) { .ldw.is-show .ld, .ldw.is-show .ld__btn { animation: none; } }
+
+/* ---------- dock gestures: the dock owns horizontal swipes (no page pan, no link callout or drag) ---------- */
+.ld { touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.ld__btn { -webkit-touch-callout: none; -webkit-user-drag: none; }
+.ld.is-scrub .ld__btn { transition-duration: 90ms; }
