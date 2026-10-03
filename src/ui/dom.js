@@ -20,12 +20,12 @@ export function h(tag, attrs = {}, children = []) {
 
 import {
   createElement, ArrowLeft, ChevronDown, Search, Share, Camera, X, Check, CarFront, Printer, Copy, MousePointer2, RotateCw,
-  CalendarClock, UserRound, Settings, Glasses, Store, Gauge, Calendar, Fuel, Zap, Leaf, ArrowRight, MapPin, Palette
+  House, CalendarClock, UserRound, Settings, Glasses, Store, Gauge, Calendar, Fuel, Zap, Leaf, ArrowRight, MapPin, Palette
 } from 'lucide';
 
 /* Lucide icons (https://lucide.dev), referenced by short names throughout the UI. */
 const ICONS = {
-  back: ArrowLeft, forward: ArrowRight, chevron: ChevronDown, search: Search, share: Share, camera: Camera, close: X, check: Check, car: CarFront,
+  home: House, back: ArrowLeft, forward: ArrowRight, chevron: ChevronDown, search: Search, share: Share, camera: Camera, close: X, check: Check, car: CarFront,
   print: Printer, copy: Copy, pick: MousePointer2, rotate: RotateCw, calendar: CalendarClock, user: UserRound, gear: Settings, vr: Glasses,
   shop: Store, gauge: Gauge, year: Calendar, fuel: Fuel, electric: Zap, hybrid: Leaf, pin: MapPin, paint: Palette
 };

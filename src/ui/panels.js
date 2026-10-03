@@ -1,6 +1,7 @@
 import * as data from '../data/catalog.js';
 import { h, icon, clear } from './dom.js';
 import { toast } from './toast.js';
+import { trapDialogFocus } from './focus.js';
 import {
   getSettings, setSetting, getUser, signIn, signOut, saveAppointment, getAppointments, resetLocalData
 } from '../state/settings.js';
@@ -11,6 +12,7 @@ let open = null;
 
 export function closePanel() {
   if (!open) return;
+  open.releaseFocus?.();
   open.el.remove();
   document.body.classList.remove('is-locked');
   document.removeEventListener('keydown', open.onKey);
@@ -34,7 +36,7 @@ function modal(title, sub, body, { wide = false, onClose } = {}) {
   document.body.append(el);
   document.body.classList.add('is-locked');
   document.addEventListener('keydown', onKey);
-  open = { el, onKey, onClose };
+  open = { el, onKey, onClose, releaseFocus:trapDialogFocus(el) };
   const first = el.querySelector('input, select, textarea, button.cta');
   first?.focus?.({ preventScroll: true });
   return el;

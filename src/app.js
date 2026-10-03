@@ -6,6 +6,10 @@ import { mountShop, mountShopCar } from './pages/shop.js';
 import { initSettings } from './state/settings.js';
 import { toast } from './ui/toast.js';
 
+import { createDock } from './ui/dock.js';
+import { h, icon } from './ui/dom.js';
+import { animatePage } from './ui/motion.js';
+import { openService, openLogin, openSettings, openVR, closePanel } from './ui/panels.js';
 const BASE = import.meta.env.BASE_URL;
 
 /*
@@ -20,12 +24,15 @@ export async function boot() {
   await data.loadCatalog(`${BASE}data/`);
   const root = document.getElementById('app');
   let page = null;
+  let dock = null;
+  let stopMotion = null;
   let token = 0;
   const scroll = { shop: 0 };
 
   async function route() {
     const my = ++token;
     const hash = location.hash;
+    stopMotion?.(); stopMotion=null; dock?.destroy();dock=null;closePanel();
     if (page) {
       if (page.kind in scroll) scroll[page.kind] = window.scrollY;
       page.destroy();
@@ -58,6 +65,18 @@ export async function boot() {
     page = next;
     document.body.dataset.page = next.kind;
     window.scrollTo(0, restore);
+    if(next.kind!=='car'){
+      dock=createDock({active:next.kind==='home'?0:1,items:[
+        {icon:icon('home'),label:'Home',href:'#/'},
+        {icon:icon('shop'),label:'Explore',href:'#/shop'},
+        {icon:icon('calendar'),label:'Service',onClick:()=>openService()},
+        {icon:icon('vr'),label:'VR & AR',onClick:openVR},
+        {icon:icon('gear'),label:'Settings',onClick:openSettings},
+        {icon:icon('user'),label:'Account',onClick:openLogin}
+      ]});
+      root.append(h('nav',{class:'site-dock','aria-label':'Main navigation'},dock.el));
+    }
+    stopMotion=animatePage(root,next.kind);
   }
 
   window.addEventListener('hashchange', route);

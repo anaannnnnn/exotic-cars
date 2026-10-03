@@ -3,7 +3,7 @@ const KEY = 'apex-settings-v1';
 const USER = 'apex-user-v1';
 const APPTS = 'apex-appointments-v1';
 
-const defaults = { dark: false, hidePrices: false, reduceMotion: false };
+const defaults = { dark: true, hidePrices: false, reduceMotion: false };
 let settings = { ...defaults };
 const listeners = new Set();
 
@@ -30,7 +30,7 @@ function applySettings() {
   root.dataset.theme = settings.dark ? 'dark' : 'light';
   root.dataset.motion = settings.reduceMotion ? 'reduce' : 'full';
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute('content', settings.dark ? '#0e0e12' : '#ffffff');
+  if (meta) meta.setAttribute('content', settings.dark ? '#101110' : '#f6f7f2');
 }
 
 /* visitor (name + email only, kept on this device) */

@@ -1,5 +1,7 @@
+import '@fontsource-variable/instrument-sans/index.css';
 import '@fontsource-variable/jost/index.css';
 import './styles/main.css';
+import './styles/redesign.css';
 import { boot } from './app.js';
 
 boot().catch((err) => {

@@ -5,6 +5,9 @@ import { h, icon, clear, countTo } from '../ui/dom.js';
 import { brandMark } from '../ui/brand.js';
 import { wheelGlyph } from '../ui/glyph.js';
 import { getSettings } from '../state/settings.js';
+import { coverUrl } from '../data/stock.js';
+import { gsap, motionEnabled, revealOptions } from '../ui/motion.js';
+import { trapDialogFocus } from '../ui/focus.js';
 
 /* A complete kit already contains these parts - selecting both would double count. */
 const FULL_KIT_COVERS = ['front-lip', 'front-bumper', 'rear-bumper', 'rear-diffuser', 'decklid-spoiler', 'side-skirts'];
@@ -24,7 +27,8 @@ export function mountCar(root, id, share, { toast, stock = null, base = null, ba
 
   const parts = data.partsFor(v);
   const product = (pid) => data.product(pid);
-  const open = { colors: true, wheels: true, kits: true, details: false };
+  let activeSection = 'colors';
+  let paintGroup = B.byId(B.PAINTS, state.paint.preset)?.group || 'solid';
   const expanded = { wheels: false, kits: {} };
   let pickMode = false;
   let caps = null;
@@ -37,7 +41,7 @@ export function mountCar(root, id, share, { toast, stock = null, base = null, ba
   const viewsEl = h('div', { class: 'views', role: 'group', 'aria-label': 'Camera view' });
   const counter = h('span', { class: 'hero__count', 'aria-hidden': 'true' });
   const hero = h('section', { class: 'hero', 'aria-label': '3D view' }, [
-    h('div', { class: 'hero__floor' }), stage, loading,
+    h('div', { class: 'hero__floor' }), stock ? h('img', { class: 'hero__preview', src: coverUrl(stock), alt: `${stock.title} — stock photograph while the 3D viewer loads` }) : null, stage, loading,
     h('div', { class: 'hero__ui' }, viewsEl), counter
   ]);
   const viewer = new Viewer(stage);
@@ -53,7 +57,7 @@ export function mountCar(root, id, share, { toast, stock = null, base = null, ba
   function renderViews() {
     clear(viewsEl);
     B.VIEWS.forEach((view, i) => viewsEl.append(h('button', {
-      class: 'view', type: 'button', 'aria-pressed': String(state.view === view.id), text: view.name,
+      class: 'view', type: 'button', disabled: !caps, 'aria-pressed': String(state.view === view.id), text: view.name,
       onclick: () => goToView(view.id)
     })));
     const i = Math.max(0, B.VIEWS.findIndex((x) => x.id === state.view));
@@ -62,7 +66,7 @@ export function mountCar(root, id, share, { toast, stock = null, base = null, ba
 
   function goToView(vid, instant = false) {
     state.view = vid;
-    const floor = viewer.goToView(vid, instant ? 0 : 1);
+    const floor = viewer.goToView(vid, instant || !motionEnabled() ? 0 : .85);
     hero.classList.toggle('has-floor', !!floor);
     if (floor) { hero.style.setProperty('--gy', `${floor.y}px`); hero.style.setProperty('--gw', `${floor.w}px`); }
     renderViews();
@@ -91,16 +95,23 @@ export function mountCar(root, id, share, { toast, stock = null, base = null, ba
     const my = ++seq;
     const model = v.models[index];
     state.modelUid = model.uid;
+    caps = null;
+    renderViews();
+    saveImage.disabled = true;
+    renderCredit();
     hero.classList.remove('is-error');
     hero.classList.add('is-loading');
+    loading.replaceChildren(h('span', {class:'spin'}), h('span', {class:'hero__loadtext',text:'Loading 3D model'}));
     try {
-      caps = await viewer.load(model);
+      const loaded = await viewer.load(model);
+      if (!alive || my !== seq) return;
+      caps = loaded;
     } catch (err) {
       if (!alive || my !== seq) return;
       if (index + 1 < v.models.length) { loadModel(index + 1); return; }
       hero.classList.remove('is-loading');
       hero.classList.add('is-error');
-      loading.replaceChildren(h('span', { class: 'hero__loadtext', text: 'This 3D model can’t be shown right now.' }));
+      loading.replaceChildren(h('span', { class: 'hero__loadtext', text: '3D viewer unavailable. This is the original stock photograph.' }), h('button', {class:'ghost', type:'button',text:'Retry 3D viewer',onclick:()=>loadModel(0)}));
       return;
     }
     if (!alive || my !== seq) return;
@@ -110,6 +121,7 @@ export function mountCar(root, id, share, { toast, stock = null, base = null, ba
     await new Promise((r) => setTimeout(r, 1500));
     if (!alive || my !== seq) return;
     hero.classList.remove('is-loading');
+    saveImage.disabled = false;
     pickMode = !caps.paint;
     renderColors();
     renderWheels();
@@ -123,17 +135,13 @@ export function mountCar(root, id, share, { toast, stock = null, base = null, ba
 
   /* ------------------------------------------------------------------ sections */
   function section(key, title) {
-    const sub = h('span', { class: 'sect__sub' });
-    const body = h('div', { class: 'sect__inner' });
-    const el = h('section', { class: 'sect', dataset: { open: String(open[key]) } }, [
-      h('button', { class: 'sect__head', type: 'button', 'aria-expanded': String(open[key]), onclick: (e) => {
-        open[key] = !open[key];
-        el.dataset.open = String(open[key]);
-        e.currentTarget.setAttribute('aria-expanded', String(open[key]));
-      } }, [h('span', { class: 'sect__title', text: title }), sub, icon('chevron')]),
-      h('div', { class: 'sect__body' }, body)
+    const sub=h('span',{class:'sect__sub'});
+    const body=h('div',{class:'sect__inner'});
+    const el=h('section',{class:'sect',id:`config-${key}`,role:'tabpanel','aria-labelledby':`config-tab-${key}`,tabindex:'0',dataset:{open:'true',configKey:key,selected:String(key===activeSection)}},[
+      h('div',{class:'sect__head'},[h('h2',{class:'sect__title',text:title}),sub]),
+      h('div',{class:'sect__body'},body)
     ]);
-    return { el, body, sub };
+    return {el,body,sub};
   }
 
   const colors = section('colors', 'Exterior colours');
@@ -155,12 +163,8 @@ export function mountCar(root, id, share, { toast, stock = null, base = null, ba
     const cur = B.byId(B.PAINTS, state.paint.preset);
     colors.sub.textContent = cur ? cur.name : 'Custom';
     clear(colors.body);
-    B.PAINT_GROUPS.forEach((g) => {
-      colors.body.append(
-        h('h3', { class: 'group-label', text: g.name }),
-        h('div', { class: 'swatches' }, B.PAINTS.filter((p) => p.group === g.id).map(swatch))
-      );
-    });
+    colors.body.append(h('div',{class:'paint-finish-tabs',role:'group','aria-label':'Paint finish'},B.PAINT_GROUPS.map(g=>h('button',{type:'button','aria-pressed':String(paintGroup===g.id),text:g.name,onclick:()=>{paintGroup=g.id;renderColors();revealOptions(colors.body);}}))),
+      h('div',{class:'swatches'},B.PAINTS.filter(p=>p.group===paintGroup).map(swatch)));
     const custom = h('input', { type: 'color', value: state.paint.color, 'aria-label': 'Custom colour', oninput: (e) => {
       state.paint = { ...state.paint, preset: 'custom', color: e.target.value };
       applyLook(); colors.sub.textContent = 'Custom'; sync();
@@ -237,6 +241,7 @@ export function mountCar(root, id, share, { toast, stock = null, base = null, ba
     if (!list.length) return;
     wheels.sub.textContent = state.wheels.length ? `${state.wheels.length} selected` : `${list.length} available`;
     clear(wheels.body);
+    wheels.body.append(h('p',{class:'config-catalog-note',text:'Wheel products are added to your quote. The 3D model previews their finish, not their geometry.'}));
     const shown = expanded.wheels ? list : list.slice(0, PREVIEW_COUNT);
     wheels.body.append(h('div', { class: 'tiles' }, shown.map((p) => tile(p, {
       title: wheelName(p), sub: data.variantLabel(p) || p.vendor, sub2: data.sizeLabel(p),
@@ -263,6 +268,7 @@ export function mountCar(root, id, share, { toast, stock = null, base = null, ba
     if (!groups.length) return;
     kits.sub.textContent = state.kits.length ? `${state.kits.length} selected` : `${parts.kits.length} available`;
     clear(kits.body);
+    kits.body.append(h('p',{class:'config-catalog-note',text:'Aero products are added to your quote; their geometry is not shown on the model.'}));
     groups.forEach((g) => {
       const all = expanded.kits[g.subtype];
       const shown = all ? g.items : g.items.slice(0, 4);
@@ -305,6 +311,8 @@ export function mountCar(root, id, share, { toast, stock = null, base = null, ba
       }, m.thumb ? h('img', { src: m.thumb, alt: '', loading: 'lazy' }) : `${i + 1}`))));
     }
     details.el.hidden = !details.body.childElementCount;
+    const tab=configTabs.querySelector('[data-key=details]');if(tab)tab.disabled=details.el.hidden;
+    if(details.el.hidden&&activeSection==='details')selectSection('colors');
   }
 
   /* ------------------------------------------------------------------ bottom bar + summary */
@@ -351,7 +359,8 @@ export function mountCar(root, id, share, { toast, stock = null, base = null, ba
   }
 
   let sheet = null;
-  function closeSheet() { sheet?.remove(); sheet = null; document.body.classList.remove('is-locked'); }
+  let releaseSheetFocus = null;
+  function closeSheet() { releaseSheetFocus?.();releaseSheetFocus=null;sheet?.remove(); sheet = null; document.body.classList.remove('is-locked'); }
 
   function openSheet() {
     closeSheet();
@@ -394,7 +403,7 @@ export function mountCar(root, id, share, { toast, stock = null, base = null, ba
     ]);
     document.body.classList.add('is-locked');
     root.append(sheet);
-    sheet.querySelector('.sheet__panel').focus?.();
+    releaseSheetFocus=trapDialogFocus(sheet);
   }
 
   function printSheet() {
@@ -439,13 +448,38 @@ export function mountCar(root, id, share, { toast, stock = null, base = null, ba
     }
   }
 
+  const info=section('info','Model & sources');
+  info.body.append(credit);
+  const sections={colors,wheels,kits,details,info};
+  const configTabs=h('div',{class:'config-tabs',role:'tablist','aria-label':'Configuration options'});
+  function selectSection(key){
+    activeSection=key;
+    Object.entries(sections).forEach(([k,section])=>section.el.dataset.selected=String(k===key));
+    configTabs.querySelectorAll('[role=tab]').forEach(tab=>{const selected=tab.dataset.key===key;tab.setAttribute('aria-selected',String(selected));tab.tabIndex=selected?0:-1;});
+    revealOptions(sections[key].body);
+  }
+  [['colors','Paint','paint'],['wheels','Wheels','gauge'],['kits','Aero','car'],['details','Details','gear'],['info','Info','vr']].forEach(([key,label,glyph])=>{
+    const button=h('button',{class:'config-tab',id:`config-tab-${key}`,role:'tab',type:'button',dataset:{key},'aria-controls':`config-${key}`,'aria-selected':String(key==='colors'),tabindex:key==='colors'?'0':'-1',disabled:key==='wheels'&&!parts.wheels.length||key==='kits'&&!parts.kits.length,onclick:()=>selectSection(key)},[icon(glyph),label]);
+    button.addEventListener('keydown',e=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;e.preventDefault();const tabs=[...configTabs.querySelectorAll('button:not(:disabled)')],i=tabs.indexOf(button);const n=e.key==='Home'?0:e.key==='End'?tabs.length-1:(i+(e.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length;tabs[n].click();tabs[n].focus();});
+    configTabs.append(button);
+  });
+  const options=h('div',{class:'config-options',id:'configuration-options'},Object.values(sections).map(section=>section.el));
+  const panel=h('div',{class:'car__panel'},[
+    h('div',{class:'config-panel-head'},['Make it yours',h('button',{class:'config-panel-toggle',type:'button','aria-label':'Collapse configuration options','aria-controls':'configuration-options','aria-expanded':'true',onclick:e=>{
+      const collapsed=panel.classList.toggle('is-collapsed');e.currentTarget.setAttribute('aria-expanded',String(!collapsed));e.currentTarget.setAttribute('aria-label',collapsed?'Expand configuration options':'Collapse configuration options');
+      if(!collapsed)revealOptions(options);
+      requestAnimationFrame(()=>{if(alive)goToView(state.view,true)});
+    }},icon('chevron'))]),configTabs,options
+  ]);
+
   /* ------------------------------------------------------------------ page */
   const mark = brandMark(v.make);
+  const saveImage = h('button', { class: 'round round--sm', type: 'button', 'aria-label': 'Save image', disabled:true, onclick: screenshot }, icon('camera'));
   root.append(
     h('header', { class: 'bar' }, [
       h('a', { class: 'back', href: back ? back.href : '#/shop' }, [icon('back'), h('span', { text: back ? back.label : 'Back' })]),
       h('div', { class: 'bar__tools' }, [
-        h('button', { class: 'round round--sm', type: 'button', 'aria-label': 'Save image', onclick: screenshot }, icon('camera')),
+        saveImage,
         h('button', { class: 'round round--sm', type: 'button', 'aria-label': 'Copy share link', onclick: () => copy(shareUrl(), 'Link copied') }, icon('share'))
       ])
     ]),
@@ -458,7 +492,7 @@ export function mountCar(root, id, share, { toast, stock = null, base = null, ba
         ]),
         hero
       ]),
-      h('div', { class: 'car__panel' }, [colors.el, wheels.el, kits.el, details.el, credit])
+      panel
     ]),
     buy
   );
@@ -469,6 +503,7 @@ export function mountCar(root, id, share, { toast, stock = null, base = null, ba
   renderKits();
   renderDetails();
   syncBar();
+  renderCredit();
   const modelIndex = Math.max(0, v.models.findIndex((m) => m.uid === state.modelUid));
   loadModel(modelIndex);
 
@@ -482,7 +517,9 @@ export function mountCar(root, id, share, { toast, stock = null, base = null, ba
       clearTimeout(urlTimer);
       window.removeEventListener('keydown', onKey);
       closeSheet();
+      gsap.killTweensOf([options,...Object.values(sections).map(s=>s.body)]);
       viewer.unload();
+      if(window.__viewer===viewer)delete window.__viewer;
     }
   };
 }
