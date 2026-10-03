@@ -14,13 +14,19 @@ npm run build      # static site in dist/
 
 | Page | What it does |
 | --- | --- |
-| `#/` Home | A magnifying dock (ported from a Motion/React component to vanilla JS, `src/ui/dock.js`): Models, Service appointment, VR & AR, Settings, Sign in |
+| `#/` Home | Black and lime storefront with featured stock, make shortcuts and a floating dock: Home, Explore, Service, VR & AR, Settings, Account |
 | `#/shop` Shop | The client's real stock (see below): New arrival / Cars for sale / Previously sold tabs, make, model and year filters, search, photo gallery, specs, Book a viewing, and Configure in 3D when the car matches a catalogue model |
-| `#/shop/<id>/configure` | The configurator for a stock car (its catalogue model): sticky 3D hero, colour swatches, wheels, body kits, details, running total and an **Enquire** sheet. Starts in the car's real colour |
+| `#/shop/<id>/configure` | The configurator for a stock car (its catalogue model): full-screen 3D stage, compact Paint / Wheels / Aero / Details / Info tabs, collapsible option panel, running total and an **Enquire** sheet. Starts in the car's real colour |
+
+GSAP drives page entrances, scroll reveals, the sliding dock indicator and option transitions. Both the operating system’s reduced-motion preference and the app’s Motion setting are respected. The mobile configurator uses a compact bottom panel that can collapse to expose more of the stage. Dialogs trap keyboard focus and return it to their opener.
+
+The app keeps its existing vanilla JavaScript/Vite architecture. Service and account preferences remain local to this device.
 
 Every selection is written to the URL (`#/shop/<id>/configure/<state>`), so a build can be shared or reloaded.
 
 ## How the 3D works
+
+While models load, the configurator shows the original stock photograph. If the external viewer fails, a retry control remains available; camera presets and image export stay disabled until a live model is ready. The photograph does not simulate paint changes.
 
 Cars are real, licensed models embedded through the Sketchfab Viewer API (`src/viewer/sketchfab.js`). The API can
 recolour materials and move the camera but cannot add geometry, so:
@@ -56,13 +62,16 @@ npm run report                      # fitment coverage report
 * Factory fitment: ANKUSI Wheel Fitment Dataset (CC BY 4.0). Vehicle names: NHTSA vPIC.
 * 3D models: Sketchfab, each credited on its car page (author, licence, link).
 * Brand marks: Simple Icons (CC0 artwork; marks belong to their owners). Makes without a mark are set in type.
-* Type: Jost (SIL OFL) via Fontsource.
+* Type: Instrument Sans and Jost (SIL OFL) via Fontsource.
 
 ## Layout
 
 ```
 src/app.js            hash router
-src/pages/car.js      car page (hero, sections, bar, enquiry sheet)
+src/pages/car.js      full-screen configurator, compact tabs, enquiry sheet
+src/ui/motion.js      GSAP page and option motion with reduced-motion support
+src/ui/dock.js        persistent keyboard-accessible navigation dock
+src/styles/redesign.css  black/lime responsive theme
 src/viewer/           Sketchfab wrapper (materials, axes, cameras)
 src/state/build.js    paints, BOM, quantities, share links (pure, tested)
 src/data/catalog.js   catalogue queries, fitment checks, labels

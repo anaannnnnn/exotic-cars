@@ -7,6 +7,7 @@ import { toast } from '../ui/toast.js';
 /* Filters survive a visit to a car page. */
 const memory = { tab: 'sale', q: '', brand: '', model: '', from: 0, to: 0, shown: 24 };
 const STEP = 24;
+export function setShopBrand(brand) { Object.assign(memory,{tab:"sale",brand,model:"",q:"",from:0,to:0,shown:STEP}); location.hash = "#/shop"; }
 
 const bit = (name, text) => (text ? h('span', { class: 'mb' }, [icon(name), text]) : null);
 const meta = (c) => h('span', { class: 'scard__meta' }, [bit('year', c.year), bit('gauge', stock.kmLabel(c)), bit('pin', c.region)]);
@@ -22,7 +23,7 @@ function card(c, canConfigure) {
     h('span', { class: 'scard__body' }, [
       h('span', { class: 'scard__title', text: c.title }),
       meta(c),
-      h('span', { class: 'scard__price', text: stock.priceLabel(c) })
+      h('span', { class: 'scard__footer' }, [h('span', { class: 'scard__price', text: stock.priceLabel(c) }), h('span', { class: 'card-arrow', 'aria-hidden': 'true' }, icon('forward'))])
     ])
   ]);
 }
@@ -47,7 +48,7 @@ export function mountShop(root) {
       h('a', { class: 'wordmark', href: '#/', text: 'Exotic Cars' })
     ]),
     h('main', { class: 'wrap' }, [
-      h('div', { class: 'head' }, [h('h1', { class: 'title', text: 'Shop' }), count]),
+      h('div', { class: 'head' }, [h('h1', { class: 'title', text: 'Find your next drive.' }), count]),
       tabs,
       h('label', { class: 'search' }, [icon('search'), search]),
       filters, list, more
