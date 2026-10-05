@@ -115,7 +115,7 @@ The browser stores:
 
 ### 5.3 Backend and CRM
 
-One Netlify Function serves the API (`server/app.mjs`): public stock and products (CDN-cached for 30 seconds), enquiries, bookings, customer accounts, and staff routes for the CRM. Data lives in Netlify Blobs: the stock and catalogue as two documents guarded by entity tags (concurrent edits retry instead of overwriting), CRM records one per key. The first staff sign-in imports the built-in stock and catalogue. Contract: `docs/openapi.yaml`; design and security checklist: `specs/crm-backend_design.md`.
+One function serves the API (`server/app.mjs`, run by `api/index.js` on Vercel or `netlify/functions/api.mjs` on Netlify): public stock and products (CDN-cached for 30 seconds), enquiries, bookings, customer accounts, and staff routes for the CRM. Data lives in Postgres on Vercel (Neon) or Netlify Blobs on Netlify: the stock and catalogue as two documents guarded by entity tags (concurrent edits retry instead of overwriting), CRM records one per key. The first visit to `/admin/` creates the staff login and imports the built-in stock and catalogue. Contract: `docs/openapi.yaml`; design and security checklist: `specs/crm-backend_design.md`.
 
 ---
 
@@ -139,14 +139,14 @@ A Figma file with the eight mobile screens exists: https://www.figma.com/design/
 | --- | --- |
 | Language | Plain JavaScript (ES modules), no framework |
 | Build tool | Vite 8 |
-| Tests | Vitest 5 (95 tests: parsers, fitment checks, totals, share links, CRM fitment, imported data against the CRM schemas, share-link safety, and API integration against a local Blobs store) |
-| Backend | Netlify Functions (v2) + Netlify Blobs, Zod validation, scrypt passwords, HMAC-signed cookies |
+| Tests | Vitest 5 (152 tests: parsers, fitment checks, totals, share links, CRM fitment, imported data against the CRM schemas, share-link safety, first-visit setup, and the API integration suite run on both a local Blobs store and Postgres) |
+| Backend | One API (`server/`) run as a Vercel Function (Postgres via Neon) or a Netlify Function (Netlify Blobs); Zod validation, scrypt passwords, HMAC-signed cookies |
 | CRM | `/admin/`, plain JavaScript, same fonts and rosso palette as the site, light and dark |
 | 3D | Sketchfab Viewer API 1.12.1 |
 | Icons | Lucide, Simple Icons (brand marks) |
 | Fonts | Jost, Bodoni Moda, Instrument Sans, IBM Plex Mono through Fontsource |
 | Image processing | sharp (build tools only) |
-| Hosting | Netlify. `npm run build` produces `dist/` (website and CRM); Netlify bundles the API function. Deploy from Git or the CLI (`docs/DEPLOY.md`). A static-only upload still serves the showroom from built-in data. |
+| Hosting | Vercel or Netlify, from one project zip: the host builds `dist/` (website and CRM) and deploys the API function. Steps in `docs/DEPLOY.md`. A static-only upload still serves the showroom from built-in data. |
 
 ---
 
@@ -156,8 +156,10 @@ A Figma file with the eight mobile screens exists: https://www.figma.com/design/
 index.html                  page shell
 admin/index.html            CRM page shell (/admin/)
 netlify.toml                build, function and CRM header settings
-netlify/functions/api.mjs   the API function (/api/v1/*)
-server/                     API: app.mjs (routes), auth, http, schemas, store, repo
+api/index.js                the API function on Vercel (/api/v1/* via vercel.json)
+netlify/functions/api.mjs   the API function on Netlify (/api/v1/*)
+vercel.json                 Vercel build, routing and headers
+server/                     API: app.mjs (routes), auth, http, schemas, store (+ pg-store for Postgres), repo
 vite.config.js              build settings (website + CRM; /api proxy for local dev)
 src/
   admin/                    CRM: main.js (shell, router), api.js, ui.js, media.js, admin.css, views/
@@ -227,7 +229,7 @@ docs/                       this document, DEPLOY.md, openapi.yaml
 - 35 cars for sale have no 3D model by design.
 - Very detailed models (for example a 1.8-million-face Cullinan) can load slowly on phones, taking around 15 to 20 seconds in testing.
 - Wheels and kits appear on the quote but are not drawn on the 3D car, because the viewer cannot add geometry.
-- The CRM has one staff account (set by environment variables). Email or WhatsApp notifications for new leads are not sent yet; staff see them in the CRM (with a badge) and can export them.
+- The CRM has one staff login (created on the first visit to `/admin/`, or set by environment variables). Email or WhatsApp notifications for new leads are not sent yet; staff see them in the CRM (with a badge) and can export them.
 - Prices are not listed by the dealership; staff can add them per car in the CRM.
 - The CRM's dashboard and lists read every lead and booking on each request: fine for thousands of records, but a much larger volume would need index documents or a query database.
 - Desktop layout has been checked less than the mobile layout.

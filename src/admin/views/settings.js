@@ -1,9 +1,10 @@
-import { h, icon, ago, chip, skeleton, errorState, confirmBox, toast, failed } from '../ui.js';
+import { h, icon, ago, chip, skeleton, errorState, confirmBox, toast, failed, field, showFieldErrors } from '../ui.js';
 import { get, post, exportUrl, SITE } from '../api.js';
 
 /* Settings: the data the site runs on (import / re-import), CSV exports, system health and the audit trail. */
 const EVENTS = {
   'staff.login': ['Signed in', 'green'], 'staff.login-failed': ['Failed sign-in', 'red'], 'rate-limited': ['Rate limit hit', 'amber'],
+  'staff.setup': ['Login created', 'green'], 'staff.password': ['Password changed', 'violet'],
   import: ['Data imported', 'blue'], 'import.manual': ['Import run', 'blue'], export: ['CSV exported', ''],
   'car.create': ['Car added', 'green'], 'car.update': ['Car edited', ''], 'car.delete': ['Car deleted', 'red'],
   'product.create': ['Product added', 'green'], 'product.update': ['Product edited', ''], 'product.delete': ['Product deleted', 'red'],
@@ -60,8 +61,8 @@ export function mountSettings(view, _p, ctx) {
       h('header', { class: 'card__head' }, [h('h2', { text: 'System' }), h('small', { text: `Checked ${new Date(hl.time).toLocaleTimeString('en-GB')}` })]),
       h('ul', { class: 'checks' }, [
         h('li', {}, [icon(hl.status === 'ok' ? 'done' : 'alert'), h('span', { text: 'API' }), chip(hl.status === 'ok' ? 'Running' : 'Degraded', hl.status === 'ok' ? 'green' : 'amber')]),
-        h('li', {}, [icon(hl.storage === 'ok' ? 'done' : 'alert'), h('span', { text: 'Database (Netlify Blobs)' }), chip(hl.storage === 'ok' ? 'Connected' : 'Unavailable', hl.storage === 'ok' ? 'green' : 'red')]),
-        h('li', {}, [icon('lock'), h('span', { text: 'Staff sign-in' }), chip(hl.crm ? 'Configured' : 'Missing settings', hl.crm ? 'green' : 'red')]),
+        h('li', {}, [icon(hl.storage === 'ok' ? 'done' : 'alert'), h('span', { text: `Database (${{ postgres: 'Postgres', 'netlify-blobs': 'Netlify Blobs' }[hl.storageKind] || 'not connected'})` }), chip(hl.storage === 'ok' ? 'Connected' : 'Unavailable', hl.storage === 'ok' ? 'green' : 'red')]),
+        h('li', {}, [icon('lock'), h('span', { text: 'Staff sign-in' }), chip(hl.crm ? 'Set up' : 'Not created yet', hl.crm ? 'green' : 'amber')]),
         h('li', {}, [icon('shield'), h('span', { text: 'Session' }), h('small', { class: 'muted', text: `${ctx.session.email} · until ${new Date(ctx.session.expiresAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}` })])
       ]),
       h('div', { class: 'card__actions' }, [
@@ -69,6 +70,38 @@ export function mountSettings(view, _p, ctx) {
         h('button', { class: 'btn btn--ghost', type: 'button', onclick: paintHealth }, [icon('refresh'), 'Check again'])
       ])
     );
+  }
+
+  /* ---------- the staff login */
+  const loginCard = h('article', { class: 'card' }, skeleton(3));
+  async function paintLogin() {
+    let acct;
+    try { acct = await get('admin/account'); } catch (e) { loginCard.replaceChildren(errorState(e, paintLogin)); return; }
+    const head = h('header', { class: 'card__head' }, [h('h2', { text: 'Your login' }), h('small', { text: acct.email })]);
+    if (acct.managedBy === 'environment') {
+      loginCard.replaceChildren(head, h('p', { class: 'muted', text: 'This login is set by the site’s environment variables in Netlify (ADMIN_EMAIL and ADMIN_PASSWORD_HASH). Change the password there.' }));
+      return;
+    }
+    const pw = (name, label, auto) => field(label, h('input', { class: 'inp', type: 'password', name, autocomplete: auto, required: true }));
+    const form = h('form', { class: 'fgrid fgrid--1', novalidate: true }, [
+      pw('current', 'Current password', 'current-password'), pw('next', 'New password (10+ characters)', 'new-password'), pw('again', 'New password again', 'new-password'),
+      h('div', { class: 'card__actions' }, h('button', { class: 'btn btn--primary', type: 'submit' }, [icon('lock'), 'Change password']))
+    ]);
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const v = (n) => form.querySelector(`[name=${n}]`).value;
+      showFieldErrors(form, null);
+      if (v('next') !== v('again')) { showFieldErrors(form, { again: 'The new passwords do not match' }); return; }
+      const b = form.querySelector('button[type=submit]');
+      b.disabled = true;
+      try {
+        await post('admin/password', { current: v('current'), next: v('next') });
+        form.reset();
+        toast('Password changed. Other devices are signed out.');
+        paintAudit();
+      } catch (err) { showFieldErrors(form, err.fields); if (!err.fields) failed(err); } finally { b.disabled = false; }
+    });
+    loginCard.replaceChildren(head, h('p', { class: 'muted small', text: `Created ${ago(acct.createdAt)}${acct.passwordChangedAt ? ` · password changed ${ago(acct.passwordChangedAt)}` : ''}` }), form);
   }
 
   /* ---------- audit */
@@ -86,6 +119,6 @@ export function mountSettings(view, _p, ctx) {
     );
   }
 
-  grid.append(dataCard, healthCard, exportsCard, auditCard);
-  paintData(); paintHealth(); paintAudit();
+  grid.append(dataCard, healthCard, exportsCard, loginCard, auditCard);
+  paintData(); paintHealth(); paintLogin(); paintAudit();
 }

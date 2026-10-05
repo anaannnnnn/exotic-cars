@@ -3,8 +3,8 @@
  * Vite proxies /api to it (see vite.config.js), so `npm run dev:api` in one terminal and `npm run dev` in another give
  * the full site and CRM on http://127.0.0.1:5173. Data lives in .netlify/dev-blobs (git-ignored).
  *
- * Sign in to the CRM with ADMIN_EMAIL / ADMIN_PASSWORD from the environment; defaults for local use only are printed
- * at start-up.
+ * Like a new Netlify site, the first visit to /admin/ creates the staff login (or set ADMIN_EMAIL and ADMIN_PASSWORD in
+ * the environment to use those instead).
  */
 import http from 'node:http';
 import { mkdir } from 'node:fs/promises';
@@ -24,9 +24,6 @@ process.env.NETLIFY_BLOBS_CONTEXT = Buffer.from(JSON.stringify({ edgeURL: edge, 
 
 process.env.COOKIE_INSECURE = '1';                 /* plain http on localhost */
 process.env.IMPORT_DIR ||= resolve('public/data');
-process.env.ADMIN_EMAIL ||= 'admin@exoticcars.local';
-if (!process.env.ADMIN_PASSWORD_HASH) process.env.ADMIN_PASSWORD ||= 'showroom-dev';
-process.env.SESSION_SECRET ||= randomBytes(32).toString('hex');
 
 const { handle } = await import('../server/app.mjs');
 
@@ -50,5 +47,5 @@ http.createServer(async (req, res) => {
   }
 }).listen(PORT, '127.0.0.1', () => {
   console.log(`API on http://127.0.0.1:${PORT}/api/v1  (data in ${dir})`);
-  if (process.env.ADMIN_PASSWORD) console.log(`CRM sign-in for local use: ${process.env.ADMIN_EMAIL} / ${process.env.ADMIN_PASSWORD}`);
+  console.log(process.env.ADMIN_EMAIL ? `CRM sign-in: ${process.env.ADMIN_EMAIL}` : 'CRM: open /admin/ to create the staff login (first visit only)');
 });

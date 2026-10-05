@@ -1,20 +1,40 @@
 import { getStore } from '@netlify/blobs';
 import { randomBytes, createHash } from 'node:crypto';
 import { HttpError } from './http.mjs';
+import { pgStore, databaseUrl, useSql } from './pg-store.mjs';
 
 /*
- * Storage on Netlify Blobs. Every store is opened with strong consistency, so a staff member who saves a change reads
- * it straight back. Four stores:
+ * Storage. Four stores:
  *   catalog - "cars" and "products": one JSON document each, guarded by entity tags (optimistic concurrency)
  *   crm     - leads/<id>, appointments/<id>, customers/<id>: one record per key, ids sort by time
  *   media   - uploaded photos
- *   system  - rate-limit buckets, the audit log, the import marker
- * Netlify fills in the store credentials in production; locally tools/dev-api.mjs and the tests point it at a
- * filesystem-backed Blobs server.
+ *   system  - rate-limit buckets, the audit log, the import marker, the staff login, the signing key
+ * Where they live depends on the host:
+ *   - a Postgres database when DATABASE_URL (or POSTGRES_URL) is set - on Vercel, Neon from the Vercel Marketplace;
+ *   - Netlify Blobs on Netlify (nothing to set up), with strong consistency so a saved change reads straight back;
+ *   - on Vercel without a database, every call answers 503 with how to connect one (the website keeps working from
+ *     its built-in data).
+ * Locally tools/dev-api.mjs and the tests use a filesystem Blobs server or PGlite.
  */
+export { useSql };
+let usingSql = false;
+export function useSqlStore(fn) { useSql(fn); usingSql = true; opened.clear(); }
+
+const NO_DATABASE = () => new HttpError(503, 'No database', 'This site has no database yet. In Vercel open the project, then Storage → Create Database → Neon (Postgres) → Connect, and redeploy.');
+const missing = new Proxy({}, { get: () => async () => { throw NO_DATABASE(); } });
+
+export function storageKind() {
+  if (usingSql || databaseUrl()) return 'postgres';
+  if (process.env.VERCEL) return 'missing';
+  return 'netlify-blobs';
+}
+
 const opened = new Map();
 export function store(name) {
-  if (!opened.has(name)) opened.set(name, getStore({ name, consistency: 'strong' }));
+  if (!opened.has(name)) {
+    const kind = storageKind();
+    opened.set(name, kind === 'postgres' ? pgStore(name) : kind === 'missing' ? missing : getStore({ name, consistency: 'strong' }));
+  }
   return opened.get(name);
 }
 
@@ -79,8 +99,9 @@ export async function listKeys(storeName, prefix) {
   return blobs.map((b) => b.key).sort().reverse();   /* newest first: ids sort by time */
 }
 
-/** Fetch records in parallel batches. */
+/** Fetch records: one query where the store can (Postgres), else parallel batches. */
 export async function getMany(storeName, keys, batch = 24) {
+  if (store(storeName).getMany) return store(storeName).getMany(keys);
   const out = [];
   for (let i = 0; i < keys.length; i += batch) {
     const part = await Promise.all(keys.slice(i, i + batch).map((k) => store(storeName).get(k, { type: 'json' })));

@@ -36,7 +36,7 @@ export async function api(path, { method = 'GET', body, raw, timeout = 20000 } =
   if (res.status === 204) return null;
   const type = res.headers.get('content-type') || '';
   if (!type.includes('json')) {
-    throw new ApiError(res.status === 200 ? 503 : res.status, { title: 'Backend not deployed', detail: 'The API is not available on this deploy. Deploy from Git or with the Netlify CLI so the function is published (see docs/DEPLOY.md).' });
+    throw new ApiError(res.status === 200 ? 503 : res.status, { title: 'Backend not deployed', detail: 'The backend is not running on this deploy. Deploy the project zip so the host builds it: on Vercel drop it at vercel.com/drop; on Netlify sign in first, then drop it on Netlify Drop.' });
   }
   const data = await res.json();
   if (!res.ok) {

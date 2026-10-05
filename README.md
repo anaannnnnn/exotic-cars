@@ -17,12 +17,14 @@ The dealership runs the site from a CRM at **`/admin/`**: inventory (add, edit, 
 wheels and kits (price, availability, finish, which cars they fit), a lead pipeline with drag and drop, bookings,
 customer accounts, CSV exports and an activity log. Changes reach the website within a minute.
 
-* **API:** one Netlify Function, `/api/v1/*` (`netlify/functions/api.mjs` → `server/`). Contract: `docs/openapi.yaml`.
-* **Database:** Netlify Blobs (stock, catalogue, leads, bookings, customers, photos). Nothing to provision.
+* **API:** `/api/v1/*`, one function on either host (`api/index.js` on Vercel, `netlify/functions/api.mjs` on Netlify), both
+  running `server/`. Contract: `docs/openapi.yaml`.
+* **Database:** Postgres on Vercel (Neon, connected from the Vercel dashboard) or Netlify Blobs on Netlify (nothing to set up).
 * **Website:** reads live stock and products from the API and falls back to `public/data/*.json`; enquiries and bookings
   go to the API, or wait in an on-device outbox when offline.
-* **Deploy:** drop the project zip on Netlify Drop while signed in, or deploy from Git or the Netlify CLI, with
-  `ADMIN_EMAIL`, `ADMIN_PASSWORD_HASH` (`npm run admin:hash`) and `SESSION_SECRET`. Step by step: **`docs/DEPLOY.md`**. Design and security review: `specs/crm-backend_design.md`.
+* **Deploy:** one zip (`git archive --format=zip -o exotic-cars.zip HEAD`). Vercel: drop it at vercel.com/drop, connect
+  Neon under Storage, redeploy. Netlify: sign in, drop it on Netlify Drop. Then open `/admin/` and create the staff
+  login. Step by step: **`docs/DEPLOY.md`**. Design and security review: `specs/crm-backend_design.md`.
 
 ## What the customer sees
 
@@ -84,6 +86,7 @@ src/data/api.js       API client used by the website
 src/data/catalog.js   catalogue queries, fitment checks, labels
 admin/index.html      CRM entry; src/admin/ its views, styles and API client
 server/               API: routes (app.mjs), auth, validation, storage, data
+api/index.js          the Vercel Function wrapping server/app.mjs (routes via vercel.json)
 netlify/functions/    the Netlify Function wrapping server/app.mjs
 tools/                data pipeline, dev-api.mjs, admin-hash.mjs
 ```

@@ -127,6 +127,9 @@ export const appointmentCreate = z.object({
 export const register = z.object({ name: str(80, 2), email, phone: z.union([phone, z.literal('')]).optional().nullable(), password: z.string().min(8, 'Use at least 8 characters').max(128) });
 export const login = z.object({ email, password: z.string().min(1).max(128) });
 export const staffLogin = z.object({ email: z.string().trim().max(254), password: z.string().min(1).max(256) });
+const staffPassword = z.string().min(10, 'Use at least 10 characters').max(256);
+export const staffSetup = z.object({ email, password: staffPassword });
+export const passwordChange = z.object({ current: z.string().min(1, 'Required').max(256), next: staffPassword });
 
 /* ---------- staff updates ---------- */
 export const LEAD_STATUSES = ['new', 'contacted', 'qualified', 'negotiating', 'won', 'lost'];

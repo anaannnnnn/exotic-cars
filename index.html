@@ -49,5 +49,19 @@
 
   <noscript><p style="padding:24px;font:16px system-ui">Exotic Cars needs JavaScript to show the showroom.</p></noscript>
   <script type="module" src="/src/main.js"></script>
+  <script>
+    /* published as raw source (the project zip uploaded somewhere that does not build it): say how to deploy it.
+       The build rewrites the module script above, so this never fires on a built deploy or the local dev server. */
+    (function () {
+      if (!document.querySelector('script[type="module"][src="/src/main.js"]')) return;
+      if (/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname) || location.port === '5173') return;
+      var bd = document.querySelector('.backdrop');
+      if (bd) bd.style.display = 'none';
+      var f = document.getElementById('fatal');
+      f.style.cssText = 'position:fixed;inset:0;display:grid;place-items:center;padding:24px;background:#0a0708;color:#f6efef;font:16px/1.5 system-ui,sans-serif;text-align:center';
+      document.getElementById('fatal-text').textContent = 'This is the project source, not the built site. Deploy the zip so the host builds it: on Vercel, drop it at vercel.com/drop; on Netlify, sign in first and drop it on Netlify Drop.';
+      f.hidden = false;
+    })();
+  </script>
 </body>
 </html>

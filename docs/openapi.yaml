@@ -4,7 +4,8 @@ info:
   version: 1.0.0
   summary: Stock, catalogue, enquiries, bookings, customer accounts and the dealership CRM.
   description: |
-    Served by one Netlify Function (`netlify/functions/api.mjs`, routes in `server/app.mjs`) at `/api/v1`.
+    Served at `/api/v1` by one function: `api/index.js` on Vercel (storage: Postgres) or `netlify/functions/api.mjs` on
+    Netlify (storage: Netlify Blobs). Routes are in `server/app.mjs`.
 
     * JSON in and out. Errors are RFC 7807 problems (`application/problem+json`) with `title`, `status`, `detail`
       and, for validation errors, `fields` (one message per field, never echoing the submitted value).
@@ -41,9 +42,11 @@ paths:
                   status: { type: string, enum: [ok, degraded] }
                   version: { type: string }
                   time: { type: string, format: date-time }
-                  storage: { type: string, enum: [ok, unavailable] }
+                  storage: { type: string, enum: [ok, missing, unavailable], description: 'missing: no database connected yet (Vercel)' }
+                  storageKind: { type: string, enum: [postgres, netlify-blobs, missing] }
+                  storageMessage: { type: [string, 'null'] }
                   imported: { type: [object, 'null'], properties: { cars: { type: boolean }, products: { type: boolean } } }
-                  crm: { type: boolean, description: Staff sign-in is configured }
+                  crm: { type: boolean, description: A staff login exists }
 
   /stock:
     get:
@@ -187,7 +190,7 @@ paths:
           content: { application/json: { schema: { type: object, properties: { email: { type: string }, expiresAt: { type: string, format: date-time }, imported: { type: [object, 'null'] }, importError: { type: [string, 'null'] } } } } }
         '401': { $ref: '#/components/responses/Problem' }
         '429': { $ref: '#/components/responses/RateLimited' }
-        '503': { description: Staff sign-in is not configured (missing environment variables), content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } } }
+        '409': { description: No staff login yet - create it with POST /admin/setup, content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } } }
     get:
       tags: [Staff session]
       summary: The current staff session
@@ -199,6 +202,47 @@ paths:
       tags: [Staff session]
       summary: Sign out
       responses: { '204': { description: Signed out } }
+
+  /admin/setup:
+    get:
+      tags: [Staff session]
+      summary: Whether the site still needs its staff login (first visit to the CRM)
+      responses:
+        '200': { description: Setup state, content: { application/json: { schema: { type: object, properties: { needed: { type: boolean } } } } } }
+        '503': { description: No database connected (Vercel), content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } } }
+    post:
+      tags: [Staff session]
+      summary: Create the staff login and sign in - only while none exists
+      description: Atomic create; a second attempt gets 409. Rate-limited like sign-in. Also imports the built-in stock and catalogue.
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [email, password], properties: { email: { type: string, format: email }, password: { type: string, minLength: 10 } } } } }
+      responses:
+        '200': { description: Created and signed in (sets ec_staff) }
+        '400': { $ref: '#/components/responses/Invalid' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /admin/account:
+    get:
+      tags: [Staff session]
+      summary: The staff login and where it is managed
+      security: [{ staff: [] }]
+      responses:
+        '200': { description: Login, content: { application/json: { schema: { type: object, properties: { email: { type: string }, managedBy: { type: string, enum: [crm, environment] }, createdAt: { type: [string, 'null'] }, passwordChangedAt: { type: [string, 'null'] } } } } } }
+
+  /admin/password:
+    post:
+      tags: [Staff session]
+      summary: Change the staff password (ends every other staff session)
+      security: [{ staff: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [current, next], properties: { current: { type: string }, next: { type: string, minLength: 10 } } } } }
+      responses:
+        '200': { description: Changed; this session continues with a new cookie }
+        '400': { $ref: '#/components/responses/Invalid' }
+        '409': { description: The login is set by environment variables, content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } } }
 
   /admin/stats:
     get:

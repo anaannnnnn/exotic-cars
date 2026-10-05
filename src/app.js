@@ -11,6 +11,7 @@ import { mountAccount } from './pages/account.js';
 import { initSettings } from './state/settings.js';
 import { initOutbox } from './state/outbox.js';
 import { toast } from './ui/toast.js';
+import { closePanel } from './ui/panels.js';
 import { initFloatTip } from './ui/float-tip.js';
 import { initFx } from './ui/fx.js';
 
@@ -36,6 +37,7 @@ export async function boot() {
 
   async function route() {
     const my = ++token;
+    closePanel();   /* a sheet left open (enquiry sent, booking) belongs to the page being left */
     const hash = location.hash;
     if (page) {
       if (page.kind in scroll) scroll[page.kind] = window.scrollY;

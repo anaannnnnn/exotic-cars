@@ -1,87 +1,69 @@
-# Deploying Exotic Cars with the backend and CRM
+# Deploying Exotic Cars (website, CRM and backend)
 
-The site has four parts that ship together on Netlify:
+One project zip holds everything. The host builds it and serves four parts:
 
 | Part | What it is | Where |
 | --- | --- | --- |
-| Website | The static showroom and 3D configurator | `dist/` (built by `npm run build`) |
-| API | One Netlify Function serving `/api/v1/*` | `netlify/functions/api.mjs` → `server/*` |
+| Website | The showroom and 3D configurator | `dist/` (built by `npm run build`) |
 | CRM | The staff back office at `/admin/` | `admin/index.html` + `src/admin/*` (part of the build) |
-| Database | Netlify Blobs: stock, catalogue, leads, bookings, customers, photos | created automatically, nothing to set up |
+| API | `/api/v1/*` | `server/*`, run by `api/index.js` on Vercel or `netlify/functions/api.mjs` on Netlify |
+| Database | Stock, catalogue, leads, bookings, customers, photos | Vercel: Postgres (Neon). Netlify: Netlify Blobs. |
 
-## 1. Deploy
+Make the zip from a checkout with `git archive --format=zip -o exotic-cars.zip HEAD` (files at the root, no wrapping folder).
 
-Netlify has to **build** the project so the API function is bundled with the website and CRM. Any of these does that.
+## 1. Vercel
 
-### A. One zip on Netlify Drop
+1. **Deploy the zip.** Sign in at [vercel.com](https://vercel.com), open [vercel.com/drop](https://vercel.com/drop), drop the zip,
+   name the project and press **Deploy**. Vercel reads `vercel.json`, runs `npm install` and `npm run build`, publishes `dist/`
+   and deploys the API function. The showroom works straight away (from its built-in data).
+2. **Connect the database.** In the project: **Storage → Create Database → Neon (Postgres) → Continue**, keep the free plan,
+   **Connect** it to the project, then **Deployments → ⋯ → Redeploy** so the API sees it. Vercel adds `DATABASE_URL` itself;
+   the table is created on first use.
+3. **Create your login.** Open `https://<your-project>.vercel.app/admin/`. The first visit asks for the staff email and
+   password (10+ characters) and opens the CRM. Do this straight after the deploy: until a login exists, whoever opens
+   `/admin/` first can create it. The first login also copies the 478 cars and 3,401 wheels and kits into the database.
 
-1. Sign in at [app.netlify.com](https://app.netlify.com) first. Drop only builds projects for signed-in users; signed out it
-   would publish the raw source files.
-2. Open **Netlify Drop** (app.netlify.com/drop) and drop `exotic-cars-netlify.zip` (the project zip: `package.json`,
-   `netlify.toml`, `netlify/functions/`, `server/`, `src/`, `admin/`, `public/` at its root). Netlify runs `npm install` and
-   `npm run build`, publishes `dist/` and deploys the API.
-3. In the new site: **Site configuration → Environment variables**, add the variables below.
-4. Drop the same zip again (**Deploys →** drag it onto the page) so the function starts with the new variables.
+Later updates: drop a newer zip onto the project in the Vercel dashboard (or connect the GitHub repository for automatic
+deploys).
 
-Later updates: drop a newer project zip the same way. Make it from a checkout with
-`git archive --format=zip -o exotic-cars-netlify.zip HEAD` (files at the root, no wrapping folder).
+## 2. Netlify
 
-### B. From Git (updates deploy on every push)
+1. Sign in at [app.netlify.com](https://app.netlify.com) **first** (signed out, Drop publishes the raw source instead of
+   building it), then drop the zip on [app.netlify.com/drop](https://app.netlify.com/drop). Netlify reads `netlify.toml`, builds
+   the site and deploys the API function. Storage is Netlify Blobs: nothing to connect.
+2. Open `https://<your-site>.netlify.app/admin/` and create your login (as above).
 
-1. In Netlify: **Add new site → Import an existing project → GitHub →** `anaannnnnn/exotic-cars`.
-2. Build settings come from `netlify.toml` (`npm run build`, publish `dist`, functions `netlify/functions`, Node 22). Leave them as they are.
-3. Add the environment variables below (**Site configuration → Environment variables**), then **Deploy**.
+Other ways: import the GitHub repository (**Add new site → Import an existing project**), or `npx netlify deploy --build --prod`.
 
-### C. From a terminal, with the Netlify CLI
+## 3. Optional environment variables
 
-```
-npm install
-npx netlify login
-npx netlify init            # link or create the site
-npx netlify env:set ADMIN_EMAIL "sales@your-dealership.ae"
-npx netlify env:set ADMIN_PASSWORD_HASH "$(npm run -s admin:hash -- 'a long staff password')"
-npx netlify env:set SESSION_SECRET "$(openssl rand -hex 32)"
-npx netlify deploy --build --prod
-```
+Nothing has to be set. These override the defaults when you want them (Vercel: **Settings → Environment Variables**;
+Netlify: **Site configuration → Environment variables**; redeploy after changing them).
 
-Uploading only a built `dist/` folder publishes the static showroom: it works from its built-in data, but the CRM and the
-live data need the function.
+| Name | What it does |
+| --- | --- |
+| `ADMIN_EMAIL` + `ADMIN_PASSWORD_HASH` | Use this staff login instead of the one created in the CRM. Also the way back in if the CRM password is forgotten. Make the hash with `npm run admin:hash -- "your password"`. (`ADMIN_PASSWORD` in plain text works for a quick trial.) |
+| `SESSION_SECRET` | 32+ random characters to sign sign-in cookies. Without it the site generates one and keeps it in its database. |
+| `DATABASE_URL` | Any Postgres database (set automatically by Neon on Vercel). When set, it is used on Netlify too. |
+| `ALLOWED_ORIGINS` | Extra origins allowed to send forms, comma-separated (e.g. a custom domain during a move). |
 
-## 2. Environment variables
-
-| Name | Required | What it is |
-| --- | --- | --- |
-| `ADMIN_EMAIL` | yes | The staff sign-in email for the CRM. |
-| `ADMIN_PASSWORD_HASH` | yes* | The staff password, hashed. Make it with `npm run admin:hash -- "your password"` (scrypt). The password itself is never stored. |
-| `ADMIN_PASSWORD` | * | Plain-text alternative to the hash, for a quick trial only. Use the hash in production. |
-| `SESSION_SECRET` | yes | At least 32 random characters, e.g. `openssl rand -hex 32`. Signs the sign-in cookies. Changing it signs everyone out. |
-| `ALLOWED_ORIGINS` | no | Extra origins allowed to send forms, comma-separated (e.g. a custom domain during a move). The site's own origin is always allowed. |
-
-\* Set one of `ADMIN_PASSWORD_HASH` or `ADMIN_PASSWORD`. Without these the CRM sign-in page says what is missing, and the website keeps
-working from its built-in data.
-
-## 3. First sign-in
-
-Open `https://<your-site>/admin/` and sign in. The first sign-in copies the website's built-in stock (478 cars) and catalogue
-(3,401 wheels and kits) into the database. From then on:
+## 4. What staff get
 
 - edits in **Inventory** and **Wheels & kits** reach the website within about a minute, without a redeploy;
 - enquiries from the configurator ("Send to the dealership") and car pages ("Enquire") arrive in **Leads**;
 - service bookings, test drives and call-backs arrive in **Bookings**;
-- accounts created on the website's Account page appear in **Customers**.
+- accounts created on the website's Account page appear in **Customers**;
+- **Settings**: re-import or reset the data, CSV exports, system check, change password, activity log.
 
-**Settings** can re-import missing data, reset stock and catalogue to the website copy, export any list as CSV, check the system,
-and show the activity log (sign-ins, imports, exports, deletions).
+## 5. How the website uses the API
 
-## 4. How the website uses the API
-
-| The website… | With the backend | Without it (static deploy, offline) |
+| The website… | With the backend | Without it (no database yet, static-only deploy, offline) |
 | --- | --- | --- |
 | Stock and catalogue | `GET /api/v1/stock`, `/api/v1/products` (CDN-cached for 30 s, then revalidated) | `/data/stock.json`, `/data/products.json` |
 | Enquiries and bookings | `POST /api/v1/leads`, `/api/v1/appointments` | Kept on the phone in an outbox and sent automatically later. Each request has its own reference, so a retry never duplicates it. |
 | Customer accounts | `/api/v1/auth/*` (scrypt passwords, HttpOnly cookie, works on every device) | Device-only accounts (PBKDF2). They move to the server the first time the customer signs in once it is available. |
 
-## 5. Run everything locally
+## 6. Run everything locally
 
 ```
 npm install
@@ -89,15 +71,16 @@ npm run dev:api     # API + local Blobs store on :8787 (data in .netlify/dev-blo
 npm run dev         # website on http://127.0.0.1:5173, CRM on http://127.0.0.1:5173/admin/
 ```
 
-`dev:api` prints a local-only sign-in (`admin@exoticcars.local` / `showroom-dev`) unless you set `ADMIN_EMAIL` and
-`ADMIN_PASSWORD(_HASH)` yourself. `npm test` runs the unit tests and the API integration tests (`tests/api.test.mjs`, against a
-temporary Blobs store).
+The first visit to `/admin/` creates the local staff login. Set `DATABASE_URL` before `npm run dev:api` to use a Postgres
+database instead. `npm test` runs the unit tests and the API integration suite twice: on a local Blobs server and on
+Postgres (PGlite).
 
-## 6. Security in short
+## 7. Security in short
 
-- Staff and customer sessions are HMAC-signed, `HttpOnly; Secure; SameSite=Strict` cookies (12 hours for staff, 30 days for customers).
+- Staff and customer sessions are HMAC-signed, `HttpOnly; Secure; SameSite=Strict` cookies (12 hours for staff, 30 days for customers). Changing the staff password ends every other staff session.
+- The staff login can only be created while none exists (an atomic create); after that the setup screen is gone.
 - Every state-changing request must come from the site's own origin (CSRF check), on top of `SameSite=Strict`.
-- Rate limits per client address (an IPv6 client counts by its /64): staff sign-in 8 per 15 minutes, customer sign-in and sign-up 10 per 15 minutes, forms 20 per hour.
+- Rate limits per client address (an IPv6 client counts by its /64): staff sign-in and setup 8 per 15 minutes, customer sign-in and sign-up 10 per 15 minutes, forms 20 per hour.
 - A customer sees only bookings made while signed in to their account, never ones matched by email.
 - Every body and query is validated (Zod); unknown fields are dropped; links must be `https://` or an uploaded photo.
 - Uploads: JPEG, PNG or WebP only (checked by file signature, not by name), up to 4 MB, resized in the browser first.
@@ -106,7 +89,10 @@ temporary Blobs store).
 
 The full design and threat checklist is in `specs/crm-backend_design.md`; the API contract is `docs/openapi.yaml`.
 
-## 7. Backups
+## 8. Limits and backups
 
-Netlify Blobs are stored with the site. For your own copies, use **Settings → Export** (CSV for leads, bookings, customers,
-inventory and products) on a regular schedule.
+- Vercel functions accept and return at most 4.5 MB per request: photo uploads are capped at 4 MB, and the largest API
+  response (the catalogue, about 3.2 MB) fits.
+- Neon's free plan stores 0.5 GB: the stock and catalogue use about 6 MB, each uploaded photo a few hundred KB.
+- For your own copies, use **Settings → Export** (CSV for leads, bookings, customers, inventory and products) on a regular
+  schedule.

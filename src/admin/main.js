@@ -182,7 +182,11 @@ function showLogin(notice) {
   session = null;
   shell = null;
   clear(root);
-  mountLogin(root, { notice, onSignedIn: (s) => { if (!location.hash || location.hash === '#') location.hash = '#/'; start(s); } });
+  mountLogin(root, { notice, onSignedIn: (s) => {
+    if (!location.hash || location.hash === '#') location.hash = '#/';
+    start(s);
+    if (s.created) toast('Your login is ready. The site’s cars, wheels and kits are now in the CRM.');
+  } });
 }
 
 setUnauthorizedHandler(() => { if (session) showLogin({ kind: 'info', text: 'Your session ended. Sign in again to continue.' }); });

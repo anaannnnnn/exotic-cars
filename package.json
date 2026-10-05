@@ -14,7 +14,8 @@
     "report": "node tools/report.mjs",
     "stock": "node tools/harvest/exotic.mjs && node --disable-warning=ExperimentalWarning tools/build-stock.mjs --images",
     "dev:api": "node tools/dev-api.mjs",
-    "admin:hash": "node tools/admin-hash.mjs"
+    "admin:hash": "node tools/admin-hash.mjs",
+    "dev:vercel": "node tools/dev-vercel.mjs"
   },
   "dependencies": {
     "@fontsource-variable/archivo": "^5.3.0",
@@ -28,14 +29,19 @@
     "clsx": "^2.1.1",
     "lucide": "^1.48.0",
     "lucide-svelte": "^1.0.1",
+    "pg": "^8.23.1",
     "simple-icons": "^16.33.0",
     "svelte-motion": "^0.12.2",
     "tailwind-merge": "^3.7.0",
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
     "sharp": "^0.35.5",
     "vite": "^8.3.1",
     "vitest": "^5.0.2"
+  },
+  "engines": {
+    "node": "22.x"
   }
 }

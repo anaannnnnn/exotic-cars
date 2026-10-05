@@ -54,12 +54,15 @@ export async function readJson(req, max = 256 * 1024) {
 export function assertSameOrigin(req) {
   const origin = req.headers.get('origin');
   const self = new URL(req.url).origin;
-  const allowed = new Set([self, ...String(process.env.ALLOWED_ORIGINS || '').split(',').map((s) => s.trim()).filter(Boolean)]);
+  /* behind a host's proxy the function may see an internal URL: the public host is in the forwarded headers */
+  const proto = (req.headers.get('x-forwarded-proto') || 'https').split(',')[0].trim();
+  const hosts = [req.headers.get('x-forwarded-host'), req.headers.get('host')].filter(Boolean).map((h) => `${proto}://${h.split(',')[0].trim()}`);
+  const allowed = new Set([self, ...hosts, ...String(process.env.ALLOWED_ORIGINS || '').split(',').map((s) => s.trim()).filter(Boolean)]);
   if (!origin || !allowed.has(origin)) throw new HttpError(403, 'Forbidden', 'This request must come from the Exotic Cars site.');
 }
 
 export function clientIp(req, ctx) {
-  return ctx?.ip || req.headers.get('x-nf-client-connection-ip') || (req.headers.get('x-forwarded-for') || '').split(',')[0].trim() || '0.0.0.0';
+  return ctx?.ip || req.headers.get('x-nf-client-connection-ip') || req.headers.get('x-real-ip') || (req.headers.get('x-forwarded-for') || '').split(',')[0].trim() || '0.0.0.0';
 }
 
 /** Zod error -> a short, field-by-field problem detail that never echoes the submitted values. */

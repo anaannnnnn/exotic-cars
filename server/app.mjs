@@ -3,7 +3,7 @@ import { HttpError, json, noContent, problem, readJson, assertSameOrigin, client
 import * as auth from './auth.mjs';
 import * as S from './schemas.mjs';
 import * as repo from './repo.mjs';
-import { store, newId, newRef, rateLimit, audit } from './store.mjs';
+import { store, newId, newRef, rateLimit, audit, storageKind } from './store.mjs';
 
 /*
  * The whole API (/api/v1/*) as one request handler, so the Netlify Function, the local dev server and the tests all run
@@ -46,7 +46,7 @@ function id(kind, value) {
 const quoteTag = (etag) => (etag.startsWith('"') || etag.startsWith('W/') ? etag : `"${etag}"`);
 
 /**
- * Public catalogue reads: the browser always revalidates (cheap 304s thanks to the entity tag); Netlify's CDN keeps a
+ * Public catalogue reads: the browser always revalidates (cheap 304s thanks to the entity tag); the host's CDN keeps a
  * copy for 30 seconds and may serve it 30 seconds longer while it refreshes, so a CRM change is live within a minute.
  * The tag is the stored document's own, or a hash of the response when the store does not give one.
  */
@@ -56,6 +56,7 @@ function cachedJson(req, { etag, body }) {
   const headers = {
     'cache-control': 'public, max-age=0, must-revalidate',
     'netlify-cdn-cache-control': 'public, s-maxage=30, stale-while-revalidate=30',
+    'vercel-cdn-cache-control': 'public, s-maxage=30, stale-while-revalidate=30',
     'x-content-type-options': 'nosniff',
     etag: tag
   };
@@ -73,7 +74,7 @@ const isBot = (body) => typeof body?.website === 'string' && body.website.length
  */
 async function sessionCustomer(req) {
   let s = null;
-  try { s = auth.currentCustomer(req); } catch { return null; }
+  try { s = await auth.currentCustomer(req); } catch { return null; }
   const c = s && (await repo.findCustomer(s.sub));
   if (!c || s.iat < Math.floor(Date.parse(c.createdAt) / 1000)) return null;
   return { session: s, customer: c };
@@ -98,9 +99,14 @@ const LIMITS = {
 
 /* ======================================================================================== public */
 on('GET', '/health', async () => {
-  let storage = 'ok', imported = null;
-  try { imported = await repo.importStatus(); } catch { storage = 'unavailable'; }
-  return { status: storage === 'ok' ? 'ok' : 'degraded', version: 'v1', time: new Date().toISOString(), storage, imported: imported && { cars: imported.cars, products: imported.products }, crm: auth.staffConfigured() };
+  let storage = 'ok', imported = null, storageMessage = null;
+  try { imported = await repo.importStatus(); } catch (e) { storage = e?.title === 'No database' ? 'missing' : 'unavailable'; storageMessage = e?.detail || null; }
+  return {
+    status: storage === 'ok' ? 'ok' : 'degraded', version: 'v1', time: new Date().toISOString(),
+    storage, storageKind: storageKind(), storageMessage,
+    imported: imported && { cars: imported.cars, products: imported.products },
+    crm: storage === 'ok' ? await auth.staffConfigured().catch(() => false) : false
+  };
 });
 
 on('GET', '/stock', async ({ req }) => {
@@ -124,6 +130,7 @@ on('GET', '/media/:key', async ({ req, params }) => {
     'content-type': res.metadata?.type || 'application/octet-stream',
     'cache-control': 'public, max-age=31536000, immutable',
     'netlify-cdn-cache-control': 'public, s-maxage=31536000, immutable',
+    'vercel-cdn-cache-control': 'public, s-maxage=31536000, immutable',
     'x-content-type-options': 'nosniff',
     'content-security-policy': "default-src 'none'; sandbox",
     etag: tag
@@ -151,9 +158,8 @@ on('POST', '/appointments', async ({ req, ip }) => {
 });
 
 /* ---------- customer accounts ---------- */
-const DUMMY_HASH = 'scrypt$32768$8$1$AAAAAAAAAAAAAAAAAAAAAA$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
 const publicUser = (c) => ({ id: c.id, name: c.name, email: c.email, phone: c.phone || null, createdAt: c.createdAt });
-const customerCookie = (c) => auth.setCookie(auth.CUSTOMER_COOKIE, auth.signToken({ sub: c.id, role: 'customer', email: c.email }, auth.CUSTOMER_TTL), auth.CUSTOMER_TTL);
+const customerCookie = async (c) => auth.setCookie(auth.CUSTOMER_COOKIE, await auth.signToken({ sub: c.id, role: 'customer', email: c.email }, auth.CUSTOMER_TTL), auth.CUSTOMER_TTL);
 
 on('POST', '/auth/register', async ({ req, ip }) => {
   await rateLimit('auth', ip, LIMITS.auth);
@@ -163,18 +169,18 @@ on('POST', '/auth/register', async ({ req, ip }) => {
   const at = new Date().toISOString();
   const c = { id: cid, name: input.name, email: input.email, phone: input.phone || null, passwordHash: await auth.hashPassword(input.password), createdAt: at, lastLoginAt: at };
   await repo.saveCustomer(c);
-  return json({ user: publicUser(c) }, 201, { 'set-cookie': customerCookie(c) });
+  return json({ user: publicUser(c) }, 201, { 'set-cookie': await customerCookie(c) });
 });
 
 on('POST', '/auth/login', async ({ req, ip }) => {
   await rateLimit('auth', ip, LIMITS.auth);
   const input = parse(S.login, await readJson(req, 16 * 1024));
   const c = await repo.findCustomer(auth.customerId(input.email));
-  const ok = await auth.verifyPassword(input.password, c?.passwordHash || DUMMY_HASH);   /* same work either way */
+  const ok = await auth.verifyPassword(input.password, c?.passwordHash || auth.DUMMY_HASH);   /* same work either way */
   if (!c || !ok) throw new HttpError(401, 'Sign-in failed', 'The email or password is not right.');
   c.lastLoginAt = new Date().toISOString();
   await repo.saveCustomer(c);
-  return json({ user: publicUser(c) }, 200, { 'set-cookie': customerCookie(c) });
+  return json({ user: publicUser(c) }, 200, { 'set-cookie': await customerCookie(c) });
 });
 
 on('POST', '/auth/logout', async () => noContent({ 'set-cookie': auth.clearCookie(auth.CUSTOMER_COOKIE) }));
@@ -194,26 +200,59 @@ on('GET', '/auth/appointments', async ({ req }) => {
 });
 
 /* ======================================================================================== staff */
-on('POST', '/admin/session', async ({ req, ip, origin }) => {
-  if (!auth.staffConfigured()) throw new HttpError(503, 'Not configured', 'The CRM sign-in is not set up. Add ADMIN_EMAIL, ADMIN_PASSWORD_HASH (or ADMIN_PASSWORD) and SESSION_SECRET to the site’s environment variables, then redeploy.');
-  await rateLimit('staff-login', ip, LIMITS.staffLogin);
-  const input = parse(S.staffLogin, await readJson(req, 16 * 1024));
-  if (!(await auth.checkStaffCredentials(input.email, input.password))) {
-    await audit('staff.login-failed', {});
-    throw new HttpError(401, 'Sign-in failed', 'The email or password is not right.');
-  }
-  const email = input.email.trim().toLowerCase();
-  const token = auth.signToken({ sub: email, role: 'staff' }, auth.STAFF_TTL);
-  await audit('staff.login', { by: email });
-  /* first sign-in on a new site: copy the built-in stock and catalogue into the database */
-  let imported = null, importError = null;
+/* first sign-in (or first setup) on a new site: copy the built-in stock and catalogue into the database */
+async function firstImport(origin) {
   try {
     const st = await repo.importStatus();
     const what = [!st.cars && 'cars', !st.products && 'products'].filter(Boolean);
-    if (what.length) imported = await repo.importData({ mode: 'missing', what }, origin);
-  } catch (e) { importError = e instanceof HttpError ? e.detail : 'The first import did not finish. Run it again from Settings.'; }
-  return json({ email, expiresAt: new Date(Date.now() + auth.STAFF_TTL * 1000).toISOString(), imported, importError }, 200, { 'set-cookie': auth.setCookie(auth.STAFF_COOKIE, token, auth.STAFF_TTL) });
+    return { imported: what.length ? await repo.importData({ mode: 'missing', what }, origin) : null, importError: null };
+  } catch (e) { return { imported: null, importError: e instanceof HttpError ? e.detail : 'The first import did not finish. Run it again from Settings.' }; }
+}
+
+async function signedIn(login, origin, extra = {}) {
+  const token = await auth.staffToken(login);
+  return json({ email: login.email, expiresAt: new Date(Date.now() + auth.STAFF_TTL * 1000).toISOString(), ...(await firstImport(origin)), ...extra }, 200,
+    { 'set-cookie': auth.setCookie(auth.STAFF_COOKIE, token, auth.STAFF_TTL) });
+}
+
+on('POST', '/admin/session', async ({ req, ip, origin }) => {
+  await rateLimit('staff-login', ip, LIMITS.staffLogin);
+  const input = parse(S.staffLogin, await readJson(req, 16 * 1024));
+  if ((await auth.staffMode()) === 'setup') throw new HttpError(409, 'Setup needed', 'This CRM has no staff login yet. Create it first.');
+  const login = await auth.checkStaffCredentials(input.email, input.password);
+  if (!login) {
+    await audit('staff.login-failed', {});
+    throw new HttpError(401, 'Sign-in failed', 'The email or password is not right.');
+  }
+  await audit('staff.login', { by: login.email });
+  return signedIn(login, origin);
 });
+
+/* first visit to /admin/ on a new site: is there a staff login yet? */
+on('GET', '/admin/setup', async () => ({ needed: (await auth.staffMode()) === 'setup' }));
+
+on('POST', '/admin/setup', async ({ req, ip, origin }) => {
+  await rateLimit('staff-login', ip, LIMITS.staffLogin);
+  const input = parse(S.staffSetup, await readJson(req, 16 * 1024));
+  const login = await auth.createStaffAccount(input.email, input.password);
+  await audit('staff.setup', { by: login.email });
+  return signedIn(login, origin, { created: true });
+});
+
+on('GET', '/admin/account', async ({ staff }) => {
+  const mode = await auth.staffMode();
+  const acct = mode === 'stored' ? await auth.storedStaff() : null;
+  return { email: staff.sub, managedBy: mode === 'env' ? 'environment' : 'crm', createdAt: acct?.createdAt || null, passwordChangedAt: acct?.passwordChangedAt || null };
+}, { staff: true });
+
+on('POST', '/admin/password', async ({ req, ip, staff }) => {
+  await rateLimit('staff-login', ip, LIMITS.staffLogin);
+  const input = parse(S.passwordChange, await readJson(req, 16 * 1024));
+  const login = await auth.changeStaffPassword(input.current, input.next);
+  await audit('staff.password', { by: staff.sub });
+  /* this session continues with the new password; every other session ends */
+  return json({ changed: true }, 200, { 'set-cookie': auth.setCookie(auth.STAFF_COOKIE, await auth.staffToken(login), auth.STAFF_TTL) });
+}, { staff: true });
 
 on('GET', '/admin/session', async ({ staff }) => ({ email: staff.sub, expiresAt: new Date(staff.exp * 1000).toISOString() }), { staff: true });
 on('DELETE', '/admin/session', async () => noContent({ 'set-cookie': auth.clearCookie(auth.STAFF_COOKIE) }));
@@ -334,7 +373,7 @@ export async function handle(req, ctx = {}) {
     r.keys.forEach((k, i) => {
       try { params[k] = decodeURIComponent(m[i + 1]); } catch { throw new HttpError(404, 'Not found', 'There is nothing at this address.'); }
     });
-    const staff = r.staff ? auth.requireStaff(req) : null;
+    const staff = r.staff ? await auth.requireStaff(req) : null;
     const out = await r.handler({ req, url, params, query: Object.fromEntries(url.searchParams), ip: clientIp(req, ctx), origin: url.origin, staff });
     const res = out instanceof Response ? out : json(out);
     return req.method === 'HEAD' ? new Response(null, { status: res.status, headers: res.headers }) : res;

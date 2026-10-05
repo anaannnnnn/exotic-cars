@@ -19,8 +19,11 @@ const page = (rows, { limit, offset }) => ({
 const isMedia = (u) => typeof u === 'string' && u.startsWith('/api/v1/media/');
 
 /* ======================================================================================== import */
+/* the built-in data: bundled with the function where the host allows it (IMPORT_DIR), else read from the site itself */
 async function sourceJson(name, origin) {
-  if (process.env.IMPORT_DIR) return JSON.parse(await readFile(join(process.env.IMPORT_DIR, name), 'utf8'));
+  if (process.env.IMPORT_DIR) {
+    try { return JSON.parse(await readFile(join(process.env.IMPORT_DIR, name), 'utf8')); } catch { /* not bundled: fetch it */ }
+  }
   const res = await fetch(new URL(`/data/${name}`, origin));
   if (!res.ok) throw new HttpError(502, 'Import failed', `Could not read /data/${name} from the site (${res.status}).`);
   return res.json();

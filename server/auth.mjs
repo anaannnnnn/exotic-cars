@@ -1,6 +1,7 @@
 import { scrypt as scryptCb, randomBytes, timingSafeEqual, createHmac, createHash } from 'node:crypto';
 import { promisify } from 'node:util';
 import { HttpError } from './http.mjs';
+import { store } from './store.mjs';
 
 /*
  * Passwords and sessions.
@@ -30,27 +31,39 @@ export async function verifyPassword(password, stored) {
   } catch { return false; }
 }
 
-/* ---------- configuration ---------- */
-function secret() {
-  const s = process.env.SESSION_SECRET || '';
-  if (s.length < 32) throw new HttpError(503, 'Not configured', 'The server is missing SESSION_SECRET (at least 32 characters). Add it in the site’s environment variables.');
-  return s;
+/* ---------- the signing key ---------- */
+let generated = null;
+async function secret() {
+  const env = process.env.SESSION_SECRET || '';
+  if (env) {
+    if (env.length < 32) throw new HttpError(503, 'Not configured', 'SESSION_SECRET is set but shorter than 32 characters. Lengthen it or remove it.');
+    return env;
+  }
+  if (generated) return generated;
+  /* no SESSION_SECRET: make one the first time it is needed and keep it in the site's private store */
+  let saved = await store('system').get('session-secret', { type: 'json' });
+  if (!saved?.value) {
+    const fresh = { value: randomBytes(48).toString('base64url'), at: new Date().toISOString() };
+    const res = await store('system').setJSON('session-secret', fresh, { onlyIfNew: true });
+    saved = res?.modified === false ? await store('system').get('session-secret', { type: 'json' }) : fresh;
+  }
+  generated = saved.value;
+  return generated;
 }
-export const staffConfigured = () => Boolean(process.env.ADMIN_EMAIL && (process.env.ADMIN_PASSWORD_HASH || process.env.ADMIN_PASSWORD) && (process.env.SESSION_SECRET || '').length >= 32);
 
 /* ---------- tokens ---------- */
-export function signToken(payload, ttlSeconds) {
+export async function signToken(payload, ttlSeconds) {
   const now = Math.floor(Date.now() / 1000);
   const body = b64u(JSON.stringify({ ...payload, iat: now, exp: now + ttlSeconds }));
-  const sig = createHmac('sha256', secret()).update(body).digest('base64url');
+  const sig = createHmac('sha256', await secret()).update(body).digest('base64url');
   return `${body}.${sig}`;
 }
 
-export function verifyToken(token) {
+export async function verifyToken(token) {
   if (!token || typeof token !== 'string' || token.length > 2048) return null;
   const [body, sig] = token.split('.');
   if (!body || !sig) return null;
-  const expected = createHmac('sha256', secret()).update(body).digest();
+  const expected = createHmac('sha256', await secret()).update(body).digest();
   const given = Buffer.from(sig, 'base64url');
   if (given.length !== expected.length || !timingSafeEqual(given, expected)) return null;
   try {
@@ -83,26 +96,76 @@ export const clearCookie = (name) => setCookie(name, '', 0);
 
 /* ---------- staff ---------- */
 export const STAFF_TTL = 12 * 60 * 60;
+/* an scrypt hash of nothing: checked when there is no account, so a miss costs the same time as a hit */
+export const DUMMY_HASH = 'scrypt$32768$8$1$AAAAAAAAAAAAAAAAAAAAAA$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
+const STAFF_KEY = 'staff-account';
+const envStaff = () => Boolean(process.env.ADMIN_EMAIL && (process.env.ADMIN_PASSWORD_HASH || process.env.ADMIN_PASSWORD));
+const sameText = (a, b) => timingSafeEqual(createHash('sha256').update(String(a)).digest(), createHash('sha256').update(String(b)).digest());
+export const storedStaff = () => store('system').get(STAFF_KEY, { type: 'json' });
 
+/** 'env' (environment variables), 'stored' (created in the CRM) or 'setup' (nobody yet: the CRM offers to create it). */
+export async function staffMode() {
+  if (envStaff()) return 'env';
+  return (await storedStaff()) ? 'stored' : 'setup';
+}
+export const staffConfigured = async () => (await staffMode()) !== 'setup';
+
+/* which version of the login a session was issued for: changing the password ends every other session */
+const loginVersion = (mode, acct) => (mode === 'env' ? 'env' : acct.passwordChangedAt || acct.createdAt);
+
+/** Check a sign-in. Returns { email, v } for a session, or null. */
 export async function checkStaffCredentials(email, password) {
-  const want = String(process.env.ADMIN_EMAIL || '').trim().toLowerCase();
   const got = String(email || '').trim().toLowerCase();
-  /* always do the same amount of work, so the response time does not reveal which part was wrong */
-  const hash = process.env.ADMIN_PASSWORD_HASH;
-  let ok;
-  if (hash) ok = await verifyPassword(password, hash);
-  else {
-    const a = createHash('sha256').update(String(password)).digest();
-    const b = createHash('sha256').update(String(process.env.ADMIN_PASSWORD || '')).digest();
-    ok = timingSafeEqual(a, b) && Boolean(process.env.ADMIN_PASSWORD);
+  const mode = await staffMode();
+  if (mode === 'env') {
+    const want = String(process.env.ADMIN_EMAIL).trim().toLowerCase();
+    const hash = process.env.ADMIN_PASSWORD_HASH;
+    const ok = hash ? await verifyPassword(password, hash) : sameText(password, process.env.ADMIN_PASSWORD) && Boolean(process.env.ADMIN_PASSWORD);
+    return ok && sameText(got, want) ? { email: want, v: 'env' } : null;
   }
-  const emailOk = want.length > 0 && timingSafeEqual(createHash('sha256').update(got).digest(), createHash('sha256').update(want).digest());
-  return ok && emailOk;
+  const acct = mode === 'stored' ? await storedStaff() : null;
+  const ok = await verifyPassword(password, acct?.passwordHash || DUMMY_HASH);
+  return acct && ok && sameText(got, acct.email) ? { email: acct.email, v: loginVersion('stored', acct) } : null;
 }
 
-export function requireStaff(req) {
-  const data = verifyToken(cookies(req)[STAFF_COOKIE]);
-  if (!data || data.role !== 'staff') throw new HttpError(401, 'Unauthorized', 'Sign in to the CRM to continue.');
+/** First visit to a new site: create the staff login. Only possible while there is none (an atomic create). */
+export async function createStaffAccount(email, password) {
+  if (envStaff()) throw new HttpError(409, 'Already set up', 'This site’s staff login is set by its environment variables. Sign in instead.');
+  const at = new Date().toISOString();
+  const acct = { email: String(email).trim().toLowerCase(), passwordHash: await hashPassword(password), createdAt: at };
+  const res = await store('system').setJSON(STAFF_KEY, acct, { onlyIfNew: true });
+  if (res?.modified === false) {
+    throw new HttpError(409, 'Already set up', 'This CRM already has a staff login. Sign in instead.');
+  }
+  return { email: acct.email, v: loginVersion('stored', acct) };
+}
+
+export async function changeStaffPassword(current, next) {
+  if (envStaff()) throw new HttpError(409, 'Managed elsewhere', 'This login is set by the site’s environment variables (ADMIN_PASSWORD_HASH). Change it there.');
+  const acct = await storedStaff();
+  if (!acct) throw new HttpError(409, 'Not set up', 'There is no staff login yet.');
+  if (!(await verifyPassword(current, acct.passwordHash))) throw new HttpError(400, 'Invalid request', 'Some fields are missing or not valid.', { fields: { current: 'That is not the current password' } });
+  const updated = { ...acct, passwordHash: await hashPassword(next), passwordChangedAt: new Date().toISOString() };
+  await store('system').setJSON(STAFF_KEY, updated);
+  return { email: updated.email, v: loginVersion('stored', updated) };
+}
+
+export async function staffToken(login) {
+  return signToken({ sub: login.email, role: 'staff', v: login.v }, STAFF_TTL);
+}
+
+/** The staff session, or 401. A session only counts for the login (and password) it was issued for. */
+export async function requireStaff(req) {
+  const data = await verifyToken(cookies(req)[STAFF_COOKIE]);
+  const deny = () => new HttpError(401, 'Unauthorized', 'Sign in to the CRM to continue.');
+  if (!data || data.role !== 'staff') throw deny();
+  const mode = await staffMode();
+  if (mode === 'env') {
+    if (data.v !== 'env' || !sameText(data.sub, String(process.env.ADMIN_EMAIL).trim().toLowerCase())) throw deny();
+  } else {
+    const acct = mode === 'stored' ? await storedStaff() : null;
+    if (!acct || data.v !== loginVersion('stored', acct) || data.sub !== acct.email) throw deny();
+  }
   return data;
 }
 
@@ -110,7 +173,7 @@ export function requireStaff(req) {
 export const CUSTOMER_TTL = 30 * 24 * 60 * 60;
 export const customerId = (email) => createHash('sha256').update(String(email).trim().toLowerCase()).digest('hex').slice(0, 40);
 
-export function currentCustomer(req) {
-  const data = verifyToken(cookies(req)[CUSTOMER_COOKIE]);
+export async function currentCustomer(req) {
+  const data = await verifyToken(cookies(req)[CUSTOMER_COOKIE]);
   return data && data.role === 'customer' ? data : null;
 }
