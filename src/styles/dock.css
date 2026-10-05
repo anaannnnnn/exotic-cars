@@ -1,0 +1,201 @@
+/* ==========================================================================
+   Dock - the one place the bottom dock is styled (src/ui/liquid-dock.js).
+   A graphite glass capsule; the selected item opens into a pill of signal cyan, lit from within, whose light spills
+   onto the page around the dock. Inactive icons recede to 58% white. Springs live in JS; CSS handles the static
+   material, hover magnification (--m) and the one-off land sheen.
+   ========================================================================== */
+:root {
+  --dk-h: 52px;                 /* item height = lens height */
+  --dk-pad: 6px;                /* glass padding: outer radius = inner radius + padding */
+  --dk-glass-top: rgba(46, 46, 52, 0.86);
+  --dk-glass-bot: rgba(10, 10, 12, 0.92);
+  --dk-rim: rgba(255, 255, 255, 0.16);
+  --dk-icon: rgba(255, 255, 255, 0.58);
+  --dk-icon-hi: #ffffff;
+  --dk-ink: #04120f;
+  --dk-cyan: #00fff2;
+  --dk-cyan-deep: #00c4b9;
+  --dk-ease: cubic-bezier(0.33, 1, 0.68, 1);       /* ease-out-cubic */
+  --dk-fade: #efeee9;                              /* the bottom of the ambient page background (pages.css) */
+}
+:root[data-theme='dark'] {
+  --dk-glass-top: rgba(52, 52, 60, 0.78);
+  --dk-glass-bot: rgba(22, 22, 26, 0.9);
+  --dk-rim: rgba(255, 255, 255, 0.2);
+  --dk-fade: #0a0a0b;
+}
+
+/* ---------- placement: fixed, centred, above the page's bottom fade ---------- */
+.dockbar { position: fixed; z-index: 60; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 12px); translate: -50% 0; view-transition-name: dock; }
+body[data-page='hub']::after, body[data-page='concierge']::after, body[data-page='service']::after, body[data-page='vr']::after, body[data-page='account']::after {
+  content: ''; position: fixed; z-index: 50; left: 0; right: 0; bottom: 0; height: calc(env(safe-area-inset-bottom) + 112px); pointer-events: none;
+  background: linear-gradient(to top, var(--dk-fade) 30%, color-mix(in srgb, var(--dk-fade) 0%, transparent));
+  transition: opacity 300ms var(--dk-ease);
+}
+body.dock-off::after { opacity: 0; }
+
+.dkw { position: relative; display: grid; justify-items: center; }
+
+/* ---------- the capsule ---------- */
+.dk {
+  position: relative; isolation: isolate; display: flex; align-items: center; gap: 2px; padding: var(--dk-pad);
+  border-radius: calc(var(--dk-h) / 2 + var(--dk-pad));
+  touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+  transform-origin: 50% 100%;
+  transition: translate 560ms var(--spring, cubic-bezier(0.34, 1.36, 0.64, 1)), opacity 260ms var(--dk-ease), scale 560ms var(--spring, cubic-bezier(0.34, 1.36, 0.64, 1));
+}
+/* glass: graphite, lighter at the top, frosted; a light rim on top, a dark lip below, a long soft contact shadow */
+.dk__glass {
+  position: absolute; inset: 0; z-index: 0; border-radius: inherit; pointer-events: none;
+  background: linear-gradient(180deg, var(--dk-glass-top), var(--dk-glass-bot));
+  -webkit-backdrop-filter: blur(22px) saturate(170%); backdrop-filter: blur(22px) saturate(170%);
+  box-shadow:
+    inset 0 1px 0 var(--dk-rim),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.55),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05),
+    0 1px 2px rgba(10, 10, 11, 0.28),
+    0 12px 24px -10px rgba(10, 10, 11, 0.45),
+    0 30px 60px -24px rgba(10, 10, 11, 0.5);
+}
+/* a fine specular line along the top of the glass */
+.dk__glass::before {
+  content: ''; position: absolute; left: 14%; right: 14%; top: 0; height: 1px; border-radius: 1px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0));
+}
+
+/* ---------- light spilled by the lens: a pre-blurred radial gradient (no filter, so it costs nothing to move) ---------- */
+.dk__spill {
+  position: absolute; z-index: -1; left: 0; top: 50%; height: calc(var(--dk-h) * 2.1); margin-top: calc(var(--dk-h) * -1.05);
+  border-radius: 50%; pointer-events: none; will-change: transform;
+  background: radial-gradient(closest-side, rgba(0, 255, 242, 0.5), rgba(0, 255, 242, 0.18) 55%, rgba(0, 255, 242, 0) 100%);
+  animation: dk-breathe 3.6s ease-in-out infinite;
+}
+@keyframes dk-breathe { 50% { opacity: 0.68; } }
+
+/* ---------- the lens: signal cyan, lit from the top left, a bright lip, a deep base, a rim and a two-stage bloom ---------- */
+.dk__lens {
+  position: absolute; z-index: 1; left: 0; top: var(--dk-pad); height: var(--dk-h); border-radius: 999px; pointer-events: none;
+  transform-origin: 0 50%; will-change: transform, width; overflow: hidden;
+  background:
+    radial-gradient(120% 160% at 26% -10%, rgba(255, 255, 255, 0.85) 0%, rgba(255, 255, 255, 0) 42%),
+    linear-gradient(180deg, #6bfff8 0%, var(--dk-cyan) 46%, #00e6da 78%, var(--dk-cyan-deep) 100%);
+  box-shadow:
+    inset 0 1px 0.5px rgba(255, 255, 255, 0.95),
+    inset 0 -3px 7px rgba(0, 92, 86, 0.38),
+    0 0 0 1px rgba(0, 255, 242, 0.7),
+    0 0 12px rgba(0, 255, 242, 0.62),
+    0 0 28px rgba(0, 255, 242, 0.34),
+    0 8px 20px -6px rgba(0, 196, 185, 0.75);
+}
+/* the sheen that crosses the lens as it lands */
+.dk__sheen { position: absolute; inset: 0; border-radius: inherit; background: linear-gradient(105deg, rgba(255, 255, 255, 0) 30%, rgba(255, 255, 255, 0.75) 48%, rgba(255, 255, 255, 0) 64%); translate: -110% 0; }
+.dk__lens.is-land .dk__sheen { animation: dk-sheen 760ms cubic-bezier(0.22, 0.61, 0.36, 1) 140ms both; }
+@keyframes dk-sheen { to { translate: 110% 0; } }
+
+/* ---------- items ---------- */
+.dk__item {
+  --m: 0;
+  position: relative; z-index: 2; flex: none; display: flex; align-items: center; height: var(--dk-h); min-width: var(--dk-h); padding: 0 14px;
+  border-radius: 999px; color: var(--dk-icon); white-space: nowrap;
+  -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; -webkit-user-drag: none;
+  transition-property: color, scale; transition-duration: 150ms; transition-timing-function: var(--dk-ease);
+}
+.dk__ic { display: grid; place-items: center; width: 22px; height: 22px; scale: calc(1 + var(--m) * 0.22); translate: 0 calc(var(--m) * -3px); transition: scale 220ms var(--dk-ease), translate 220ms var(--dk-ease); }
+.dk__ic svg { width: 22px; height: 22px; stroke-width: 1.6; transition: stroke-width 200ms var(--dk-ease); }
+.dk__item--end .dk__ic, .dk__item--end .dk__ic svg { width: 24px; height: 24px; }
+/* the name: its width is driven by a spring (JS); --o fades it in only once there is room for it */
+.dk__lbl { display: block; overflow: hidden; width: 0; }
+.dk__txt {
+  display: block; width: max-content; padding: 0 3px 0 9px;
+  font-size: 13.5px; font-weight: 650; letter-spacing: -0.005em; line-height: 1;
+  opacity: var(--o, 0); translate: calc((1 - var(--o, 0)) * -6px) 0;
+}
+.dk.is-compact .dk__lbl { display: none; }
+
+/* lit = covered by the lens: dark ink, a firmer stroke */
+.dk__item.is-lit { color: var(--dk-ink); }
+.dk__item.is-lit .dk__ic svg { stroke-width: 2.1; }
+.dk__item:active { scale: 0.96; }
+@media (hover: hover) and (pointer: fine) {
+  .dk__item:not(.is-lit):hover { color: var(--dk-icon-hi); }
+}
+.dk__item:focus-visible { outline: 2px solid var(--dk-cyan); outline-offset: 2px; box-shadow: 0 0 0 6px rgba(0, 255, 242, 0.25); }
+
+/* account at the end, after a hairline */
+.dk__sep { position: relative; z-index: 2; flex: none; width: 1px; height: 26px; margin: 0 5px; background: linear-gradient(180deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0)); }
+.dk__avatar {
+  display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%;
+  background: var(--dk-cyan); color: var(--dk-ink); font-size: 12.5px; font-weight: 700; line-height: 1;
+  box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.12);
+}
+.dk__item.is-lit .dk__avatar { background: var(--dk-ink); color: var(--dk-cyan); box-shadow: none; }
+
+/* ---------- thumb scrubbing ---------- */
+.dk.is-scrub .dk__item { transition-duration: 90ms; }
+.dk.is-scrub .dk__item:not(.is-lit) { color: rgba(255, 255, 255, 0.4); }
+.dk.is-scrub .dk__item.is-over .dk__ic { scale: 1.16; }
+.dk__tag {
+  position: absolute; z-index: 3; left: 0; bottom: calc(100% + 14px); pointer-events: none; white-space: nowrap;
+  padding: 7px 12px; border-radius: 999px; font-size: 12px; font-weight: 650; letter-spacing: 0.01em; color: var(--dk-ink);
+  background: linear-gradient(180deg, #7ffff9, var(--dk-cyan));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 0 0 1px rgba(0, 255, 242, 0.6), 0 0 18px rgba(0, 255, 242, 0.45), 0 10px 20px -10px rgba(10, 10, 11, 0.5);
+  margin-left: 0; translate: -50% 6px; opacity: 0; scale: 0.25; filter: blur(4px); transform-origin: 50% 100%;
+  transition-property: opacity, scale, filter, translate; transition-duration: 220ms; transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
+.dk__tag.is-on { opacity: 1; scale: 1; filter: blur(0); translate: -50% 0; }
+
+/* ---------- entrance (first page of a visit): the capsule rises, the items pop in one after another ---------- */
+.dkw.is-enter .dk { animation: dk-rise 720ms cubic-bezier(0.22, 1, 0.36, 1) 260ms both; }
+.dkw.is-enter .dk__item { animation: dk-pop 520ms cubic-bezier(0.34, 1.56, 0.64, 1) both; animation-delay: calc(380ms + var(--j, 0) * 55ms); }
+.dkw.is-enter .dk__lens, .dkw.is-enter .dk__spill { animation: dk-fade 520ms var(--dk-ease) 640ms both; }
+@keyframes dk-rise { from { opacity: 0; translate: 0 28px; scale: 0.92; } }
+@keyframes dk-pop { from { opacity: 0; scale: 0.4; } }
+@keyframes dk-fade { from { opacity: 0; } }
+
+/* ---------- tucked away while reading: a small handle with the current page stays ---------- */
+.dkw.is-hidden .dk {
+  translate: 0 calc(100% + 30px + env(safe-area-inset-bottom)); opacity: 0; scale: 0.72; pointer-events: none;
+  transition-duration: 380ms, 220ms, 380ms; transition-timing-function: cubic-bezier(0.4, 0, 0.8, 0.4);
+}
+.dk-handle {
+  position: absolute; bottom: 4px; display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 14px 0 6px; border-radius: 999px;
+  background: linear-gradient(180deg, var(--dk-glass-top), var(--dk-glass-bot)); color: #fff;
+  -webkit-backdrop-filter: blur(18px) saturate(170%); backdrop-filter: blur(18px) saturate(170%);
+  box-shadow: inset 0 1px 0 var(--dk-rim), 0 12px 26px -12px rgba(10, 10, 11, 0.6);
+  opacity: 0; translate: 0 24px; scale: 0.6; pointer-events: none;
+  transition: opacity 240ms var(--dk-ease), translate 520ms var(--spring, cubic-bezier(0.34, 1.36, 0.64, 1)), scale 520ms var(--spring, cubic-bezier(0.34, 1.36, 0.64, 1));
+}
+.dkw.is-hidden .dk-handle { opacity: 1; translate: 0 0; scale: 1; pointer-events: auto; transition-delay: 120ms; }
+.dk-handle:active { scale: 0.96; }
+.dk-handle__ic {
+  width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; color: var(--dk-ink);
+  background: linear-gradient(180deg, #6bfff8, var(--dk-cyan) 50%, var(--dk-cyan-deep));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 0 0 1px rgba(0, 255, 242, 0.6), 0 0 14px rgba(0, 255, 242, 0.5);
+}
+.dk-handle__ic svg { width: 16px; height: 16px; stroke-width: 2; }
+.dk-handle__ic .dk__avatar { width: 32px; height: 32px; background: transparent; box-shadow: none; }
+.dk-handle__txt { font-size: 12.5px; font-weight: 650; letter-spacing: 0.005em; }
+.dk-handle__grip { width: 18px; height: 4px; border-radius: 2px; background: rgba(255, 255, 255, 0.5); }
+.dk-handle:focus-visible { outline: 2px solid var(--dk-cyan); outline-offset: 3px; }
+
+/* ---------- narrower phones (360-379px Android, iPhone mini/SE): a slightly smaller dock, still 46px targets ---------- */
+@media (max-width: 379px) {
+  :root { --dk-h: 46px; --dk-pad: 5px; }
+  .dk__item { padding: 0 12px; }
+  .dk__txt { font-size: 13px; padding-left: 7px; }
+}
+
+/* ---------- preferences ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .dk, .dk-handle { transition-duration: 0ms !important; }
+  .dk__spill, .dkw.is-enter .dk, .dkw.is-enter .dk__item, .dkw.is-enter .dk__lens, .dkw.is-enter .dk__spill, .dk__lens.is-land .dk__sheen { animation: none !important; }
+  .dk__ic { transition: none; }
+}
+:root[data-motion='reduce'] :is(.dk__spill, .dk__sheen, .dk, .dk__item, .dk__lens) { animation: none !important; }
+@media (prefers-reduced-transparency: reduce) {
+  .dk__glass, .dk-handle { background: #141416; -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
+@media (forced-colors: active) {
+  .dk__lens { forced-color-adjust: none; background: Highlight; box-shadow: none; }
+  .dk__item.is-lit { color: HighlightText; }
+}

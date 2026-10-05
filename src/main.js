@@ -10,6 +10,7 @@ import './styles/shop.css';
 import './styles/mobile.css';
 import './styles/landing.css';
 import './styles/finish.css';
+import './styles/dock.css';
 import { boot } from './app.js';
 
 boot().catch((err) => {

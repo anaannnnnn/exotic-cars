@@ -30,7 +30,7 @@ export function mainDock(current, { autoHide = true } = {}) {
     ],
     end: {
       id: 'account', label: user ? 'Your account' : 'Sign in', short: user ? 'Account' : 'Sign in', desc: user ? user.email : 'Sign in or create an account', href: '#/account',
-      render: () => (user ? h('span', { class: 'ld__avatar', text: (user.name || user.email || '?').trim()[0].toUpperCase() }) : icon('account'))
+      render: () => (user ? h('span', { class: 'dk__avatar', text: (user.name || user.email || '?').trim()[0].toUpperCase() }) : icon('account'))
     }
   });
 }

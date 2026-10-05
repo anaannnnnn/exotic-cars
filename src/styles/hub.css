@@ -140,9 +140,10 @@ body[data-page='hub'], body[data-page='concierge'] { background: var(--bg); }
 @media (hover: hover) and (pointer: fine) { .prompt:hover { background: rgba(10, 10, 11, 0.09); } }
 
 /* make filter: oval chips, a black thumb slides between them */
-.mk { position: relative; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding: 2px 18px 2px; margin: 4px 0 14px; }
+/* the row is a scroller, so it carries room for the selected chip's bloom (padding) and gives it back (negative margin) */
+.mk { position: relative; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding: 16px 18px; margin: -10px 0 2px; }
 .mk::-webkit-scrollbar { display: none; }
-.mk__thumb { position: absolute; left: 0; top: 2px; height: 46px; border-radius: var(--pill); background: #0a0a0b; transition: transform 380ms var(--ease-out), width 380ms var(--ease-out); pointer-events: none; }
+.mk__thumb { position: absolute; left: 0; top: 16px; height: 46px; border-radius: var(--pill); background: #0a0a0b; transition: transform 380ms var(--ease-out), width 380ms var(--ease-out); pointer-events: none; }
 .mk__item { position: relative; flex: none; height: 46px; padding: 0 20px; border-radius: var(--pill); font-size: 14px; font-weight: 500; color: var(--ink); background: var(--surface); box-shadow: var(--shadow-1); transition-property: color, background-color, scale; transition-duration: 200ms; transition-timing-function: var(--ease-out); }
 .mk__item[aria-selected='true'] { color: #fff; background: transparent; box-shadow: none; }
 .mk__item:active { scale: 0.96; }
@@ -199,34 +200,9 @@ body[data-page='hub'], body[data-page='concierge'] { background: var(--bg); }
 
 /* staged entrance (once per visit, ~100ms between chunks) */
 @keyframes hub-in { from { opacity: 0; transform: translateY(12px); } }
-.hub__top, .hub__hero, .hub__ask, .show, .quick, .dockbar { animation: hub-in 600ms var(--ease-out) both; }
-.hub__hero { animation-delay: 80ms; } .hub__ask { animation-delay: 160ms; } .show { animation-delay: 240ms; } .quick { animation-delay: 320ms; } .hub .dockbar { animation-delay: 380ms; }
+.hub__top, .hub__hero, .hub__ask, .show, .quick { animation: hub-in 600ms var(--ease-out) both; }
+.hub__hero { animation-delay: 80ms; } .hub__ask { animation-delay: 160ms; } .show { animation-delay: 240ms; } .quick { animation-delay: 320ms; }
 
-/* ==========================================================================
-   Liquid dock
-   ========================================================================== */
-.dockbar { position: fixed; z-index: 60; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 14px); translate: -50% 0; animation-name: dock-in; }
-@keyframes dock-in { from { opacity: 0; transform: translateY(16px); } }
-body[data-page='hub']::after, body[data-page='concierge']::after { content: ''; position: fixed; z-index: 50; left: 0; right: 0; bottom: 0; height: calc(env(safe-area-inset-bottom) + 124px); pointer-events: none; background: linear-gradient(to top, var(--bg) 35%, color-mix(in srgb, var(--bg) 0%, transparent)); }
-.ld { position: relative; display: block; }
-.ld__body { position: absolute; left: -20px; top: -20px; overflow: visible; pointer-events: none; filter: drop-shadow(0 14px 22px rgba(10, 10, 11, 0.28)); }
-.ld__wells { position: absolute; inset: 0; pointer-events: none; }
-.ld__well { position: absolute; top: 50%; width: var(--d); height: var(--d); translate: 0 -50%; border-radius: 50%; background: #26262a; box-shadow: inset 0 0 0 1.5px rgba(0, 255, 242, 0.42); }
-.ld__drop { position: absolute; left: -20px; top: -20px; overflow: visible; pointer-events: none; }
-.ld__liquid { filter: drop-shadow(0 4px 12px rgba(0, 255, 242, 0.38)); }
-.ld__core { position: absolute; left: 0; top: 0; border-radius: 50%; background: #050505; pointer-events: none; will-change: transform; }
-.ld__btn {
-  position: absolute; top: 50%; translate: 0 -50%; border-radius: 50%; display: grid; place-items: center; color: rgba(255, 255, 255, 0.82);
-  transition-property: scale, color; transition-duration: 160ms; transition-timing-function: var(--ease-out);
-  -webkit-tap-highlight-color: transparent;
-}
-.ld__btn svg { width: calc(22px * var(--k, 1)); height: calc(22px * var(--k, 1)); stroke-width: 1.6; }
-.ld__btn--end svg { width: calc(27px * var(--k, 1)); height: calc(27px * var(--k, 1)); }
-.ld__btn:active { scale: 0.96; }
-.ld__btn[aria-current] { color: var(--acc); }
-@media (hover: hover) and (pointer: fine) { .ld__btn:hover { color: #fff; } .ld__btn[aria-current]:hover { color: var(--acc); } }
-.ld__btn:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; box-shadow: none; }
-.ld__avatar { width: calc(36px * var(--k, 1)); height: calc(36px * var(--k, 1)); border-radius: 50%; display: grid; place-items: center; background: var(--acc); color: var(--acc-ink); font-size: 15px; font-weight: 700; }
 
 /* ==========================================================================
    Concierge
@@ -268,16 +244,28 @@ body[data-page='hub']::after, body[data-page='concierge']::after { content: ''; 
 .cg__suggest::-webkit-scrollbar { display: none; }
 .cg__suggest .prompt { background: var(--surface); box-shadow: var(--shadow-1); animation: hub-in 300ms var(--ease-out) both; animation-delay: calc(var(--i, 0) * 50ms); }
 .ask--bar { box-shadow: var(--shadow-3); }
-.cg .dockbar { animation: none; }
 
 /* ---------- reduced motion: keep fades that explain, drop movement ---------- */
 :root[data-motion='reduce'] .hub *, :root[data-motion='reduce'] .cg * { animation-duration: 0.01ms !important; animation-delay: 0ms !important; }
 @media (prefers-reduced-motion: reduce) {
-  .hub *, .cg *, .dockbar { animation: none !important; }
+  .hub *, .cg * { animation: none !important; }
   .mk__thumb, .slide__img { transition: none; }
 }
 @media (prefers-reduced-transparency: reduce) { .tag--glass { background: rgba(0, 0, 0, 0.6); -webkit-backdrop-filter: none; backdrop-filter: none; } }
 @media (min-width: 900px) {
   .hub__prompts, .mk, .show__track { margin-left: 0; margin-right: 0; }
   .quick { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+/* ---------- wide screens: the hub opens up - the count and the concierge side by side, the rails run wider ---------- */
+@media (min-width: 1024px) {
+  .hub { max-width: 1180px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 40px; align-content: start; padding-left: 24px; padding-right: 24px; }
+  .hub > * { grid-column: 1 / -1; min-width: 0; }
+  .hub__hero { grid-column: 1; align-self: end; }
+  .hub__ask { grid-column: 2; align-self: end; padding-bottom: 6px; }
+  .hub__num { font-size: clamp(120px, 10.5vw, 168px); }
+  .hub__unit { font-size: 30px; }
+  .ask { height: 64px; }
+  .hub .slidew { width: min(44%, 540px); }
+  .sect-head h2 { font-size: 26px; }
 }

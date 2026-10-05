@@ -7,7 +7,6 @@
 :root[data-theme='dark'] { --ambient: radial-gradient(70% 45% at 100% 0%, rgba(0, 255, 242, 0.12), rgba(0, 255, 242, 0) 70%), linear-gradient(180deg, #0d0d0f 0%, #0a0a0b 100%); }
 body[data-page='hub'], body[data-page='concierge'], body[data-page='service'], body[data-page='vr'], body[data-page='account'], body[data-page='shop'], body[data-page='shopcar'], body[data-page='home'] { background: var(--ambient) fixed; }
 body[data-page='hub'] .hub__glow, body[data-page='concierge'] .hub__glow { opacity: 0.85; }
-body[data-page='service']::after, body[data-page='vr']::after, body[data-page='account']::after { content: ''; position: fixed; z-index: 50; left: 0; right: 0; bottom: 0; height: calc(env(safe-area-inset-bottom) + 124px); pointer-events: none; background: linear-gradient(to top, #efeee9 35%, rgba(239, 238, 233, 0)); }
 
 /* ---------- pointer light on pills and tiles (mouse only), arrows nudge forward ---------- */
 .pill, .qtile, .notch-btn, .svc, .talk__card, .vrc, .slot, .chip2 { position: relative; isolation: isolate; overflow: hidden; }
@@ -256,7 +255,6 @@ textarea.ff__input { height: auto; min-height: 112px; padding-top: 26px; resize:
 .mine__list--pad { padding: 0 18px; }
 
 /* ---------- page transitions (View Transitions API) ---------- */
-.dockbar { view-transition-name: dock; }
 ::view-transition-old(root) { animation: vt-out 220ms var(--ease-out) both; }
 ::view-transition-new(root) { animation: vt-in 360ms var(--ease-out) both; }
 ::view-transition-group(dock) { animation-duration: 0ms; }
@@ -267,20 +265,3 @@ textarea.ff__input { height: auto; min-height: 112px; padding-top: 26px; resize:
   .svc, .way, .vr-grid .scw, .acct__sheet, .acct__brand, .acct__img, .sdone__tick, .prof__av { animation: none !important; }
   .sg__thumb, .ff__label, .trow i::after { transition: none; }
 }
-
-/* ---------- landing: the lock floats free on the ambient background, glass rings instead of grey halos ---------- */
-.xh { background: transparent; }
-.xh__foot { height: calc(150px * var(--s) + env(safe-area-inset-bottom) + 70px); }
-.xh__lockwrap { bottom: calc(env(safe-area-inset-bottom) + 44px); }
-.xh__locksvg { filter: drop-shadow(0 18px 28px rgba(10, 10, 11, 0.2)); }
-.xh__halo1 { fill: rgba(255, 255, 255, 0.55); stroke: rgba(255, 255, 255, 0.9); stroke-width: 0.6; }
-.xh__halo2 { fill: #ffffff; }
-.xh__core { fill: #0a0a0b; }
-.xh__hold { stroke: var(--acc); stroke-width: 3.5; }
-.xh__lockicon { color: var(--acc); }
-.xh__hint { top: calc(100% + 14px); color: var(--ink-2); font-size: 10.5px; font-weight: 600; letter-spacing: 0.2em; }
-.xh__lock.is-holding + .xh__hint { color: var(--ink); }
-:root[data-theme='dark'] .xh__halo1 { fill: rgba(255, 255, 255, 0.06); stroke: rgba(255, 255, 255, 0.12); }
-:root[data-theme='dark'] .xh__halo2 { fill: #17171a; }
-:root[data-theme='dark'] .xh__core { fill: #000; }
-:root[data-theme='dark'] .xh__lockicon { color: var(--acc); }

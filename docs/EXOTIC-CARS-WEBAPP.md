@@ -18,18 +18,19 @@ The stock was imported from the client's own website (`exoticcars.ae`) with the 
 
 ## 2. Pages and screens
 
-The app is a single page with a hash router. There are four routes and four dock panels.
+The app is a single page with a hash router. The landing screen opens onto Home; Home, Service, the concierge, VR and the account share the bottom **dock**.
 
-| Route / panel | Screen | What the customer does |
+| Route | Screen | What the customer does |
 | --- | --- | --- |
-| `#/` | **Home** | Sees "Your car, your way.", the stock count, a "Browse the collection" button, a row of brand marks, and the floating **dock** (Shop, Service, VR, Settings, Sign in). |
+| `#/` | **Landing** | Sees the EXOTIC wordmark, Dubai time, and a Ferrari, Bugatti or McLaren from stock on a spotlit 3D turntable (make above, model and year below). Turns the car by dragging the knob along the ring. Reads today's stock in three figures (cars for sale, makes, cars in 3D). Presses and holds the orb to enter, or taps **Showroom** at the top to go straight in. |
+| `#/home` | **Home** | Greeting, the number of cars for sale, the concierge prompt, featured cars by make, shop by make, a make spotlight, new arrivals, body styles and recently sold. |
 | `#/shop` | **Shop** | Switches between New arrival, Cars for sale and Previously sold. Searches by make or model. Filters by make, model, minimum year and maximum year. Scrolls a list of car cards. Cards with a matching 3D model show a **3D** chip. |
 | `#/shop/<id>` | **Car detail** | Swipes through the photo gallery (for example 1 / 24), sees brand, title, price, and specs (year, mileage, engine, power, transmission, body, exterior, interior). Can book a viewing, or open the 3D configurator when one exists. |
 | `#/shop/<id>/configure` | **Configurator** | Full-screen 3D view of the car with floating controls (section 3). Opened only for cars with a verified 3D model. |
-| Dock: Service | **Service appointment** (bottom sheet) | Chooses a service, vehicle, date, time, and gives name, phone, email and notes. |
-| Dock: VR | **VR & AR viewer** (bottom sheet) | Picks a car and launches a full-screen viewer that supports a VR headset or AR on a phone. |
-| Dock: Settings | **Settings** (bottom sheet) | Toggles dark appearance, hide prices and reduce motion. Can clear saved data. |
-| Dock: Sign in | **Sign in** (bottom sheet) | Enters a name and email. No password. Details stay in the browser. |
+| `#/service` | **Service** | Chooses a service, vehicle, date and time, and gives name, phone, email and notes. |
+| `#/concierge` | **AI concierge** | Asks for a car in plain words and gets matching cars from stock. |
+| `#/vr` | **VR & AR viewer** | Picks a car and launches a full-screen viewer that supports a VR headset or AR on a phone. |
+| `#/account` | **Account** | Signs in with a name and email (no password; details stay in the browser) and changes settings. |
 
 **Appointment services:** Test drive · Service & maintenance · Wheel & aero fitting · Paint protection & detailing · Configuration consultation.
 **Appointment times:** 09:00, 10:00, 11:00, 12:00, 14:00, 15:00, 16:00, 17:00. The date cannot be earlier than today.
@@ -114,7 +115,8 @@ Nothing is sent to a server. The browser stores:
 - **Look:** light theme with a dark option, black ink, glass-effect floating controls, generous whitespace and no heavy text.
 - **Typeface:** Jost.
 - **Icons:** Lucide.
-- **Dock:** a magnifying dock ported from a React/Motion component to plain JavaScript. Icons swell near the pointer and settle with a spring.
+- **Dock:** a graphite glass capsule. The selected item opens into a signal-cyan pill with its name, lit from within, and its light spills onto the page around the dock. The highlight travels on springs (its leading edge is thrown, the trailing edge follows), icons swell toward a mouse pointer, and a thumb can slide along the dock to choose (a label rides above it). Scrolling down tucks the dock behind a small handle. Arrow keys move between items. On the smallest phones (320px wide) the names move into tooltips.
+- **Selected states:** every selected control (dock, tabs, chips, segmented controls, time slots) uses the same cyan fill with a rim and a two-stage glow; unselected siblings step back.
 - **Motion:** spring-like growth on selected buttons and dots, staggered entrance of option dots, a pulse on the "Active" chip when it changes, swipe-to-confirm with spring-back. A "reduce motion" setting calms all of it.
 - **Mobile-first:** designed at 390 × 844. On wider screens the controls scale up.
 

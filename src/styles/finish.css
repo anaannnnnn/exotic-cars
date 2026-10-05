@@ -1,14 +1,22 @@
 /* ==========================================================================
-   Finish: the last layer. One "selected" language everywhere (signal cyan with a contained glow), the dock as a
-   polished object with a cyan glass bead, crisp type, image edges, focus rings. Values follow better-ui: press 0.96,
-   named transition properties, icon cross-fade scale 0.25 / blur 4px, 1px image outlines. Loaded last.
+   Finish: one "selected" language everywhere - the same radiance as the dock's lens. A selected control is filled
+   with signal cyan lit from the top left, carries a bright lip and a deeper base, a 1px cyan rim and a two-stage
+   bloom (12px close, 28px wide) so it lifts off the page; whatever is not selected steps back. Crisp type, image
+   edges, focus rings. Values follow better-ui: press 0.96, named transition properties, 1px image outlines.
    ========================================================================== */
 :root {
-  --acc-deep: #00c9bf;
-  --sel-ink: #04120f;                     /* text and icons sitting on signal cyan */
-  --glow: 0 0 0 1px rgba(0, 255, 242, 0.55), 0 6px 18px -6px rgba(0, 210, 200, 0.75), 0 0 22px -8px rgba(0, 255, 242, 0.7);
-  --glow-sm: 0 0 0 1px rgba(0, 255, 242, 0.5), 0 4px 12px -5px rgba(0, 210, 200, 0.7);
-  --sel-fill: linear-gradient(180deg, #5ffff7 0%, #00fff2 45%, #00e3d8 100%);
+  --acc-deep: #00c4b9;
+  --sel-ink: #04120f;                     /* text and icons sitting on signal cyan (contrast about 16:1) */
+  --sel-fill:
+    radial-gradient(120% 160% at 26% -10%, rgba(255, 255, 255, 0.8) 0%, rgba(255, 255, 255, 0) 42%),
+    linear-gradient(180deg, #6bfff8 0%, #00fff2 46%, #00e6da 78%, #00c4b9 100%);
+  --glow:
+    inset 0 1px 0.5px rgba(255, 255, 255, 0.9), inset 0 -3px 7px rgba(0, 92, 86, 0.3),
+    0 0 0 1px rgba(0, 255, 242, 0.68), 0 0 12px rgba(0, 255, 242, 0.5), 0 0 28px rgba(0, 255, 242, 0.26), 0 8px 18px -6px rgba(0, 196, 185, 0.7);
+  --glow-sm:
+    inset 0 1px 0.5px rgba(255, 255, 255, 0.85),
+    0 0 0 1px rgba(0, 255, 242, 0.62), 0 0 10px rgba(0, 255, 242, 0.42), 0 5px 12px -5px rgba(0, 196, 185, 0.65);
+  --recede: 0.62;                          /* how far unselected siblings step back */
 }
 
 /* ---------- type: crisp rendering, confident headings, steady numerals ---------- */
@@ -18,33 +26,37 @@ h1, h2, h3, .sect-head h2, .shop__title, .spot__head h2, .bb__txt h2, .slide__ti
 .hub__num { font-weight: 300; letter-spacing: -0.065em; }
 .hub__unit { font-weight: 550; }
 .shop__title { font-weight: 650; }
-.scard__price, .ncard__price, .shop__count, .hub__date, .show__count, .xh__time { font-variant-numeric: tabular-nums; }
+.scard__price, .ncard__price, .shop__count, .hub__date, .show__count { font-variant-numeric: tabular-nums; }
 
 /* ---------- images: a hairline edge for depth (black in light, white in dark) ---------- */
 .scard__img img, .ncard__img img, .slide__img, .body-t img, .vrc__img img, .gal__slide img { outline: 1px solid rgba(0, 0, 0, 0.1); outline-offset: -1px; }
 :root[data-theme='dark'] :is(.scard__img img, .ncard__img img, .slide__img, .body-t img, .vrc__img img, .gal__slide img) { outline-color: rgba(255, 255, 255, 0.1); }
 
 /* ---------- focus: one visible ring for keyboards, never for taps ---------- */
-:where(a, button, input, select, textarea, [role='tab'], [role='radio'], [tabindex]):focus-visible { outline: 2px solid #0a0a0b; outline-offset: 3px; box-shadow: 0 0 0 6px rgba(0, 255, 242, 0.35); }
+:where(a, button, input, select, textarea, [role='tab'], [role='radio'], [tabindex]):focus-visible { outline: 2px solid #0a0a0b; outline-offset: 3px; box-shadow: 0 0 0 6px rgba(0, 255, 242, 0.32), 0 0 18px rgba(0, 255, 242, 0.35); }
 :root[data-theme='dark'] :where(a, button, input, select, textarea, [role='tab'], [role='radio'], [tabindex]):focus-visible { outline-color: #fff; }
 
 /* ---------- selected = signal cyan with a contained glow, everywhere ---------- */
 /* liquid tabs (shop stock tabs) */
 .lq--ink .lq__thumb { background: var(--sel-fill); box-shadow: var(--glow); }
-.lq--ink .lq__item[aria-selected='true'] { color: var(--sel-ink); font-weight: 600; }
+.lq--ink .lq__item[aria-selected='true'] { color: var(--sel-ink); font-weight: 650; }
 /* make tabs keep the make's own colours, with a glow in that colour */
 .lq--brand[style*='--b-bg'] .lq__thumb { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 0 0 1px color-mix(in srgb, var(--b-bg) 60%, transparent), 0 8px 20px -6px var(--b-bg); }
 .lq--brand:not([style*='--b-bg']) .lq__thumb { background: var(--sel-fill); box-shadow: var(--glow); }
 .lq--brand:not([style*='--b-bg']) .lq__item[aria-selected='true'] { color: var(--sel-ink); }
 .lq--brand .lq__item[aria-selected='true'] { font-weight: 600; }
-/* home: featured make chips */
+/* home: featured make chips - the selected chip glows, the rest step back */
 .mk__thumb { background: var(--sel-fill); box-shadow: var(--glow); }
-.mk__item[aria-selected='true'] { color: var(--sel-ink); font-weight: 600; }
+.mk__item { color: color-mix(in srgb, var(--ink) 72%, transparent); transition-property: color, background-color, scale, box-shadow; }
+.mk__item[aria-selected='true'] { color: var(--sel-ink); font-weight: 650; }
+@media (hover: hover) and (pointer: fine) { .mk__item:not([aria-selected='true']):hover { color: var(--ink); box-shadow: var(--shadow-2); } }
 /* segmented controls (service, vr, account) */
 .sg__thumb { background: var(--sel-fill); box-shadow: var(--glow); }
-.sg__item[aria-selected='true'] { color: var(--sel-ink); font-weight: 600; }
+.sg__item[aria-selected='true'] { color: var(--sel-ink); font-weight: 650; }
+.sg__item:not([aria-selected='true']), .lq--ink .lq__item:not([aria-selected='true']) { opacity: var(--recede); transition-property: opacity, color; transition-duration: 150ms; }
+@media (hover: hover) and (pointer: fine) { .sg__item:not([aria-selected='true']):hover, .lq--ink .lq__item:not([aria-selected='true']):hover { opacity: 1; } }
 /* chips, slots, switches */
-.chip2[aria-pressed='true'] { background: var(--sel-fill); color: var(--sel-ink); box-shadow: var(--glow-sm); font-weight: 600; }
+.chip2[aria-pressed='true'] { background: var(--sel-fill); color: var(--sel-ink); box-shadow: var(--glow-sm); font-weight: 650; }
 .slot[aria-checked='true'] { background: var(--sel-fill); color: var(--sel-ink); box-shadow: var(--glow-sm); }
 .trow input:checked + i { background: #0a0a0b; box-shadow: 0 0 0 1px rgba(0, 255, 242, 0.45), 0 4px 12px -4px rgba(0, 210, 200, 0.6); }
 /* slideshow progress fills in cyan */
@@ -57,52 +69,3 @@ h1, h2, h3, .sect-head h2, .shop__title, .spot__head h2, .bb__txt h2, .slide__ti
 
 /* press: one tactile value */
 :is(.pill, .lq__item, .mk__item, .sg__item, .slot, .chip2, .fchip, .tb__btn, .circle-btn, .hub__icon, .prompt, .cta, .ghost):active { scale: 0.96; }
-
-/* ==========================================================================
-   The dock as an object: graphite body with a light rim, quiet wells, a cyan glass bead under the selected icon
-   ========================================================================== */
-.ld__body { filter: drop-shadow(0 -0.6px 0 rgba(255, 255, 255, 0.28)) drop-shadow(0 1px 1px rgba(10, 10, 11, 0.35)) drop-shadow(0 18px 26px rgba(10, 10, 11, 0.3)); }
-.ld__well { background: rgba(255, 255, 255, 0.045); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), inset 0 -1px 0 rgba(0, 0, 0, 0.3); }
-.ld__core { background: radial-gradient(60% 46% at 38% 26%, rgba(255, 255, 255, 0.62), rgba(255, 255, 255, 0) 70%); mix-blend-mode: screen; }
-.ld__core::after { content: none; }
-.ld__gloss { fill: rgba(255, 255, 255, 0.85); }
-/* icons: quiet white by default; dark and a touch bolder only where the bead actually is */
-.ld__btn { color: rgba(255, 255, 255, 0.74); transition-property: color, scale; transition-duration: 150ms; }
-.ld__btn svg { stroke-width: 1.6; transition-property: scale, stroke-width; transition-duration: 300ms; }
-.ld__btn[aria-current] { color: rgba(255, 255, 255, 0.74); }
-.ld__btn.is-lit, .ld__btn.is-lit[aria-current] { color: var(--sel-ink); }
-.ld__btn.is-lit svg { stroke-width: 2.1; scale: 1.06; }
-.ld__btn.is-lit .ld__avatar { background: #0a0a0b; color: var(--acc); }
-.ld.is-scrub .ld__btn:not(.is-over):not(.is-lit) { color: rgba(255, 255, 255, 0.45); }
-.ld.is-scrub .ld__btn.is-over { color: var(--sel-ink); }
-@media (hover: hover) and (pointer: fine) { .ld__btn:not(.is-lit):hover { color: #fff; } }
-/* the riding label */
-.ld__tag {
-  position: absolute; left: 0; top: -34px; z-index: 3; pointer-events: none; white-space: nowrap;
-  font-size: 11px; font-weight: 650; letter-spacing: 0.02em; color: var(--sel-ink);
-}
-.ld__tag::before { content: ''; position: absolute; inset: -5px -10px; border-radius: var(--pill); background: var(--sel-fill); box-shadow: var(--glow-sm), 0 8px 18px -8px rgba(10, 10, 11, 0.4); z-index: -1; }
-.ld__tag { translate: -50% 0; opacity: 0; scale: 0.25; filter: blur(4px); transition-property: opacity, scale, filter; transition-duration: 220ms; transition-timing-function: cubic-bezier(0.2, 0, 0, 1); transform-origin: 50% 100%; }
-.ld__tag.is-on { opacity: 1; scale: 1; filter: blur(0); }
-.ld__ripple { border-color: rgba(0, 255, 242, 0.7); }
-.ld-handle { box-shadow: 0 10px 24px -10px rgba(10, 10, 11, 0.55), inset 0 0.6px 0 rgba(255, 255, 255, 0.25); }
-.ld-handle__ic { background: var(--sel-fill); color: var(--sel-ink); box-shadow: var(--glow-sm); }
-
-/* ==========================================================================
-   Landing - the final spark, kept quiet: a graphite wordmark, a glow that belongs to the orb only while it is held
-   ========================================================================== */
-.xh__brand { background: linear-gradient(180deg, #3a3a3f 0%, #0b0b0c 55%, #000 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
-:root[data-theme='dark'] .xh__brand { background: linear-gradient(180deg, #fff, #bdbdc2); -webkit-background-clip: text; background-clip: text; }
-/* the held orb glows from within its own ring, growing with the hold, never past it */
-.xh__locksvg { filter: drop-shadow(0 16px 22px rgba(28, 22, 14, 0.2)) drop-shadow(0 2px 3px rgba(28, 22, 14, 0.12)) drop-shadow(0 0 calc(var(--p, 0) * 14px) rgba(0, 255, 242, calc(var(--p, 0) * 0.55))); }
-.xh__lock.is-holding .xh__core, .xh__lock.is-open .xh__core { stroke: rgba(0, 255, 242, 0.5); stroke-width: calc(var(--p, 0) * 1.4); }
-/* the turntable knob lights while it is being turned */
-.xh__turn.is-drag .xh__pill { box-shadow: var(--glow-sm); }
-.xh__pill { transition-property: scale, box-shadow, background-color; transition-duration: 160ms; }
-/* the car caption cross-fades in when the car changes */
-.xh__car span, .xh__car em { animation: cap-in 420ms cubic-bezier(0.2, 0, 0, 1) both; }
-@keyframes cap-in { from { opacity: 0; filter: blur(4px); } }
-
-@media (prefers-reduced-motion: reduce) {
-  .ld__tag, .xh__car span, .xh__car em { transition: none; animation: none; filter: none; }
-}

@@ -212,17 +212,6 @@ select, textarea, input { font: inherit; color: inherit; }
 /* ---------- toast ---------- */
 #toast { border-radius: var(--radius) !important; font-size: 13px !important; padding: 8px 14px !important; }
 
-/* ==========================================================================
-   Home: everything smaller so the car, not the controls, holds the screen
-   ========================================================================== */
-.xh__brand { font-size: clamp(34px, 12.5vw, 72px); }
-.xh__head { padding-top: calc(env(safe-area-inset-top) + 12dvh); gap: 8px; }
-.xh__car { font-size: 11px; letter-spacing: 0.14em; }
-.xh__hold { stroke: var(--acc); }
-.xh__pill { width: 15px; height: 22px; }
-.xh__pill svg { width: 10px; height: 10px; }
-.xh__tip { border-radius: var(--r-sm); }
-.xh__hint { font-size: 9.5px; }
 
 /* ==========================================================================
    Configurator: small, submenu-sized controls so the car gets the screen

@@ -53,37 +53,6 @@ img { -webkit-user-drag: none; }
 /* the account page's dark hero runs under its own header */
 .acct .phead::before { background: rgba(10, 10, 11, 0.55); box-shadow: none; }
 
-/* ---------- liquid dock: hide/handle, scrub, ripple, gloss, breathing core ---------- */
-.ldw { position: relative; display: grid; justify-items: center; }
-.ld { transition: translate 560ms var(--spring), opacity 280ms var(--ease-out), scale 560ms var(--spring); transform-origin: 50% 100%; }
-.ldw.is-hidden .ld { translate: 0 calc(100% + 30px + env(safe-area-inset-bottom)); opacity: 0; scale: 0.7; pointer-events: none; transition-duration: 380ms, 220ms, 380ms; transition-timing-function: cubic-bezier(0.4, 0, 0.8, 0.4); }
-.ld-handle {
-  position: absolute; bottom: 4px; display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px 0 6px; border-radius: var(--pill);
-  background: #0a0a0b; color: var(--acc); box-shadow: 0 10px 24px -10px rgba(10, 10, 11, 0.55), inset 0 0 0 1px rgba(0, 255, 242, 0.25);
-  opacity: 0; translate: 0 24px; scale: 0.6; pointer-events: none;
-  transition: opacity 240ms var(--ease-out), translate 520ms var(--spring), scale 520ms var(--spring);
-}
-.ldw.is-hidden .ld-handle { opacity: 1; translate: 0 0; scale: 1; pointer-events: auto; transition-delay: 120ms; }
-.ld-handle:active { scale: 0.92; }
-.ld-handle__ic { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: rgba(0, 255, 242, 0.12); }
-.ld-handle__ic svg { width: 16px; height: 16px; stroke-width: 1.8; }
-.ld-handle__ic .ld__avatar { width: 24px; height: 24px; font-size: 12px; }
-.ld-handle__bar { width: 22px; height: 4px; border-radius: 2px; background: currentColor; opacity: 0.85; }
-body.dock-off::after { opacity: 0; }
-body[data-page]::after { transition: opacity 300ms var(--ease-out); }
-
-.ld__gloss { fill: rgba(255, 255, 255, 0.75); pointer-events: none; }
-.ld__core::after { content: ''; position: absolute; inset: -3px; border-radius: 50%; box-shadow: 0 0 14px 2px rgba(0, 255, 242, 0.55); opacity: 0.35; animation: ld-breathe 2.8s ease-in-out infinite; }
-@keyframes ld-breathe { 50% { opacity: 0.9; } }
-.ld__ripple { position: absolute; top: 50%; translate: 0 -50%; border-radius: 50%; pointer-events: none; border: 2px solid var(--acc); animation: ld-ripple 620ms cubic-bezier(0.2, 0.7, 0.2, 1) forwards; }
-@keyframes ld-ripple { from { scale: 0.7; opacity: 0.9; } to { scale: 1.9; opacity: 0; } }
-.ld__btn svg { transition: scale 300ms var(--spring), translate 300ms var(--spring); }
-.ld__btn.is-over svg, .ld__btn:active svg { scale: 1.22; }
-.ld__btn[aria-current] svg { scale: 1.08; }
-.ld.is-scrub .ld__btn:not(.is-over) { color: rgba(255, 255, 255, 0.5); }
-.ld.is-scrub .ld__btn.is-over { color: var(--acc); }
-.ld__btn:active { scale: 1; }
-.dockbar { bottom: calc(env(safe-area-inset-bottom) + 10px); }
 
 /* ---------- review fixes ---------- */
 /* service time slots: centre the time in its pill and keep it on one line at any width */
@@ -109,11 +78,11 @@ body[data-page]::after { transition: opacity 300ms var(--ease-out); }
 
 /* ---------- motion preferences ---------- */
 @media (prefers-reduced-motion: reduce) {
-  .tap, .ld__ripple, .ld__core::after { animation: none !important; }
+  .tap { animation: none !important; }
   .rail2 > *, .show__track > * { scale: none; }
-  .ld, .ld-handle, .tb, .hub__top, .phead { transition-duration: 0ms !important; }
+  .tb, .hub__top, .phead { transition-duration: 0ms !important; }
 }
-:root[data-motion='reduce'] :is(.tap, .ld__ripple, .ld__core::after) { animation: none !important; }
+:root[data-motion='reduce'] .tap { animation: none !important; }
 
 /* fields size from their row, not from the browser's default 20-character width (which pushed the ask bar past a
    320px screen once its text went to 16px) */
@@ -131,19 +100,3 @@ body[data-page]::after { transition: opacity 300ms var(--ease-out); }
 :root[data-theme='dark'] .tb.is-stuck .tb__btn { background: rgba(255, 255, 255, 0.08); }
 :root[data-theme='dark'] .shop .scard, :root[data-theme='dark'] .ncard:not(.ncard--dark) { background: var(--card); }
 :root[data-theme='dark'] .lq__item[aria-selected='true'] { color: #fff; }
-
-/* ---------- dock: handle -> full dock, a proper grow with staggered pops ---------- */
-.ldw.is-show .ld { animation: ld-grow 640ms cubic-bezier(0.34, 1.5, 0.64, 1) both; }
-.ldw.is-show .ld__btn { animation: ld-pop 520ms cubic-bezier(0.34, 1.7, 0.64, 1) backwards; animation-delay: calc(140ms + var(--j, 0) * 55ms); }
-.ldw.is-show .ld__drop, .ldw.is-show .ld__core { animation: ld-fade 420ms ease-out 200ms backwards; }
-@keyframes ld-grow { 0% { clip-path: inset(30% 38% 0 38% round 999px); scale: 0.55 0.6; translate: 0 18px; opacity: 0.6; } 55% { clip-path: inset(0 0 0 0 round 999px); } 100% { clip-path: inset(0 0 0 0 round 999px); scale: 1; translate: 0 0; opacity: 1; } }
-@keyframes ld-pop { from { scale: 0.2; opacity: 0; } }
-@keyframes ld-fade { from { opacity: 0; } }
-.ldw.is-show .ld-handle { transition-delay: 0ms; }
-
-@media (prefers-reduced-motion: reduce) { .ldw.is-show .ld, .ldw.is-show .ld__btn { animation: none; } }
-
-/* ---------- dock gestures: the dock owns horizontal swipes (no page pan, no link callout or drag) ---------- */
-.ld { touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
-.ld__btn { -webkit-touch-callout: none; -webkit-user-drag: none; }
-.ld.is-scrub .ld__btn { transition-duration: 90ms; }
