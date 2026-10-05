@@ -18,7 +18,7 @@ export async function mountCarEditor(view, { id }, ctx) {
     car = c;
     makes = list.makes || [];
   } catch (e) {
-    view.replaceChildren(errorState(e, () => ctx.go(location.hash)));
+    view.replaceChildren(errorState(e, () => ctx.reload()));
     return;
   }
   view.replaceChildren();
@@ -54,7 +54,7 @@ export async function mountCarEditor(view, { id }, ctx) {
     region: select('region', REGIONS.map((b) => [b, b || '—']), base.region || ''),
     warranty: input('warranty', base.warranty, { maxlength: 60, placeholder: 'Dealer warranty until 2027' }),
     subtitle: input('subtitle', base.subtitle, { maxlength: 140, placeholder: 'One line under the title' }),
-    description: textarea('description', base.description, { maxlength: 4000, rows: 7, placeholder: 'History, options, service record…' }),
+    description: textarea('description', base.description, { maxlength: 20000, rows: 7, placeholder: 'History, options, service record…' }),
     video: input('video', base.video, { type: 'url', placeholder: 'https://youtube.com/…' }),
     url: input('url', base.url, { type: 'url', placeholder: 'https://exoticcars.ae/…' })
   };

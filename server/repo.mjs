@@ -181,9 +181,12 @@ export async function listProducts(q) {
   return { ...page(rows, q), vendors, imported: true };
 }
 
+/* the catalogue is a plain object keyed by product id: only its own keys are products ("constructor" is not) */
+const ownKey = (obj, id) => Boolean(obj) && Object.hasOwn(obj, id);
+
 export async function getProduct(id) {
   const doc = await readDoc('catalog', 'products');
-  const p = doc?.data[id];
+  const p = ownKey(doc?.data, id) ? doc.data[id] : null;
   if (!p) throw new HttpError(404, 'Not found', 'There is no product with that id.');
   return p;
 }
@@ -205,7 +208,7 @@ export async function createProduct(input) {
 export async function patchProduct(id, patch) {
   let updated;
   await updateDoc('catalog', 'products', (doc) => {
-    if (!doc[id]) throw new HttpError(404, 'Not found', 'There is no product with that id.');
+    if (!ownKey(doc, id)) throw new HttpError(404, 'Not found', 'There is no product with that id.');
     updated = { ...doc[id], ...patch, id, updatedAt: now() };
     if (patch.spec && doc[id].spec) updated.spec = { ...doc[id].spec, ...patch.spec };   /* keep fields the editor does not show */
     doc[id] = updated;
@@ -217,7 +220,7 @@ export async function patchProduct(id, patch) {
 
 export async function deleteProduct(id) {
   await updateDoc('catalog', 'products', (doc) => {
-    if (!doc[id]) throw new HttpError(404, 'Not found', 'There is no product with that id.');
+    if (!ownKey(doc, id)) throw new HttpError(404, 'Not found', 'There is no product with that id.');
     delete doc[id];
     return doc;
   });
@@ -226,34 +229,36 @@ export async function deleteProduct(id) {
 
 /* ======================================================================================== leads */
 /**
- * Claim a reference (EX-…, AA-…) before writing the record it names. A phone that sends the same request twice (a
- * retry after a dropped connection, the offline queue) gets the first record back instead of a duplicate.
+ * Write a lead or booking exactly once per reference (EX-…, AA-…). The reference is claimed first (onlyIfNew); a phone
+ * that sends the same request again (a retry after a dropped connection, the offline outbox) gets the first record back.
+ * If an earlier attempt claimed the reference but never wrote the record (it failed in between), this one writes it
+ * under the claimed id, so a retry can never be answered "received" while nothing is stored.
  */
-async function claimRef(kind, ref, id) {
-  const res = await store('crm').setJSON(`${kind}-refs/${ref}`, { id }, { onlyIfNew: true });
-  return res?.modified !== false;
-}
-async function byRef(kind, ref) {
-  const known = await getRecord('crm', `${kind}-refs/${ref}`);
-  return known && getRecord('crm', `${kind}s/${known.id}`);
+async function createOnce(kind, record) {
+  const refKey = `${kind}-refs/${record.ref}`;
+  let known = await getRecord('crm', refKey);
+  if (!known) {
+    const res = await store('crm').setJSON(refKey, { id: record.id }, { onlyIfNew: true });
+    if (res?.modified === false) known = await getRecord('crm', refKey);
+  }
+  if (known && known.id !== record.id) {
+    const existing = await getRecord('crm', `${kind}s/${known.id}`);
+    if (existing) return { ...existing, duplicate: true };
+    record = { ...record, id: known.id };
+  }
+  await putRecord('crm', `${kind}s/${record.id}`, record);
+  return record;
 }
 
 export async function createLead(input, customer) {
   const { website, ref, ...data } = input;
-  if (ref) {
-    const existing = await byRef('lead', ref);
-    if (existing) return { ...existing, duplicate: true };
-  }
   const at = now();
-  const lead = {
+  return createOnce('lead', {
     id: newId(), ref: ref || newRef('EX'), status: 'new', ...data,
     value: data.configuration?.total ?? null,
     customerId: customer?.sub || null,
     notes: [], history: [{ at, status: 'new' }], createdAt: at, updatedAt: at
-  };
-  if (!(await claimRef('lead', lead.ref, lead.id))) return { ...((await byRef('lead', lead.ref)) || lead), duplicate: true };
-  await putRecord('crm', `leads/${lead.id}`, lead);
-  return lead;
+  });
 }
 
 async function all(prefix) {
@@ -303,15 +308,8 @@ export async function deleteLead(id) {
 /* ======================================================================================== appointments */
 export async function createAppointment(input, customer) {
   const { website, ref, ...data } = input;
-  if (ref) {
-    const existing = await byRef('appointment', ref);
-    if (existing) return { ...existing, duplicate: true };
-  }
   const at = now();
-  const appt = { id: newId(), ref: ref || newRef('AA'), status: 'requested', ...data, customerId: customer?.sub || null, staffNotes: [], history: [{ at, status: 'requested' }], createdAt: at, updatedAt: at };
-  if (!(await claimRef('appointment', appt.ref, appt.id))) return { ...((await byRef('appointment', appt.ref)) || appt), duplicate: true };
-  await putRecord('crm', `appointments/${appt.id}`, appt);
-  return appt;
+  return createOnce('appointment', { id: newId(), ref: ref || newRef('AA'), status: 'requested', ...data, customerId: customer?.sub || null, staffNotes: [], history: [{ at, status: 'requested' }], createdAt: at, updatedAt: at });
 }
 
 export async function listAppointments(q) {
@@ -354,9 +352,12 @@ export async function deleteAppointment(id) {
   await audit('appointment.delete', { id });
 }
 
-/** A customer's own bookings, for "My requests" across devices. */
-export async function appointmentsFor(customerIdValue, emailValue) {
-  return (await all('appointments/')).filter((a) => a.customerId === customerIdValue || (emailValue && a.email === emailValue))
+/**
+ * A customer's own bookings, for "My requests" across devices: only those made while signed in to this account.
+ * Never matched by email - an address typed into a guest booking proves nothing about who later registers it.
+ */
+export async function appointmentsFor(customerIdValue) {
+  return (await all('appointments/')).filter((a) => a.customerId === customerIdValue)
     .map(({ staffNotes, history, ...a }) => a);
 }
 

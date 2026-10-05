@@ -46,7 +46,7 @@ export async function send(kind, payload) {
     flush();
     return { ref: body.ref, sent: true };
   } catch (e) {
-    if (e instanceof ApiError && !unavailable(e) && e.status !== 429) throw e;
+    if (e instanceof ApiError && !unavailable(e)) throw e;   /* refused (invalid, or too many requests): the form says why */
     write([...read().filter((x) => x.payload.ref !== body.ref), { kind, payload: body, at: Date.now() }]);
     return { ref: body.ref, sent: false };
   }

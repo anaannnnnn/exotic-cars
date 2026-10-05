@@ -103,19 +103,40 @@ export async function deleteRecord(storeName, key) {
 }
 
 /* ---------- rate limits: fixed windows per client address ---------- */
-export async function rateLimit(bucket, ip, { limit, windowSeconds }) {
-  const who = createHash('sha256').update(`${bucket}:${ip}`).digest('hex').slice(0, 32);
+/* an IPv6 client controls a whole /64, so count the /64, not the address */
+export function clientKey(ip) {
+  const s = String(ip || '').replace(/^::ffff:/, '');
+  if (!s.includes(':')) return s;
+  const [head, tail = ''] = s.split('::');
+  const left = head ? head.split(':') : [];
+  const right = tail ? tail.split(':') : [];
+  const full = [...left, ...Array(Math.max(0, 8 - left.length - right.length)).fill('0'), ...right];
+  return `${full.slice(0, 4).map((x) => x.toLowerCase().replace(/^0+(?=.)/, '')).join(':')}::/64`;
+}
+
+/**
+ * Count one attempt and refuse with 429 past the limit. The count is a compare-and-set (onlyIfNew / onlyIfMatch) with
+ * retries, plus the same per-key queue as updateDoc, so parallel attempts cannot all read the same count.
+ */
+export function rateLimit(bucket, ip, { limit, windowSeconds }) {
+  const who = createHash('sha256').update(`${bucket}:${clientKey(ip)}`).digest('hex').slice(0, 32);
   const key = `rl/${bucket}/${who}`;
-  const now = Math.floor(Date.now() / 1000);
-  const cur = (await store('system').get(key, { type: 'json' })) || { start: now, count: 0 };
-  const fresh = now - cur.start >= windowSeconds;
-  const next = fresh ? { start: now, count: 1 } : { start: cur.start, count: cur.count + 1 };
-  await store('system').setJSON(key, next);
-  if (next.count > limit) {
-    const retryAfter = Math.max(1, next.start + windowSeconds - now);
-    await audit('rate-limited', { bucket });
-    throw new HttpError(429, 'Too many requests', 'Too many attempts. Please wait a few minutes and try again.', { retryAfter });
-  }
+  return serial(`system/${key}`, async () => {
+    for (let attempt = 0; attempt < 6; attempt++) {
+      const now = Math.floor(Date.now() / 1000);
+      const cur = await store('system').getWithMetadata(key, { type: 'json' });
+      const data = cur?.data;
+      const next = !data || now - data.start >= windowSeconds ? { start: now, count: 1 } : { start: data.start, count: data.count + 1 };
+      const res = await store('system').setJSON(key, next, !cur ? { onlyIfNew: true } : cur.etag ? { onlyIfMatch: cur.etag } : {});
+      if (res?.modified === false) continue;   /* someone else counted first: count again on top of theirs */
+      if (next.count > limit) {
+        await audit('rate-limited', { bucket });
+        throw new HttpError(429, 'Too many requests', 'Too many attempts. Please wait a few minutes and try again.', { retryAfter: Math.max(1, next.start + windowSeconds - now) });
+      }
+      return;
+    }
+    throw new HttpError(429, 'Too many requests', 'Too many attempts at once. Please wait a moment and try again.', { retryAfter: 5 });
+  });
 }
 
 /* ---------- audit log ---------- */

@@ -8,8 +8,10 @@ const str = (max, min = 0) => z.string({ required_error: 'Required', invalid_typ
   .min(min, min <= 1 ? 'Required' : `Use at least ${min} characters`).max(max, `Keep it under ${max} characters`);
 /* an empty string clears a field (null); a missing key stays missing, so a partial update never wipes other fields */
 const optStr = (max) => z.string().trim().max(max).optional().nullable().transform((v) => (v === undefined ? undefined : v || null));
-export const safeUrl = z.string().trim().max(2048).refine((v) => /^https:\/\/[^\s<>"']+$/i.test(v) || /^\/api\/v1\/media\/[a-z0-9-]+$/i.test(v), 'Must be an https:// link or an uploaded photo');
-const optUrl = safeUrl.optional().nullable();
+/* links are only ever set through the DOM (href/src properties), never written into HTML, so an apostrophe is fine */
+export const safeUrl = z.string().trim().max(2048).refine((v) => /^https:\/\/[^\s<>"]+$/i.test(v) || /^\/api\/v1\/media\/[a-z0-9-]+$/i.test(v), 'Must be an https:// link or an uploaded photo');
+/* an emptied link field clears the link */
+const optUrl = z.union([safeUrl, z.literal('')]).optional().nullable().transform((v) => (v === undefined ? undefined : v || null));
 const phone = str(32, 6).refine((v) => v.replace(/\D/g, '').length >= 7, 'Enter a phone number we can reach');
 const email = z.string().trim().toLowerCase().max(254).email('Enter a valid email address');
 const optEmail = z.union([email, z.literal('')]).optional().nullable().transform((v) => (v === undefined ? undefined : v || null));
@@ -34,7 +36,7 @@ export const carFields = {
   doors: z.coerce.number().int().min(0).max(6).optional().nullable(),
   region: optStr(20),
   warranty: optStr(60),
-  description: optStr(4000),
+  description: optStr(20000),   /* imported listings run to 10,000+ characters */
   subtitle: optStr(140),
   newArrival: z.boolean().optional(),
   featured: z.boolean().optional(),

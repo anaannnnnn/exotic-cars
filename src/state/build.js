@@ -155,6 +155,10 @@ export function toShare(state) {
   return b64.enc(JSON.stringify(compact));
 }
 
+/* a shared link is untrusted input: colours end up in style attributes, so only plain #rrggbb gets through */
+const HEX = /^#[0-9a-f]{6}$/i;
+const unit = (x, fallback) => (typeof x === 'number' && x >= 0 && x <= 1 ? x : fallback);
+
 export function fromShare(hash) {
   try {
     const c = JSON.parse(b64.dec(hash));
@@ -164,12 +168,14 @@ export function fromShare(hash) {
       ...d,
       vehicleId: c.v,
       modelUid: typeof c.m === 'string' ? c.m : null,
-      paint: c.p && typeof c.p.color === 'string' ? { ...d.paint, ...c.p } : d.paint,
+      paint: c.p && typeof c.p.color === 'string' && HEX.test(c.p.color)
+        ? { preset: typeof c.p.preset === 'string' ? c.p.preset : null, color: c.p.color, roughness: unit(c.p.roughness, d.paint.roughness), metalness: unit(c.p.metalness, d.paint.metalness) }
+        : d.paint,
       caliper: typeof c.c === 'string' ? c.c : d.caliper,
       tint: !!c.t,
       wheels: Array.isArray(c.w) ? c.w.filter((x) => x && typeof x.id === 'string').map((x) => ({ id: x.id, qty: Math.max(1, Math.min(8, x.qty | 0 || 1)) })) : [],
       kits: Array.isArray(c.k) ? c.k.filter((x) => typeof x === 'string') : [],
-      wheelColor: typeof c.wc === 'string' ? c.wc : null
+      wheelColor: typeof c.wc === 'string' && HEX.test(c.wc) ? c.wc : null
     };
   } catch { return null; }
 }

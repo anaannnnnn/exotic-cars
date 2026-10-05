@@ -92,10 +92,10 @@ Collections take `limit`/`offset` (and `q`, `status`, `make`, `category` filters
 | Concern | Control |
 | --- | --- |
 | Staff authentication | `ADMIN_EMAIL` plus `ADMIN_PASSWORD_HASH` (scrypt, made with `npm run admin:hash`) or `ADMIN_PASSWORD`; constant-time comparison; generic error messages. |
-| Brute force | Per-IP rate limits: staff login 8 per 15 min, customer login and registration 10 per 15 min, public forms 20 per hour. Returns 429 with `Retry-After`. |
+| Brute force | Per-client rate limits (an IPv6 client counts by its /64): staff login 8 per 15 min, customer login and registration 10 per 15 min, public forms 20 per hour. The counter is a compare-and-set, so parallel attempts are all counted. Returns 429 with `Retry-After`. |
 | Sessions | HMAC-SHA-256 signed with `SESSION_SECRET` (32+ characters, required). Cookie is `HttpOnly; Secure; SameSite=Strict; Path=/`. Tokens expire, and signatures are checked in constant time. |
 | CSRF | SameSite=Strict cookies, and every mutating request must carry a same-origin `Origin` header. |
-| Authorisation | Every `/admin/*` route goes through `requireStaff`. Customer routes only ever read the session's own record. |
+| Authorisation | Every `/admin/*` route goes through `requireStaff`. Customer routes only ever read the session's own record: bookings are matched by account, never by a typed email, and a session only counts for the account that issued it (an older session does not carry over to a re-registered email). |
 | Input validation | Zod schemas on every body and query: lengths, enums, integer ranges, and URL schemes limited to `https:` or `/api/v1/media/`. Unknown keys are stripped. A honeypot field on public forms. |
 | Output encoding | Both front ends build the DOM with `textContent` only and never `innerHTML` with data. CSV export guards against formula injection (`=`, `+`, `-`, `@`). |
 | Data exposure | Public stock omits hidden cars. Password hashes and staff notes never leave staff endpoints. Errors never echo raw input. |
@@ -117,3 +117,5 @@ Collections take `limit`/`offset` (and `q`, `status`, `make`, `category` filters
 - **Fitment from the CRM.** A product with `fits` (catalogue vehicle ids) is listed as a direct fit on exactly those vehicles; the website applies this in `applyFits` (`src/data/catalog.js`) after loading. Products marked unavailable are left out of the configurator.
 - **Public reads.** `/stock` and `/products` send an entity tag (the document's, or a SHA-1 of the body) with `Cache-Control: public, max-age=0, must-revalidate` and `Netlify-CDN-Cache-Control: public, s-maxage=30, stale-while-revalidate=30`, so a CRM change is public within a minute.
 - **Customer accounts made before the backend.** Device-only accounts (PBKDF2 in localStorage) move to the server on the next successful sign-in.
+- **Review fixes (security-reviewer pass).** Guest bookings are no longer readable by whoever registers the same email; half-written enquiry references are completed on retry; the rate limit is atomic; a non-encoded foreign cookie no longer breaks requests; emptied links clear; descriptions up to 20,000 characters and links with apostrophes (imported data) are accepted; validation messages never quote input; product ids such as `constructor` are refused; share-link colours must be `#rrggbb`. Each has a regression test.
+- **Scale.** The dashboard, customer list and lead and booking lists read every CRM record on each request. That is comfortable for a dealership's volume (thousands of records); beyond that, add per-month index documents or move CRM records to a database with queries.

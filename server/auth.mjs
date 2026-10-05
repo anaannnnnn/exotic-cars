@@ -68,7 +68,9 @@ export function cookies(req) {
   const out = {};
   for (const part of (req.headers.get('cookie') || '').split(';')) {
     const i = part.indexOf('=');
-    if (i > 0) out[part.slice(0, i).trim()] = decodeURIComponent(part.slice(i + 1).trim());
+    if (i <= 0) continue;
+    /* another site cookie on this domain may not be URI-encoded (e.g. "pct=100%"): skip it, do not fail the request */
+    try { out[part.slice(0, i).trim()] = decodeURIComponent(part.slice(i + 1).trim()); } catch { /* ignore */ }
   }
   return out;
 }

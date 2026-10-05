@@ -37,8 +37,9 @@ const ID = {
   customer: /^[a-f0-9]{40}$/,
   media: /^[a-z0-9]{9}-[a-f0-9]{8}$/
 };
+const RESERVED = new Set(['__proto__', 'constructor', 'prototype']);
 function id(kind, value) {
-  if (!ID[kind].test(value)) throw new HttpError(404, 'Not found', 'Nothing here has that id.');
+  if (!ID[kind].test(value) || RESERVED.has(value)) throw new HttpError(404, 'Not found', 'Nothing here has that id.');
   return value;
 }
 
@@ -66,9 +67,21 @@ function cachedJson(req, { etag, body }) {
 /** A filled-in honeypot means a bot: answer as if it worked and store nothing. */
 const isBot = (body) => typeof body?.website === 'string' && body.website.length > 0;
 
-/* customer session cookies are optional on public forms; a bad or unverifiable cookie is simply ignored */
-function optionalCustomer(req) {
-  try { return auth.currentCustomer(req); } catch { return null; }
+/**
+ * The customer behind a session cookie, or null. A session belongs to the account that issued it: if that account was
+ * deleted and the email registered again, older sessions do not carry over to the new account.
+ */
+async function sessionCustomer(req) {
+  let s = null;
+  try { s = auth.currentCustomer(req); } catch { return null; }
+  const c = s && (await repo.findCustomer(s.sub));
+  if (!c || s.iat < Math.floor(Date.parse(c.createdAt) / 1000)) return null;
+  return { session: s, customer: c };
+}
+
+/* customer session cookies are optional on public forms; a bad, stale or unverifiable cookie is simply ignored */
+async function optionalCustomer(req) {
+  return (await sessionCustomer(req))?.session || null;
 }
 
 function realDate(s) {
@@ -123,7 +136,7 @@ on('POST', '/leads', async ({ req, ip }) => {
   await rateLimit('forms', ip, LIMITS.forms);
   const body = await readJson(req, 64 * 1024);
   if (isBot(body)) return json({ ref: typeof body.ref === 'string' ? body.ref.slice(0, 16) : newRef('EX'), status: 'new', createdAt: new Date().toISOString() }, 201);
-  const lead = await repo.createLead(parse(S.leadCreate, body), optionalCustomer(req));
+  const lead = await repo.createLead(parse(S.leadCreate, body), await optionalCustomer(req));
   return json({ ref: lead.ref, status: lead.status, createdAt: lead.createdAt }, lead.duplicate ? 200 : 201);
 });
 
@@ -133,7 +146,7 @@ on('POST', '/appointments', async ({ req, ip }) => {
   if (isBot(body)) return json({ ref: typeof body.ref === 'string' ? body.ref.slice(0, 16) : newRef('AA'), status: 'requested' }, 201);
   const input = parse(S.appointmentCreate, body);
   realDate(input.date);
-  const a = await repo.createAppointment(input, optionalCustomer(req));
+  const a = await repo.createAppointment(input, await optionalCustomer(req));
   return json({ ref: a.ref, status: a.status, service: a.service, date: a.date, slot: a.slot, createdAt: a.createdAt }, a.duplicate ? 200 : 201);
 });
 
@@ -167,17 +180,16 @@ on('POST', '/auth/login', async ({ req, ip }) => {
 on('POST', '/auth/logout', async () => noContent({ 'set-cookie': auth.clearCookie(auth.CUSTOMER_COOKIE) }));
 
 async function signedInCustomer(req) {
-  const s = auth.currentCustomer(req);
-  const c = s && (await repo.findCustomer(s.sub));
-  if (!c) throw new HttpError(401, 'Unauthorized', 'Sign in to continue.');
-  return c;
+  const found = await sessionCustomer(req);
+  if (!found) throw new HttpError(401, 'Unauthorized', 'Sign in to continue.');
+  return found.customer;
 }
 
 on('GET', '/auth/me', async ({ req }) => ({ user: publicUser(await signedInCustomer(req)) }));
 
 on('GET', '/auth/appointments', async ({ req }) => {
   const c = await signedInCustomer(req);
-  const data = (await repo.appointmentsFor(c.id, c.email)).map(({ customerId, ...a }) => a);
+  const data = (await repo.appointmentsFor(c.id)).map(({ customerId, ...a }) => a);
   return { data };
 });
 

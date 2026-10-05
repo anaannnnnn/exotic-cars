@@ -139,7 +139,7 @@ A Figma file with the eight mobile screens exists: https://www.figma.com/design/
 | --- | --- |
 | Language | Plain JavaScript (ES modules), no framework |
 | Build tool | Vite 8 |
-| Tests | Vitest 5 (82 tests: parsers, fitment checks, totals, share links, CRM fitment, and API integration against a local Blobs store) |
+| Tests | Vitest 5 (95 tests: parsers, fitment checks, totals, share links, CRM fitment, imported data against the CRM schemas, share-link safety, and API integration against a local Blobs store) |
 | Backend | Netlify Functions (v2) + Netlify Blobs, Zod validation, scrypt passwords, HMAC-signed cookies |
 | CRM | `/admin/`, plain JavaScript, same fonts and rosso palette as the site, light and dark |
 | 3D | Sketchfab Viewer API 1.12.1 |
@@ -229,6 +229,7 @@ docs/                       this document, DEPLOY.md, openapi.yaml
 - Wheels and kits appear on the quote but are not drawn on the 3D car, because the viewer cannot add geometry.
 - The CRM has one staff account (set by environment variables). Email or WhatsApp notifications for new leads are not sent yet; staff see them in the CRM (with a badge) and can export them.
 - Prices are not listed by the dealership; staff can add them per car in the CRM.
+- The CRM's dashboard and lists read every lead and booking on each request: fine for thousands of records, but a much larger volume would need index documents or a query database.
 - Desktop layout has been checked less than the mobile layout.
 
 **Suggested next steps:** email or WhatsApp alerts for new leads, more staff accounts with roles, replace the 59 non-commercially licensed models, add real prices, and finish the Figma file as reusable components with a dark theme.

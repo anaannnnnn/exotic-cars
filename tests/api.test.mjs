@@ -106,6 +106,22 @@ describe('staff sign-in', () => {
     expect(me.data.email).toBe('sales@exoticcars.test');
   }, 30_000);
 
+  it('counts sign-in attempts sent in parallel', async () => {
+    const all = await Promise.all(Array.from({ length: 20 }, () => call('POST', '/admin/session', { ip: '198.51.100.7', body: { email: 'x@y.z', password: 'guess' } })));
+    expect(all.filter((r) => r.status === 429).length).toBe(12);
+  });
+
+  it('counts an IPv6 client by its /64', async () => {
+    let last;
+    for (let i = 0; i < 9; i++) last = await call('POST', '/admin/session', { ip: `2001:db8:1:2::${i + 1}`, body: { email: 'x@y.z', password: 'guess' } });
+    expect(last.status).toBe(429);
+  });
+
+  it('ignores an unrelated cookie that is not URI-encoded', async () => {
+    const r = await call('GET', '/admin/session', { cookie: `pct=100%; ${staff}` });
+    expect(r.status).toBe(200);
+  });
+
   it('rate-limits repeated failed sign-ins', async () => {
     let last;
     for (let i = 0; i < 9; i++) last = await call('POST', '/admin/session', { ip: '203.0.113.9', body: { email: 'x@y.z', password: 'guess' } });
@@ -176,6 +192,27 @@ describe('inventory', () => {
     expect((await asStaff('GET', `/admin/cars/${carId}`)).status).toBe(404);
   });
 
+  it('clears a link, keeps long descriptions and accepts photo links with an apostrophe', async () => {
+    const { data } = await asStaff('GET', '/admin/cars?limit=1');
+    const id = data.data[0].id;
+    await asStaff('PATCH', `/admin/cars/${id}`, { body: { video: 'https://video.example.com/x' } });
+    const cleared = await asStaff('PATCH', `/admin/cars/${id}`, { body: { video: '' } });
+    expect(cleared.status).toBe(200);
+    expect(cleared.data.video).toBeNull();
+    const long = 'Full service history. '.repeat(500);
+    const r = await asStaff('PATCH', `/admin/cars/${id}`, { body: { description: long, gallery: ["https://exoticcars.ae/uploads/cars/rolls-royce-spectre-linea-d'oro/a.jpg"] } });
+    expect(r.status).toBe(200);
+    expect(r.data.description.length).toBe(long.trim().length);
+  });
+
+  it('never repeats a submitted value in a validation message', async () => {
+    const r = await call('POST', '/leads', { body: { type: '<img src=x onerror=alert(1)>', name: 'A B', phone: '0501234567', email: 'not-an-email' } });
+    expect(r.status).toBe(400);
+    expect(JSON.stringify(r.data)).not.toContain('img');
+    expect(r.data.fields.type).toBe('Choose one of the listed options');
+    expect(r.data.fields.email).toBe('Enter a valid email address');
+  });
+
   it('does not lose either of two simultaneous edits', async () => {
     const { data } = await asStaff('GET', '/admin/cars?limit=2');
     const [a, b] = data.data;
@@ -219,6 +256,14 @@ describe('products', () => {
     expect((await call('GET', '/products')).data[id]).toBeUndefined();
   });
 
+  it('treats built-in object names as unknown products', async () => {
+    for (const name of ['constructor', 'toString', 'hasOwnProperty', '__proto__']) {
+      expect((await asStaff('GET', `/admin/products/${name}`)).status, name).toBe(404);
+      expect((await asStaff('PATCH', `/admin/products/${name}`, { body: { priceAED: 1 } })).status, name).toBe(404);
+    }
+    expect(Object.keys((await call('GET', '/products')).data)).not.toContain('constructor');
+  });
+
   it('edits an imported product', async () => {
     const { data } = await asStaff('GET', '/admin/products?category=kit&limit=1');
     const p = data.data[0];
@@ -252,6 +297,15 @@ describe('enquiries (leads)', () => {
     expect(b.data.ref).toBe('EX-OFFL1N');
     const list = await asStaff('GET', '/admin/leads?q=EX-OFFL1N');
     expect(list.data.pagination.total).toBe(1);
+  });
+
+  it('stores a retried enquiry whose first attempt claimed the reference but never saved', async () => {
+    const { store } = await import('../server/store.mjs');
+    await store('crm').setJSON('lead-refs/EX-HALF01', { id: '0000half0-abcdef01' });   /* the first attempt died here */
+    const r = await call('POST', '/leads', { body: { ...enquiry, ref: 'EX-HALF01', name: 'Retried Customer' } });
+    expect(r.status).toBe(201);
+    const list = await asStaff('GET', '/admin/leads?q=EX-HALF01');
+    expect(list.data.data.map((l) => l.name)).toEqual(['Retried Customer']);
   });
 
   it('quietly drops a bot that fills the hidden field', async () => {
@@ -356,6 +410,26 @@ describe('customer accounts', () => {
     expect(mine.data.data[0]).not.toHaveProperty('staffNotes');
     expect(mine.data.data[0]).not.toHaveProperty('history');
     expect((await call('GET', '/auth/me', { cookie: user })).data.user.email).toBe('layla@example.ae');
+  });
+
+  it('does not hand a guest’s bookings to whoever registers that email later', async () => {
+    await call('POST', '/appointments', { body: { service: 'Service', date: '2026-11-03', slot: '10:00', name: 'Real Owner', phone: '0507777777', email: 'victim@example.ae', notes: 'Gate code 4411' } });
+    const reg = await call('POST', '/auth/register', { body: { name: 'Squatter', email: 'victim@example.ae', password: 'long enough pw' } });
+    expect(reg.status).toBe(201);
+    const mine = await call('GET', '/auth/appointments', { cookie: reg.cookie });
+    expect(mine.data.data).toEqual([]);
+    expect(JSON.stringify(mine.data)).not.toContain('Gate code');
+  });
+
+  it('does not carry an old session over to a new account with the same email', async () => {
+    const first = await call('POST', '/auth/register', { body: { name: 'First', email: 'reuse@example.ae', password: 'long enough pw' } });
+    const { data } = await asStaff('GET', '/admin/customers?q=reuse@example.ae');
+    expect((await asStaff('DELETE', `/admin/customers/${data.data[0].id}`)).status).toBe(204);
+    await new Promise((r) => setTimeout(r, 1100));   /* the new account is created in a later second */
+    const second = await call('POST', '/auth/register', { body: { name: 'Second', email: 'reuse@example.ae', password: 'another long pw' } });
+    expect(second.status).toBe(201);
+    expect((await call('GET', '/auth/me', { cookie: first.cookie })).status).toBe(401);
+    expect((await call('GET', '/auth/me', { cookie: second.cookie })).data.user.name).toBe('Second');
   });
 
   it('cannot use a customer session on staff routes', async () => {

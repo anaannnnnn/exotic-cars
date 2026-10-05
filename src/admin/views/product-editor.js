@@ -27,7 +27,7 @@ export async function mountProductEditor(view, { id }, ctx) {
   try {
     const [prod, list, vs] = await Promise.all([isNew ? null : get(`admin/products/${encodeURIComponent(id)}`), get('admin/products?limit=1'), catalogue().catch(() => [])]);
     p = prod; vendors = list.vendors || []; cat = vs;
-  } catch (e) { view.replaceChildren(errorState(e, () => ctx.go(location.hash))); return; }
+  } catch (e) { view.replaceChildren(errorState(e, () => ctx.reload())); return; }
   view.replaceChildren();
   const base = p || { category: 'wheel', title: '', vendor: '', available: true, images: [], spec: {}, finish: null };
   let category = base.category;

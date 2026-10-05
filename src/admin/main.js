@@ -150,7 +150,7 @@ async function route() {
   shell.view.style.animation = '';
   shell.view.scrollTop = 0;
   window.scrollTo(0, 0);
-  const ctx = { session, refreshBadges, go: (hash) => { location.hash = hash; } };
+  const ctx = { session, refreshBadges, go: (hash) => { location.hash = hash; }, reload: route };
   try {
     current = (await r.mount(shell.view, r.params || {}, ctx)) || null;
   } catch (e) {

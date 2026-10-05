@@ -80,7 +80,8 @@ temporary Blobs store).
 
 - Staff and customer sessions are HMAC-signed, `HttpOnly; Secure; SameSite=Strict` cookies (12 hours for staff, 30 days for customers).
 - Every state-changing request must come from the site's own origin (CSRF check), on top of `SameSite=Strict`.
-- Rate limits per client address: staff sign-in 8 per 15 minutes, customer sign-in and sign-up 10 per 15 minutes, forms 20 per hour.
+- Rate limits per client address (an IPv6 client counts by its /64): staff sign-in 8 per 15 minutes, customer sign-in and sign-up 10 per 15 minutes, forms 20 per hour.
+- A customer sees only bookings made while signed in to their account, never ones matched by email.
 - Every body and query is validated (Zod); unknown fields are dropped; links must be `https://` or an uploaded photo.
 - Uploads: JPEG, PNG or WebP only (checked by file signature, not by name), up to 4 MB, resized in the browser first.
 - The CRM page has a strict Content-Security-Policy, cannot be framed and is not indexed.

@@ -63,11 +63,28 @@ export function clientIp(req, ctx) {
 }
 
 /** Zod error -> a short, field-by-field problem detail that never echoes the submitted values. */
+/* Zod's default text for these codes quotes the submitted value */
+const GENERIC = {
+  invalid_enum_value: 'Choose one of the listed options',
+  invalid_literal: 'Not accepted',
+  invalid_union: 'Not valid',
+  invalid_union_discriminator: 'Not valid',
+  invalid_type: 'Required'
+};
+function messageFor(issue) {
+  /* a union (email or empty, link or empty): report why the main form failed */
+  if (issue.code === 'invalid_union') {
+    const inner = issue.unionErrors?.[0]?.issues?.[0];
+    return inner ? messageFor(inner) : GENERIC.invalid_union;
+  }
+  if (issue.code === 'invalid_type') return issue.received === 'undefined' || issue.received === 'null' ? GENERIC.invalid_type : 'Wrong kind of value';
+  return GENERIC[issue.code] || issue.message;
+}
 export function invalid(zerr) {
   const fields = {};
   for (const issue of zerr.issues) {
     const key = issue.path.join('.') || 'body';
-    if (!fields[key]) fields[key] = issue.message;
+    if (!fields[key]) fields[key] = messageFor(issue);
   }
   return new HttpError(400, 'Invalid request', 'Some fields are missing or not valid.', { fields });
 }
