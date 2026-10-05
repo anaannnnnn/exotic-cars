@@ -4,14 +4,24 @@ import { Viewer } from '../viewer/sketchfab.js';
 import { h, icon, clear, countTo } from '../ui/dom.js';
 import { brandMark } from '../ui/brand.js';
 import { wheelGlyph } from '../ui/glyph.js';
+import { createSwipe } from '../ui/swipe.js';
+import { openService } from '../ui/panels.js';
 import { getSettings } from '../state/settings.js';
 
 /* A complete kit already contains these parts - selecting both would double count. */
 const FULL_KIT_COVERS = ['front-lip', 'front-bumper', 'rear-bumper', 'rear-diffuser', 'decklid-spoiler', 'side-skirts'];
-const PREVIEW_COUNT = 6;
+const TITLES = { paint: 'Colour', wheels: 'Wheels', aero: 'Aero', details: 'Details' };
+/* floating tooltip text for the customise menu */
+const CAT_TIPS = { paint: 'Colour and finish, live on the car', wheels: 'Wheels Dubai suppliers list for this car', aero: 'Body kits and carbon parts', details: 'Glass tint and brake calipers' };
+const VIEW_TIPS = { side: 'Profile', front34: 'Three-quarter front', front: 'Head on', rear: 'From behind', top: 'From above', wheel: 'Close up on the wheel' };
+const PAINT_TABS = [{ id: 'solid', label: 'Solid' }, { id: 'metallic', label: 'Metallic' }, { id: 'matte', label: 'Matte' }];
 
-export function mountCar(root, id, share, { toast, stock = null, base = null, back = null }) {
-  const v = data.vehicle(id);
+/**
+ * The configurator: the 3D car fills the screen; categories float on the left, the options for the chosen category
+ * float on the right, the running price and a swipe-to-enquire control sit at the bottom.
+ */
+export function mountCar(root, id, share, { toast, stock = null, vehicle = null, base = null, back = null }) {
+  const v = vehicle || data.vehicle(id);
   if (!v || !v.has3d) return null;
 
   const route = base || `#/car/${encodeURIComponent(id)}`;
@@ -21,26 +31,24 @@ export function mountCar(root, id, share, { toast, stock = null, base = null, ba
   const shared = share ? B.fromShare(share) : null;
   if (shared && shared.vehicleId === id) state = { ...state, ...shared, view: 'side' };
   if (!v.models.some((m) => m.uid === state.modelUid)) state.modelUid = v.models[0].uid;
+  state.cat = 'paint';
+  state.ptype = (B.byId(B.PAINTS, state.paint.preset) || {}).group || 'solid';
+  state.wtab = 'all';
 
   const parts = data.partsFor(v);
   const product = (pid) => data.product(pid);
-  const open = { colors: true, wheels: true, kits: true, details: false };
-  const expanded = { wheels: false, kits: {} };
   let pickMode = false;
   let caps = null;
   let alive = true;
   let seq = 0;
 
-  /* ------------------------------------------------------------------ hero */
-  const stage = h('div', { class: 'hero__stage' });
-  const loading = h('div', { class: 'hero__loading' }, [h('span', { class: 'spin' }), h('span', { class: 'hero__loadtext', text: 'Loading 3D model' })]);
-  const viewsEl = h('div', { class: 'views', role: 'group', 'aria-label': 'Camera view' });
-  const counter = h('span', { class: 'hero__count', 'aria-hidden': 'true' });
-  const hero = h('section', { class: 'hero', 'aria-label': '3D view' }, [
-    h('div', { class: 'hero__floor' }), stage, loading,
-    h('div', { class: 'hero__ui' }, viewsEl), counter
-  ]);
+  /* ------------------------------------------------------------------ layers */
+  const stage = h('div', { class: 'cfg__stage' });
+  const markText = h('span', { class: 'cfg__mark', 'aria-hidden': 'true', text: v.make });
+  const floor = h('div', { class: 'hero__floor' });
+  const loading = h('div', { class: 'cfg__loading' }, [h('span', { class: 'spin' }), h('span', { class: 'hero__loadtext', text: 'Loading 3D model' })]);
   const viewer = new Viewer(stage);
+  viewer.anchor = 'bottom';   /* the car stands right above the colour strip, not in mid-air */
   window.__viewer = viewer; /* handy for debugging in the console */
   viewer.onPick = (m) => {
     if (!pickMode) return;
@@ -50,23 +58,284 @@ export function mountCar(root, id, share, { toast, stock = null, base = null, ba
     viewer.highlight(m.id);
   };
 
+  /* ------------------------------------------------------------------ top + title */
+  const mark = brandMark(v.make);
+  const activeDot = h('i', { class: 'active__dot' });
+  const activeText = h('span', { class: 'active__text' });
+  const activeChip = h('div', { class: 'active__chip' }, [activeDot, activeText]);
+  const active = h('div', { class: 'cfg__active', 'aria-live': 'polite' }, [h('span', { class: 'active__label', text: 'Active' }), activeChip]);
+  const viewsEl = h('div', { class: 'cfg__views', role: 'group', 'aria-label': 'Camera view' });
+  /* body colours: a row at the bottom whose swatches swell as you slide over them */
+  const strip = h('div', { class: 'container-items cfg__strip', role: 'group', 'aria-label': 'Body colour' });
+  let stripOn = null;
+  function buildStrip(animate) {
+    clear(strip);
+    B.PAINTS.filter((p) => p.group === state.ptype).forEach((p, i) => {
+      const on = state.paint.preset === p.id;
+      strip.append(h('button', {
+        class: `item-color${on ? ' is-on' : ''}${animate ? ' in' : ''}`, type: 'button', 'aria-label': p.name, 'aria-pressed': String(on), 'aria-color': p.name, style: `--color:${p.color};--i:${i}`,
+        onclick: () => {
+          state.paint = { preset: p.id, color: p.color, roughness: p.roughness, metalness: p.metalness };
+          strip.querySelectorAll('.item-color').forEach((b) => { const m = b === strip.children[i]; b.classList.toggle('is-on', m); b.setAttribute('aria-pressed', String(m)); });
+          optsList.querySelector('.opt--custom')?.classList.remove('is-on');
+          applyLook(); renderActive(); sync();
+        }
+      }));
+    });
+  }
+  function showStrip(on) {
+    strip.hidden = !on;
+    if (stripOn === on) return;
+    const first = stripOn === null;
+    stripOn = on;
+    cfg.classList.toggle('has-strip', on);
+    if (!first) requestAnimationFrame(() => { try { updateInsets(); goToView(state.view); } catch { /* viewer not ready */ } });
+  }
+
+  const top = h('header', { class: 'cfg__top' }, [
+    h('a', { class: 'fbtn', href: back ? back.href : '#/shop', 'aria-label': back ? back.label : 'Back' }, icon('back')),
+    h('div', { class: 'cfg__tools' }, [
+      h('button', { class: 'fbtn', type: 'button', 'aria-label': 'Save image', onclick: screenshot }, icon('camera')),
+      h('button', { class: 'fbtn', type: 'button', 'aria-label': 'Copy share link', onclick: () => copy(shareUrl(), 'Link copied') }, icon('share'))
+    ])
+  ]);
+  const titleEl = h('div', { class: 'cfg__title' }, [
+    h('h1', { text: stock ? stock.title.replace(new RegExp(`^${stock.brand}\\s*`, 'i'), '') || stock.title : `${v.model}` }),
+    h('p', { text: stock ? [stock.brand, stock.year, stock.exterior].filter(Boolean).join(' · ') : `${v.make} · ${v.generation} · ${data.yearsLabel(v)}` })
+  ]);
+
+  /* ------------------------------------------------------------------ rail (left) and options (right) */
+  const rail = h('nav', { class: 'rail', 'aria-label': 'Customise' });
+  const optsTitle = h('span', { class: 'opts__title' });
+  const optsTabs = h('div', { class: 'opts__tabs', role: 'tablist' });
+  const optsList = h('div', { class: 'opts__list' });
+  const moreDown = h('button', { class: 'chev chev--down', type: 'button', 'aria-label': 'Scroll options down', onclick: () => optsList.scrollBy({ top: optsList.clientHeight * 0.8, behavior: 'smooth' }) }, icon('chevron'));
+  const moreUp = h('button', { class: 'chev chev--up', type: 'button', 'aria-label': 'Scroll options up', onclick: () => optsList.scrollBy({ top: -optsList.clientHeight * 0.8, behavior: 'smooth' }) }, icon('up'));
+  const opts = h('aside', { class: 'opts', 'aria-label': 'Options' }, [optsTitle, optsTabs, moreUp, optsList, moreDown]);
+  const hints = () => {
+    const can = optsList.scrollHeight - optsList.clientHeight > 4;
+    moreUp.hidden = !can || optsList.scrollTop < 6;
+    moreDown.hidden = !can || optsList.scrollTop + optsList.clientHeight >= optsList.scrollHeight - 6;
+  };
+  optsList.addEventListener('scroll', hints, { passive: true });
+  /* hovering a dot previews its name in the chip above; leaving restores the real selection */
+  optsList.addEventListener('pointerover', (e) => {
+    const t = e.target.closest('.opt');
+    if (t && e.pointerType !== 'touch') { const n = (t.getAttribute('title') || '').split(' · ')[0]; if (n) { activeText.textContent = n; activeChip.classList.add('is-peek'); } }
+  });
+  optsList.addEventListener('pointerleave', () => { activeChip.classList.remove('is-peek'); renderActive(); });
+
+  const categories = () => [
+    { id: 'paint', label: 'Paint', icon: 'paint' },
+    parts.wheels.length ? { id: 'wheels', label: 'Wheels', icon: 'wheels' } : null,
+    parts.kits.length ? { id: 'aero', label: 'Aero', icon: 'aero' } : null,
+    caps && (caps.glass || caps.caliper) ? { id: 'details', label: 'Details', icon: 'details' } : null
+  ].filter(Boolean);
+
+  function renderRail() {
+    clear(rail);
+    rail.append(h('span', { class: 'rail__label', text: 'Customise' }));
+    const first = !rail.dataset.built;
+    const prev = railSizes;
+    categories().forEach((c, i) => rail.append(h('button', {
+      class: 'rbtn', type: 'button', 'aria-pressed': String(state.cat === c.id), 'aria-label': c.label, 'data-tip': c.label, 'data-tip-desc': CAT_TIPS[c.id], 'data-key': c.id, style: first ? `--i:${i + 1}` : 'animation:none',
+      onclick: () => { if (state.cat === c.id) return; state.cat = c.id; railSizes = sizesOf(rail); renderRail(); renderOpts(true); }
+    }, [icon(c.icon), h('span', { text: c.label })])));
+    rail.dataset.built = '1';
+    carrySizes(rail, prev);
+    railSizes = null;
+  }
+  let railSizes = null;
+  /* remember how big each control was, so a re-render grows/shrinks from there instead of snapping */
+  function sizesOf(box) { const m = new Map(); box.querySelectorAll('[data-key]').forEach((el) => m.set(el.dataset.key, el.offsetWidth)); return m; }
+  function carrySizes(box, m) {
+    if (!m) return;
+    const els = [...box.querySelectorAll('[data-key]')].filter((el) => m.has(el.dataset.key));
+    els.forEach((el) => { el.style.width = el.style.height = `${m.get(el.dataset.key)}px`; });
+    void box.offsetWidth;
+    els.forEach((el) => { el.style.width = el.style.height = ''; });
+  }
+
+  /* ---- option tiles */
+  const swatchTile = (p) => {
+    const on = state.paint.preset === p.id;
+    return h('button', {
+      class: `opt opt--sw${on ? ' is-on' : ''}`, type: 'button', 'aria-pressed': String(on), 'aria-label': p.name, title: p.name, style: `--c:${p.color};--m:${p.metalness};`,
+      onclick: () => { state.paint = { preset: p.id, color: p.color, roughness: p.roughness, metalness: p.metalness }; applyLook(); renderOpts(); sync(); }
+    }, [h('i', { class: `sw${p.group === 'matte' ? ' is-matte' : ''}` }), on ? h('span', { class: 'opt__tick' }, icon('check')) : null, h('span', { class: 'opt__cap', text: p.name })]);
+  };
+
+  const plainSwatch = (c, on, label, onclick, none = false) => h('button', {
+    class: `opt opt--sw${on ? ' is-on' : ''}`, type: 'button', 'aria-pressed': String(on), 'aria-label': label, title: label, style: `--c:${c || '#ffffff'};--m:0.6;`, onclick
+  }, [h('i', { class: `sw${none ? ' sw--none' : ''}` }, none ? h('span', { text: '—' }) : null), on ? h('span', { class: 'opt__tick' }, icon('check')) : null, h('span', { class: 'opt__cap', text: label })]);
+
+  const wheelName = (p) => {
+    const d = p.design || p.title.split(/ for /i)[0].slice(0, 32);
+    return d.toUpperCase().startsWith(String(p.vendor).toUpperCase()) ? d : `${p.vendor} ${d}`;
+  };
+  const fitsCar = (p) => {
+    const checks = data.wheelChecks(v, p);
+    return checks.some((c) => c.ok === true) && !checks.some((c) => c.ok === false);
+  };
+  const productTile = (p, { label, sub, on, onclick }) => h('button', {
+    class: `opt opt--img${on ? ' is-on' : ''}`, type: 'button', 'aria-pressed': String(on), 'aria-label': `${label}${sub ? `, ${sub}` : ''}, ${data.aed(p.priceAED)}`, title: `${label} · ${data.aed(p.priceAED)}`, onclick
+  }, [
+    h('span', { class: 'opt__img' }, p.images && p.images[0] ? h('img', { src: p.images[0], alt: '', loading: 'lazy', decoding: 'async' }) : (p.category === 'wheel' ? wheelGlyph(p.finish?.color || '#a9adb5') : h('span', { class: 'opt__ph', text: p.vendor }))),
+    on ? h('span', { class: 'opt__tick' }, icon('check')) : null,
+    h('span', { class: 'opt__cap' }, [h('b', { text: label }), sub ? h('em', { text: sub }) : null, h('u', { text: data.aed(p.priceAED) })])
+  ]);
+
+  function tabsFor(items, current, onpick) {
+    clear(optsTabs);
+    /* one compact pill that cycles through the types (keeps the dots column tall) */
+    const i = Math.max(0, items.findIndex((t) => t.id === current));
+    const next = items[(i + 1) % items.length];
+    optsTabs.append(h('button', {
+      class: 'otab', type: 'button', 'aria-label': `${items[i].label}. Show ${next.label}`, title: `Next: ${next.label}`, onclick: () => onpick(next.id)
+    }, [h('b', { text: items[i].label }), h('i', { class: 'otab__dots' }, items.map((_, n) => h('u', { class: n === i ? 'on' : '' })))]));
+    optsTabs.hidden = items.length < 2;
+  }
+
+  function renderOpts(animate = false) {
+    const keep = optsList.scrollTop;
+    const prev = animate ? null : sizesOf(optsList);
+    optsTitle.textContent = TITLES[state.cat];
+    clear(optsList);
+    showStrip(state.cat === 'paint');
+    if (state.cat === 'paint') paintOpts(animate);
+    else if (state.cat === 'wheels') wheelOpts();
+    else if (state.cat === 'aero') aeroOpts();
+    else detailOpts();
+    optsList.querySelectorAll('.opt').forEach((el, i) => {
+      el.dataset.key = el.getAttribute('title') || el.getAttribute('aria-label') || String(i);
+      if (animate) { el.classList.add('in'); el.style.setProperty('--i', Math.min(i, 14)); }
+    });
+    carrySizes(optsList, prev);
+    if (animate) { opts.classList.remove('swap'); void opts.offsetWidth; opts.classList.add('swap'); optsList.scrollTop = 0; } else optsList.scrollTop = keep;
+    const on = optsList.querySelector('.opt.is-on, .opt[aria-pressed="true"]');
+    if (on) requestAnimationFrame(() => optsList.scrollTo({ top: on.offsetTop - optsList.clientHeight / 2 + on.offsetHeight / 2, behavior: animate ? 'auto' : 'smooth' }));
+    requestAnimationFrame(hints);
+    renderActive();
+  }
+
+  function paintOpts(animate) {
+    tabsFor(PAINT_TABS, state.ptype, (t) => { state.ptype = t; renderOpts(true); });
+    buildStrip(animate);
+    const custom = h('input', { type: 'color', value: state.paint.color, 'aria-label': 'Custom colour', oninput: (e) => { state.paint = { ...state.paint, preset: 'custom', color: e.target.value }; strip.querySelectorAll('.item-color.is-on').forEach((b) => { b.classList.remove('is-on'); b.setAttribute('aria-pressed', 'false'); }); applyLook(); renderActive(); sync(); } });
+    optsList.append(
+      h('label', { class: `opt opt--sw opt--custom${state.paint.preset === 'custom' ? ' is-on' : ''}`, title: 'Your own colour' }, [h('i', { class: 'sw sw--wheel' }), custom, h('span', { class: 'opt__cap', text: 'Your own' })]),
+      h('button', { class: `opt opt--tool${pickMode ? ' is-on' : ''}`, type: 'button', 'aria-pressed': String(pickMode), 'aria-label': 'Colour a single part', title: 'Colour a single part', onclick: () => {
+        pickMode = !pickMode;
+        toast(pickMode ? 'Tap a panel on the car' : 'Part selection off');
+        renderOpts();
+      } }, [icon('pick'), h('span', { class: 'opt__cap', text: pickMode ? 'Tap the car' : 'Single part' })])
+    );
+  }
+
+  const wheelType = (p) => (p.spec?.set ? 'set' : p.spec?.axle === 'front' ? 'front' : p.spec?.axle === 'rear' ? 'rear' : 'single');
+  function wheelOpts() {
+    const all = [...parts.wheels].sort((a, b) => String(a.design).localeCompare(String(b.design)) || (a.priceAED || 0) - (b.priceAED || 0));
+    const present = ['set', 'front', 'rear', 'single'].filter((t) => all.some((p) => wheelType(p) === t));
+    const labels = { set: 'Sets', front: 'Front', rear: 'Rear', single: 'Single' };
+    if (state.wtab !== 'all' && !present.includes(state.wtab)) state.wtab = 'all';
+    tabsFor([{ id: 'all', label: 'All' }, ...present.map((t) => ({ id: t, label: labels[t] }))], state.wtab, (t) => { state.wtab = t; renderOpts(true); });
+    const list = state.wtab === 'all' ? all : all.filter((p) => wheelType(p) === state.wtab);
+    list.forEach((p) => optsList.append(productTile(p, {
+      label: wheelName(p), sub: [data.variantLabel(p), data.sizeLabel(p)].filter(Boolean).join(' · '),
+      on: state.wheels.some((w) => w.id === p.id), onclick: () => toggleWheel(p.id)
+    })));
+    const sel = chosen()[0];
+    if (sel && !sel.finish && caps?.rim) {
+      optsList.append(h('span', { class: 'opts__sep', text: 'Finish' }));
+      B.WHEEL_COLORS.forEach((c) => optsList.append(plainSwatch(c.color, state.wheelColor === c.color, c.name, () => { state.wheelColor = c.color; applyLook(); renderOpts(); sync(); })));
+    }
+  }
+
+  const SHORT = { 'full-kit': 'Full kit', widebody: 'Widebody', 'front-lip': 'Front', 'front-bumper': 'Front', bumper: 'Bumper', canards: 'Canards', 'side-skirts': 'Side', fenders: 'Fenders', hood: 'Bonnet', 'hood-scoop': 'Scoop', 'roof-spoiler': 'Roof', 'decklid-spoiler': 'Spoiler', 'rear-wing': 'Wing', 'trunk-lid': 'Boot', 'rear-bumper': 'Rear', 'rear-diffuser': 'Diffuser' };
+  function aeroOpts() {
+    clear(optsTabs); optsTabs.hidden = true;
+    data.groupKits(parts.kits).forEach((g) => {
+      optsList.append(h('span', { class: 'opts__sep', text: SHORT[g.subtype] || g.label }));
+      g.items.forEach((p) => optsList.append(productTile(p, {
+        label: [p.vendor, p.material].filter(Boolean).join(' · ') || g.label, sub: g.label,
+        on: state.kits.includes(p.id), onclick: () => toggleKit(p.id)
+      })));
+    });
+  }
+
+  function detailOpts() {
+    clear(optsTabs); optsTabs.hidden = true;
+    if (caps?.glass) {
+      optsList.append(h('span', { class: 'opts__sep', text: 'Glass' }),
+        plainSwatch('#d9e2ea', !state.tint, 'Clear glass', () => { state.tint = false; applyLook(); renderOpts(); sync(); }),
+        plainSwatch('#0a0d12', state.tint, 'Tinted glass', () => { state.tint = true; applyLook(); renderOpts(); sync(); }));
+    }
+    if (caps?.caliper) {
+      optsList.append(h('span', { class: 'opts__sep', text: 'Calipers' }),
+        plainSwatch('#ffffff', !state.caliper, 'Original', () => { state.caliper = null; applyLook(); renderOpts(); sync(); }, true),
+        ...B.CALIPERS.map((c) => plainSwatch(c.color, state.caliper === c.id, `${c.name} calipers`, () => { state.caliper = c.id; applyLook(); renderOpts(); sync(); })));
+    }
+  }
+
+  /* ---- what is active right now (top chip) */
+  function renderActive() {
+    let dot = 'transparent', text = '';
+    if (state.cat === 'paint') {
+      const cur = B.byId(B.PAINTS, state.paint.preset);
+      dot = state.paint.color; text = cur ? cur.name : 'Your own colour';
+    } else if (state.cat === 'wheels') {
+      const p = chosen()[0];
+      dot = p?.finish?.color || state.wheelColor || '#9a9da5';
+      text = p ? `${wheelName(p)}${chosen().length > 1 ? ` +${chosen().length - 1}` : ''}` : 'Original wheels';
+    } else if (state.cat === 'aero') {
+      dot = '#14141a'; text = state.kits.length ? `${state.kits.length} part${state.kits.length > 1 ? 's' : ''} selected` : 'Standard body';
+    } else {
+      const cal = B.byId(B.CALIPERS, state.caliper);
+      dot = cal ? cal.color : '#9a9da5'; text = `${state.tint ? 'Tinted' : 'Clear'} glass · ${cal ? cal.name : 'original'} calipers`;
+    }
+    activeDot.style.background = dot;
+    if (activeText.textContent !== text) { activeChip.classList.remove('bump'); void activeChip.offsetWidth; activeChip.classList.add('bump'); }
+    activeText.textContent = text;
+    root.querySelector('.cfg')?.style.setProperty('--tint', state.paint.color);
+  }
+
+  /* ------------------------------------------------------------------ camera */
   function renderViews() {
     clear(viewsEl);
-    B.VIEWS.forEach((view, i) => viewsEl.append(h('button', {
-      class: 'view', type: 'button', 'aria-pressed': String(state.view === view.id), text: view.name,
-      onclick: () => goToView(view.id)
-    })));
-    const i = Math.max(0, B.VIEWS.findIndex((x) => x.id === state.view));
-    counter.textContent = `${i + 1} / ${B.VIEWS.length}`;
+    B.VIEWS.forEach((view) => viewsEl.append(h('button', { class: 'vbtn', type: 'button', 'aria-pressed': String(state.view === view.id), text: view.name, 'data-tip': ` view`, 'data-tip-desc': VIEW_TIPS[view.id] || '', onclick: () => goToView(view.id) })));
   }
+
+  const head = h('div', { class: 'cfg__head' }, [titleEl, active]);
+  const cfg = h('div', { class: 'cfg is-loading', 'data-cat': 'paint' });
 
   function goToView(vid, instant = false) {
     state.view = vid;
-    const floor = viewer.goToView(vid, instant ? 0 : 1);
-    hero.classList.toggle('has-floor', !!floor);
-    if (floor) { hero.style.setProperty('--gy', `${floor.y}px`); hero.style.setProperty('--gw', `${floor.w}px`); }
+    const res = viewer.goToView(vid, instant ? 0 : 1);
+    const fl = res?.floor;
+    /* the camera stays on the car; the stage slides so the car lands above the strip (and glides with the camera) */
+    if (res) { cfg.classList.toggle('stage-instant', instant); cfg.style.setProperty('--shift', `${res.shift}px`); }
+    cfg.classList.toggle('has-floor', !!fl);
+    if (fl) { cfg.style.setProperty('--gy', `${fl.y}px`); cfg.style.setProperty('--gw', `${fl.w}px`); }
     renderViews();
   }
+
+  /** The free screen area between the floating menus; the car stands on its lower edge, just above the colour strip. */
+  function updateInsets() {
+    viewer.viewport = cfg;
+    const W = window.innerWidth, H = window.innerHeight;
+    const rect = (el) => el.getBoundingClientRect();
+    const wide = W >= 900;
+    const l = rect(rail).right, r = W - rect(opts).left;
+    const headBottom = rect(head).bottom;
+    cfg.style.setProperty('--cols-top', `${Math.round(headBottom + 14)}px`);
+    viewer.insets = {
+      top: Math.round(headBottom + 4),
+      bottom: Math.round(H - rect(strip.hidden ? viewsEl : strip).top + 4),
+      left: Math.round(wide ? l + 8 : l * 0.15),
+      right: Math.round(wide ? r + 8 : r * 0.15)
+    };
+  }
+  const onResize = () => { updateInsets(); goToView(state.view, true); };
 
   /* ------------------------------------------------------------------ look */
   const chosen = () => state.wheels.map((w) => product(w.id)).filter(Boolean);
@@ -85,125 +354,47 @@ export function mountCar(root, id, share, { toast, stock = null, base = null, ba
   function applyLook() {
     const cal = B.byId(B.CALIPERS, state.caliper);
     viewer.setLook({ paint: state.paint, rim: rimFinish(), caliper: cal ? cal.color : null, tint: state.tint });
+    cfg.style.setProperty('--tint', state.paint.color);
   }
 
   async function loadModel(index) {
     const my = ++seq;
     const model = v.models[index];
     state.modelUid = model.uid;
-    hero.classList.remove('is-error');
-    hero.classList.add('is-loading');
+    cfg.classList.remove('is-error');
+    cfg.classList.add('is-loading');
     try {
       caps = await viewer.load(model);
     } catch (err) {
       if (!alive || my !== seq) return;
       if (index + 1 < v.models.length) { loadModel(index + 1); return; }
-      hero.classList.remove('is-loading');
-      hero.classList.add('is-error');
+      cfg.classList.remove('is-loading');
+      cfg.classList.add('is-error');
       loading.replaceChildren(h('span', { class: 'hero__loadtext', text: 'This 3D model can’t be shown right now.' }));
       return;
     }
     if (!alive || my !== seq) return;
+    updateInsets();
     applyLook();
     goToView(state.view, true);
+    /* a model whose wheels were not found gets measured, so it is framed like the rest */
+    if (await viewer.calibrate().catch(() => false)) { if (!alive || my !== seq) return; goToView(state.view, true); }
     /* the viewer reports ready a moment before the car is drawn; keep the veil up for that gap */
     await new Promise((r) => setTimeout(r, 1500));
     if (!alive || my !== seq) return;
-    hero.classList.remove('is-loading');
+    cfg.classList.remove('is-loading');
     pickMode = !caps.paint;
-    renderColors();
-    renderWheels();
-    renderDetails();
+    renderRail();
+    renderOpts();
+    renderModels();
+    renderCredit();
     /* the viewer keeps easing into its own default camera for a few seconds; re-apply ours a few times while it settles */
     [1400, 4200, 8500].forEach((ms) => setTimeout(() => {
-      if (alive && my === seq) viewer.refreshBase().then(() => alive && my === seq && goToView(state.view, true)).then(() => (state.view === 'side' ? viewer.probePaint() : false)).then((changed) => { if (changed && alive && my === seq) { applyLook(); caps = viewer.capabilities(); renderColors(); } });
+      if (alive && my === seq) viewer.refreshBase().then(() => alive && my === seq && goToView(state.view, true)).then(() => (state.view === 'side' ? viewer.probePaint() : false)).then((changed) => { if (changed && alive && my === seq) { applyLook(); caps = viewer.capabilities(); renderOpts(); } });
     }, ms));
-    renderCredit();
   }
 
-  /* ------------------------------------------------------------------ sections */
-  function section(key, title) {
-    const sub = h('span', { class: 'sect__sub' });
-    const body = h('div', { class: 'sect__inner' });
-    const el = h('section', { class: 'sect', dataset: { open: String(open[key]) } }, [
-      h('button', { class: 'sect__head', type: 'button', 'aria-expanded': String(open[key]), onclick: (e) => {
-        open[key] = !open[key];
-        el.dataset.open = String(open[key]);
-        e.currentTarget.setAttribute('aria-expanded', String(open[key]));
-      } }, [h('span', { class: 'sect__title', text: title }), sub, icon('chevron')]),
-      h('div', { class: 'sect__body' }, body)
-    ]);
-    return { el, body, sub };
-  }
-
-  const colors = section('colors', 'Exterior colours');
-  const wheels = section('wheels', 'Wheels');
-  const kits = section('kits', 'Body kit');
-  const details = section('details', 'Details');
-
-  /* ---- colours */
-  function swatch(p) {
-    const on = state.paint.preset === p.id;
-    return h('button', {
-      class: `swatch${p.group === 'matte' ? ' is-matte' : ''}`, type: 'button', style: `--c:${p.color};--m:${p.metalness};`,
-      'aria-pressed': String(on), 'aria-label': p.name, title: p.name,
-      onclick: () => { state.paint = { preset: p.id, color: p.color, roughness: p.roughness, metalness: p.metalness }; applyLook(); renderColors(); sync(); }
-    }, on ? icon('check') : null);
-  }
-
-  function renderColors() {
-    const cur = B.byId(B.PAINTS, state.paint.preset);
-    colors.sub.textContent = cur ? cur.name : 'Custom';
-    clear(colors.body);
-    B.PAINT_GROUPS.forEach((g) => {
-      colors.body.append(
-        h('h3', { class: 'group-label', text: g.name }),
-        h('div', { class: 'swatches' }, B.PAINTS.filter((p) => p.group === g.id).map(swatch))
-      );
-    });
-    const custom = h('input', { type: 'color', value: state.paint.color, 'aria-label': 'Custom colour', oninput: (e) => {
-      state.paint = { ...state.paint, preset: 'custom', color: e.target.value };
-      applyLook(); colors.sub.textContent = 'Custom'; sync();
-    } });
-    colors.body.append(
-      h('h3', { class: 'group-label', text: 'Your own' }),
-      h('div', { class: 'swatches' }, [h('label', { class: `swatch swatch--custom${state.paint.preset === 'custom' ? ' is-on' : ''}`, title: 'Custom colour' }, [custom])]),
-      h('button', { class: `pill${pickMode ? ' is-on' : ''}`, type: 'button', 'aria-pressed': String(pickMode), onclick: () => {
-        pickMode = !pickMode;
-        toast(pickMode ? 'Tap a panel on the car' : 'Part selection off');
-        renderColors();
-      } }, [icon('pick'), h('span', { text: pickMode ? 'Tap a panel on the car' : 'Colour a single part' })])
-    );
-  }
-
-  /* ---- product tiles */
-  const initials = (t) => h('span', { class: 'tile__ph', text: t });
-  const placeholder = (p) => (p.category === 'wheel' ? wheelGlyph(p.finish?.color || '#a9adb5') : initials(p.vendor));
-
-  function tile(p, { title, sub, sub2, on, fits, onclick }) {
-    return h('button', { class: 'tile', type: 'button', 'aria-pressed': String(on), onclick }, [
-      h('span', { class: 'tile__img' }, [
-        p.images && p.images[0] ? h('img', { src: p.images[0], alt: '', loading: 'lazy', decoding: 'async' }) : placeholder(p),
-        on ? h('span', { class: 'tile__check' }, icon('check')) : null,
-        fits ? h('span', { class: 'tile__fit' }, [icon('check'), 'Fits']) : null
-      ]),
-      h('span', { class: 'tile__name', text: title }),
-      h('span', { class: 'tile__sub', text: sub }),
-      sub2 ? h('span', { class: 'tile__sub', text: sub2 }) : null,
-      h('span', { class: 'tile__price', text: data.aed(p.priceAED) })
-    ]);
-  }
-
-  const wheelName = (p) => {
-    const d = p.design || p.title.split(/ for /i)[0].slice(0, 32);
-    return d.toUpperCase().startsWith(String(p.vendor).toUpperCase()) ? d : `${p.vendor} ${d}`;
-  };
-
-  const fitsCar = (p) => {
-    const checks = data.wheelChecks(v, p);
-    return checks.some((c) => c.ok === true) && !checks.some((c) => c.ok === false);
-  };
-
+  /* ------------------------------------------------------------------ choices that change the build */
   function toggleWheel(pid) {
     const p = product(pid);
     if (!p) return;
@@ -216,7 +407,7 @@ export function mountCar(root, id, share, { toast, stock = null, base = null, ba
       });
       state.wheels = [...keep, { id: pid, qty: B.defaultQty(p) }];
     }
-    applyLook(); renderWheels(); sync();
+    applyLook(); renderOpts(); sync();
   }
 
   function toggleKit(pid) {
@@ -228,98 +419,38 @@ export function mountCar(root, id, share, { toast, stock = null, base = null, ba
       if (p.subtype === 'full-kit') state.kits = state.kits.filter((k) => k === pid || !FULL_KIT_COVERS.includes(product(k)?.subtype));
       else if (FULL_KIT_COVERS.includes(p.subtype)) state.kits = state.kits.filter((k) => product(k)?.subtype !== 'full-kit');
     }
-    renderKits(); sync();
+    renderOpts(); sync();
   }
 
-  function renderWheels() {
-    const list = [...parts.wheels].sort((a, b) => String(a.design).localeCompare(String(b.design)) || (a.priceAED || 0) - (b.priceAED || 0));
-    wheels.el.hidden = !list.length;
-    if (!list.length) return;
-    wheels.sub.textContent = state.wheels.length ? `${state.wheels.length} selected` : `${list.length} available`;
-    clear(wheels.body);
-    const shown = expanded.wheels ? list : list.slice(0, PREVIEW_COUNT);
-    wheels.body.append(h('div', { class: 'tiles' }, shown.map((p) => tile(p, {
-      title: wheelName(p), sub: data.variantLabel(p) || p.vendor, sub2: data.sizeLabel(p),
-      on: state.wheels.some((w) => w.id === p.id), fits: fitsCar(p), onclick: () => toggleWheel(p.id)
-    }))));
-    if (list.length > PREVIEW_COUNT && !expanded.wheels) {
-      wheels.body.append(h('button', { class: 'more', type: 'button', text: `Show all ${list.length}`, onclick: () => { expanded.wheels = true; renderWheels(); } }));
-    }
-    const sel = chosen()[0];
-    if (sel && !sel.finish && caps?.rim) {
-      wheels.body.append(
-        h('h3', { class: 'group-label', text: 'Wheel finish' }),
-        h('div', { class: 'swatches' }, B.WHEEL_COLORS.map((c) => h('button', {
-          class: 'swatch', type: 'button', style: `--c:${c.color};--m:${c.metalness}`, title: c.name, 'aria-label': c.name, 'aria-pressed': String(state.wheelColor === c.color),
-          onclick: () => { state.wheelColor = c.color; applyLook(); renderWheels(); sync(); }
-        }, state.wheelColor === c.color ? icon('check') : null)))
-      );
-    }
-  }
-
-  function renderKits() {
-    const groups = data.groupKits(parts.kits);
-    kits.el.hidden = !groups.length;
-    if (!groups.length) return;
-    kits.sub.textContent = state.kits.length ? `${state.kits.length} selected` : `${parts.kits.length} available`;
-    clear(kits.body);
-    groups.forEach((g) => {
-      const all = expanded.kits[g.subtype];
-      const shown = all ? g.items : g.items.slice(0, 4);
-      kits.body.append(
-        h('h3', { class: 'group-label', text: g.label }),
-        h('div', { class: 'tiles' }, shown.map((p) => tile(p, {
-          title: [p.vendor, p.material].filter(Boolean).join(' · ') || g.label, sub: g.label,
-          on: state.kits.includes(p.id), fits: false, onclick: () => toggleKit(p.id)
-        })))
-      );
-      if (g.items.length > 4 && !all) kits.body.append(h('button', { class: 'more', type: 'button', text: `Show all ${g.items.length}`, onclick: () => { expanded.kits[g.subtype] = true; renderKits(); } }));
-    });
-  }
-
-  /* ---- details: glass, calipers, alternative models */
-  function renderDetails() {
-    details.sub.textContent = '';
-    clear(details.body);
-    const glass = caps?.glass;
-    const cal = caps?.caliper;
-    if (glass) {
-      details.body.append(h('h3', { class: 'group-label', text: 'Glass' }), h('div', { class: 'seg' }, [
-        h('button', { type: 'button', 'aria-pressed': String(!state.tint), text: 'Clear', onclick: () => { state.tint = false; applyLook(); renderDetails(); sync(); } }),
-        h('button', { type: 'button', 'aria-pressed': String(state.tint), text: 'Tinted', onclick: () => { state.tint = true; applyLook(); renderDetails(); sync(); } })
-      ]));
-    }
-    if (cal) {
-      details.body.append(h('h3', { class: 'group-label', text: 'Brake calipers' }), h('div', { class: 'swatches' }, [
-        h('button', { class: 'swatch swatch--none', type: 'button', title: 'Original', 'aria-label': 'Original calipers', 'aria-pressed': String(!state.caliper), onclick: () => { state.caliper = null; applyLook(); renderDetails(); sync(); } }, h('span', { text: '—' })),
-        ...B.CALIPERS.map((c) => h('button', {
-          class: 'swatch', type: 'button', style: `--c:${c.color}`, title: c.name, 'aria-label': `${c.name} calipers`, 'aria-pressed': String(state.caliper === c.id),
-          onclick: () => { state.caliper = c.id; applyLook(); renderDetails(); sync(); }
-        }, state.caliper === c.id ? icon('check') : null))
-      ]));
-    }
-    if (v.models.length > 1) {
-      details.body.append(h('h3', { class: 'group-label', text: '3D model' }), h('div', { class: 'models3d' }, v.models.map((m, i) => h('button', {
-        class: 'm3d', type: 'button', 'aria-pressed': String(m.uid === state.modelUid), 'aria-label': `3D model ${i + 1}`,
-        onclick: () => { if (m.uid !== state.modelUid) { loadModel(i); renderDetails(); } }
-      }, m.thumb ? h('img', { src: m.thumb, alt: '', loading: 'lazy' }) : `${i + 1}`))));
-    }
-    details.el.hidden = !details.body.childElementCount;
-  }
-
-  /* ------------------------------------------------------------------ bottom bar + summary */
-  const total = h('span', { class: 'buy__amount' });
-  const count = h('span', { class: 'buy__count' });
-  const buy = h('footer', { class: 'buy' }, [
-    h('div', { class: 'buy__sum' }, [h('span', { class: 'buy__label', text: 'Your selection' }), h('span', {}, [h('small', { text: 'AED ' }), total]), count]),
-    h('button', { class: 'round', type: 'button', 'aria-label': 'Share this build', onclick: () => copy(shareUrl(), 'Link copied') }, icon('share')),
-    h('button', { class: 'cta', type: 'button', text: 'Enquire', onclick: () => openSheet() })
+  /* ------------------------------------------------------------------ bottom: ask, price, models, swipe */
+  const amount = h('strong', { class: 'price__amount' });
+  const count = h('small', { class: 'price__count' });
+  const priceEl = h('div', { class: 'price' }, [h('span', { class: 'price__label', text: 'Price' }), h('div', { class: 'price__row' }, [h('span', { class: 'price__cur', text: 'AED' }), amount]), count]);
+  const askBtn = h('div', { class: 'cfg-ask' }, [
+    h('span', { class: 'cfg-ask__label', text: 'Question' }),
+    h('button', { class: 'fbtn fbtn--lg', type: 'button', 'aria-label': 'Ask a question or book a viewing', onclick: () => openService({ car: name, service: 'Configuration consultation' }) }, icon('help'))
   ]);
+  const modelsEl = h('div', { class: 'viewed' });
+  const swipe = createSwipe({ label: 'Enquire', hint: 'Swipe right', mark: mark ? mark.cloneNode(true) : null, onDone: () => openSheet() });
+  const credit = h('p', { class: 'cfg__credit' });
+  const foot = h('footer', { class: 'cfg__foot' }, [h('div', { class: 'cfg__row' }, [askBtn, priceEl, modelsEl]), swipe.el, credit]);
+
+  function renderModels() {
+    clear(modelsEl);
+    if (v.models.length > 1) {
+      modelsEl.append(h('span', { class: 'viewed__label', text: '3D models' }), ...v.models.slice(0, 2).map((m, i) => h('button', {
+        class: 'thumb', type: 'button', 'aria-pressed': String(m.uid === state.modelUid), 'aria-label': `3D model ${i + 1}`,
+        onclick: () => { if (m.uid !== state.modelUid) { loadModel(i); renderModels(); } }
+      }, m.thumb ? h('img', { src: m.thumb, alt: '', loading: 'lazy' }) : `${i + 1}`)));
+    } else if (stock?.cover) {
+      modelsEl.append(h('span', { class: 'viewed__label', text: 'Photos' }), h('a', { class: 'thumb', href: back ? back.href : '#/shop', 'aria-label': 'Back to the car photos' }, h('img', { src: `${import.meta.env.BASE_URL}stock/${stock.id}.webp`, alt: '', onerror: (e) => { e.target.src = stock.cover; } })));
+    }
+  }
 
   function syncBar() {
     const b = B.bom(state, product);
-    if (getSettings().hidePrices) total.textContent = '—';
-    else countTo(total, b.total, (n) => n.toLocaleString('en-US'), 400);
+    if (getSettings().hidePrices) amount.textContent = '—';
+    else countTo(amount, b.total, (n) => n.toLocaleString('en-US'), 450);
     const n = b.lines.length;
     count.textContent = n ? `${n} item${n > 1 ? 's' : ''}${b.unpriced ? ' · + price on request' : ''}` : 'Colour only';
   }
@@ -342,14 +473,15 @@ export function mountCar(root, id, share, { toast, stock = null, base = null, ba
 
   function requestText() {
     const cur = B.byId(B.PAINTS, state.paint.preset);
-    const head = [`${v.make} ${v.model} (${v.generation}, ${data.yearsLabel(v)})`, `Colour: ${cur ? cur.name : state.paint.color}`];
+    const head = [`${name}${stock ? '' : ` (${v.generation}, ${data.yearsLabel(v)})`}`, `Colour: ${cur ? cur.name : state.paint.color}`];
     const cal = B.byId(B.CALIPERS, state.caliper);
     if (cal) head.push(`Calipers: ${cal.name}`);
     if (state.tint) head.push('Glass: tinted');
-    const body = B.summaryText(`${v.make} ${v.model}`, state, product, data.aed).split('\n').slice(2).join('\n');
+    const body = B.summaryText(name, state, product, data.aed).split('\n').slice(2).join('\n');
     return `${head.join('\n')}\n\n${body}\n\n${shareUrl()}`;
   }
 
+  /* ---- enquiry sheet */
   let sheet = null;
   function closeSheet() { sheet?.remove(); sheet = null; document.body.classList.remove('is-locked'); }
 
@@ -426,61 +558,49 @@ export function mountCar(root, id, share, { toast, stock = null, base = null, ba
     } catch { toast('Could not capture an image'); }
   }
 
-  /* ------------------------------------------------------------------ credit */
-  const credit = h('p', { class: 'credit' });
   function renderCredit() {
     const m = v.models.find((x) => x.uid === state.modelUid) || v.models[0];
     clear(credit);
     credit.append(`3D model “${m.name}” by ${m.author} · ${m.license} · `, h('a', { href: m.url, target: '_blank', rel: 'noopener noreferrer', text: 'Sketchfab' }));
-    const src = [...new Set([...parts.wheels, ...parts.kits].map((p) => p.vendor && p.source))].filter(Boolean);
-    if (src.length) {
-      const names = src.map((s) => (data.meta().sources.find((x) => x.id === s) || {}).name).filter(Boolean);
-      credit.append(h('br'), `Wheels and body kits: ${names.join(', ')} (Dubai). Prices in AED as listed.`);
-    }
   }
 
-  /* ------------------------------------------------------------------ page */
-  const mark = brandMark(v.make);
-  root.append(
-    h('header', { class: 'bar' }, [
-      h('a', { class: 'back', href: back ? back.href : '#/shop' }, [icon('back'), h('span', { text: back ? back.label : 'Back' })]),
-      h('div', { class: 'bar__tools' }, [
-        h('button', { class: 'round round--sm', type: 'button', 'aria-label': 'Save image', onclick: screenshot }, icon('camera')),
-        h('button', { class: 'round round--sm', type: 'button', 'aria-label': 'Copy share link', onclick: () => copy(shareUrl(), 'Link copied') }, icon('share'))
-      ])
-    ]),
-    h('main', { class: 'car' }, [
-      h('div', { class: 'car__hero' }, [
-        h('div', { class: 'car__title' }, [
-          h('div', { class: 'car__make' }, [mark, h('span', { text: v.make })]),
-          h('h1', { class: 'car__name' }, stock ? [stock.title] : [v.model, h('span', { class: 'gen', text: v.generation })]),
-          h('p', { class: 'car__meta', text: stock ? [stock.year, stock.exterior].filter(Boolean).join(' · ') : data.yearsLabel(v) })
-        ]),
-        hero
-      ]),
-      h('div', { class: 'car__panel' }, [colors.el, wheels.el, kits.el, details.el, credit])
-    ]),
-    buy
+  /* ------------------------------------------------------------------ assemble */
+  cfg.append(
+    h('div', { class: 'cfg__bg' }, [h('div', { class: 'cfg__glow' }), markText]),
+    floor, stage, loading,
+    h('div', { class: 'cfg__fade', 'aria-hidden': 'true' }), top, head, strip, viewsEl, rail, opts, foot
   );
+  root.append(cfg);
+
+  /* the make's name, as large as it can go without leaving the screen */
+  const fitMark = () => { markText.style.fontSize = `${Math.min(window.innerWidth * 0.34, (window.innerWidth * 1.55) / Math.max(4, v.make.length))}px`; };
+  fitMark();
 
   renderViews();
-  renderColors();
-  renderWheels();
-  renderKits();
-  renderDetails();
+  renderRail();
+  renderOpts();
+  renderModels();
+  renderActive();
   syncBar();
-  const modelIndex = Math.max(0, v.models.findIndex((m) => m.uid === state.modelUid));
-  loadModel(modelIndex);
+  cfg.style.setProperty('--tint', state.paint.color);
+  requestAnimationFrame(updateInsets);
+  loadModel(Math.max(0, v.models.findIndex((m) => m.uid === state.modelUid)));
 
   const onKey = (e) => { if (e.key === 'Escape') closeSheet(); };
   window.addEventListener('keydown', onKey);
+  let rz = 0;
+  const onResizeSoon = () => { clearTimeout(rz); rz = setTimeout(() => { fitMark(); onResize(); }, 120); };
+  window.addEventListener('resize', onResizeSoon);
 
   return {
     kind: 'car',
     destroy() {
       alive = false;
       clearTimeout(urlTimer);
+      clearTimeout(rz);
       window.removeEventListener('keydown', onKey);
+      window.removeEventListener('resize', onResizeSoon);
+      swipe.destroy();
       closeSheet();
       viewer.unload();
     }

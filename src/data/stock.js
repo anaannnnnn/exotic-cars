@@ -2,14 +2,18 @@ import * as data from './catalog.js';
 
 /* The dealership's own stock (public/data/stock.json, built by tools/build-stock.mjs). */
 let stock = null;
+let models = {};
 let loading = null;
 const BASE = import.meta.env.BASE_URL;
 
 export function loadStock() {
   if (stock) return Promise.resolve(stock);
-  loading ||= fetch(`${BASE}data/stock.json`)
-    .then((r) => { if (!r.ok) throw new Error('stock.json missing - run "npm run stock"'); return r.json(); })
-    .then((s) => {
+  loading ||= Promise.all([
+    fetch(`${BASE}data/stock.json`).then((r) => { if (!r.ok) throw new Error('stock.json missing - run "npm run stock"'); return r.json(); }),
+    fetch(`${BASE}data/stock-models.json`).then((r) => (r.ok ? r.json() : {})).catch(() => ({}))
+  ])
+    .then(([s, m]) => {
+      models = m || {};
       s.cars.forEach((c) => { c._hay = data.norm(`${c.title} ${c.brand} ${c.model || ''} ${c.year || ''} ${c.body || ''} ${c.exterior || ''} ${c.region || ''}`); });
       stock = s;
       return s;
@@ -62,11 +66,18 @@ const MAKE_ALIAS = { 'Rolls Royce': 'Rolls-Royce', 'Mercedes Benz': 'Mercedes-Be
 /* "F430" should match a title that says "430"; "Continental GT" a title that says only "GT W12" (the dealer's model field has the rest). */
 const keyTokens = (model) => data.norm(model.replace(/\(.*?\)/g, '')).split(' ').filter((w) => w.length > 1 || /\d/.test(w)).slice(0, 2);
 
+/** Verified 3D models for a stock car, best first ([] when none passed the checks). */
+export const stockModels3d = (car) => (models[car.id] || []);
+
 /**
- * The configurator model for a stock car: same make, the catalogue model's name appears in the title or the dealer's
- * model field, and the year falls inside the generation (nearest generation otherwise). Returns a catalogue vehicle or null.
+ * What to configure for a stock car, or null. A car only gets a 3D configurator when it has at least one model that was
+ * matched to it by name, year and variant AND verified to render (tools/match-stock-models.mjs + public/audit.html).
+ * The catalogue vehicle with the same make/model is used for wheels and kits when there is one; otherwise the car
+ * is configurable for colour only.
  */
 export function configuratorMatch(car) {
+  const list = stockModels3d(car);
+  if (!list.length) return null;
   const make = MAKE_ALIAS[car.brand] || car.brand;
   const hay = ` ${data.norm(`${car.title} ${car.model || ''}`)} `;
   const compact = hay.replace(/ /g, '');
@@ -85,7 +96,14 @@ export function configuratorMatch(car) {
     }
     if (score > bestScore) { best = v; bestScore = score; }
   }
-  return bestScore > 40 ? best : null;
+  const base = bestScore > 140 ? best : null;   /* only reuse parts when the generation really matches */
+  return {
+    id: base ? base.id : `stock-${car.id}`, make: base ? base.make : make, model: base ? base.model : car.title, generation: base ? base.generation : String(car.year || ''),
+    yearFrom: base ? base.yearFrom : car.year || 0, yearTo: base ? base.yearTo : car.year || 0, body: car.body || '', country: '', fuel: 'G',
+    spec: base ? base.spec : null, has3d: true, thumb: list[0].thumb || '', counts: base ? base.counts : { wheels: 0, kits: 0, makeLevel: 0 },
+    parts: base ? base.parts : { direct: [], makeLevel: [] }, models: list
+  };
 }
+
 export const kmLabel = (c) => (c.km == null ? null : c.km < 1000 ? `${c.km} km` : `${c.km.toLocaleString('en-US')} km`);
 export const priceLabel = (c) => (c.price ? data.aed(c.price) : 'Price on request');

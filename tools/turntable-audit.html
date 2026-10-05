@@ -1,0 +1,38 @@
+<!doctype html>
+<!--
+  Checks which freely licensed Ferrari, Bugatti and McLaren stock-car models can stand on the home page turntable: the model must load and its
+  four wheels must be found (the car is turned about the axis they give). Writes public/data/home-turntable.json
+  through a local receiver. Run: copy into public/, open /turntable-audit.html in the dev server, then remove it.
+-->
+<html>
+<head><meta charset="utf-8"><title>Turntable audit</title>
+<script src="https://static.sketchfab.com/api/sketchfab-viewer-1.12.1.js"></script>
+<style>body{font:14px system-ui;margin:20px}#host{position:relative;width:420px;height:300px;overflow:hidden}#log{white-space:pre;font:12px monospace}</style>
+</head>
+<body>
+<div id="host"></div><p id="status"></p><div id="log"></div>
+<script type="module">
+import { Viewer } from '/src/viewer/sketchfab.js';
+const OPEN = /^(CC0|CC Attribution(-ShareAlike)?)$/;
+const BRANDS = /^(Ferrari|Bugatti|McLaren)$/i;   /* the makes the home page shows */
+const stock = await (await fetch('/data/stock.json')).json();
+const models = await (await fetch('/data/stock-models.json')).json();
+const uids = [...new Map(stock.cars.filter((c) => !c.sold && BRANDS.test(c.brand) && models[c.id] && OPEN.test(models[c.id][0].license)).map((c) => [models[c.id][0].uid, models[c.id][0]])).values()];
+const viewer = new Viewer(document.getElementById('host'));
+const ok = [], bad = [];
+const log = (s) => { document.getElementById('log').textContent += s + '\n'; };
+for (const [i, m] of uids.entries()) {
+  document.getElementById('status').textContent = `${i + 1} / ${uids.length}`;
+  let good = false;
+  try { await viewer.load(m); good = !!viewer.axes; } catch { good = false; }
+  (good ? ok : bad).push(m.uid);
+  log(`${good ? 'ok ' : 'NO '} ${m.name}`);
+}
+viewer.unload();
+const out = { checked: new Date().toISOString(), ok, bad };
+window.__result = out;
+try { await fetch('http://127.0.0.1:5199/', { method: 'POST', body: JSON.stringify(out) }); log('saved'); } catch { log('receiver not running; result in window.__result'); }
+document.getElementById('status').textContent = `done: ${ok.length} ok, ${bad.length} not usable`;
+</script>
+</body>
+</html>
