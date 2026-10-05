@@ -1,6 +1,6 @@
 /* ==========================================================================
    Dock - the one place the bottom dock is styled (src/ui/liquid-dock.js).
-   A graphite glass capsule; the selected item opens into a pill of champagne gold, lit from within, whose light spills
+   A graphite glass capsule; the selected item opens into a pill of rosso red, lit from within, whose light spills
    onto the page around the dock. Inactive icons recede to 58% white. Springs live in JS; CSS handles the static
    material, hover magnification (--m) and the one-off land sheen.
    ========================================================================== */
@@ -12,9 +12,9 @@
   --dk-rim: rgba(255, 255, 255, 0.16);
   --dk-icon: rgba(255, 255, 255, 0.58);
   --dk-icon-hi: #ffffff;
-  --dk-ink: #2a1d0a;
-  --dk-gold: #d9b673;
-  --dk-gold-deep: #a98148;
+  --dk-ink: #ffffff;
+  --dk-red: #d4182c;
+  --dk-red-deep: #8e0c1f;
   --dk-ease: cubic-bezier(0.33, 1, 0.68, 1);       /* ease-out-cubic */
   --dk-fade: #efeee9;                              /* the bottom of the ambient page background (pages.css) */
 }
@@ -67,23 +67,23 @@ body.dock-off::after { opacity: 0; }
 .dk__spill {
   position: absolute; z-index: -1; left: 0; top: 50%; height: calc(var(--dk-h) * 2.1); margin-top: calc(var(--dk-h) * -1.05);
   border-radius: 50%; pointer-events: none; will-change: transform;
-  background: radial-gradient(closest-side, rgba(217, 182, 115, 0.5), rgba(217, 182, 115, 0.18) 55%, rgba(217, 182, 115, 0) 100%);
+  background: radial-gradient(closest-side, rgba(212, 24, 44, 0.5), rgba(212, 24, 44, 0.18) 55%, rgba(212, 24, 44, 0) 100%);
   opacity: var(--dk-spill-o, 1); animation: dk-breathe 3.6s ease-in-out infinite;
 }
 @keyframes dk-breathe { 50% { opacity: calc(var(--dk-spill-o, 1) * 0.68); } }
 
-/* ---------- the lens: champagne gold, lit from the top left, a bright lip, a deep base, a rim and a two-stage bloom ---------- */
+/* ---------- the lens: rosso red, lit from the top left, a bright lip, a deep base, a rim and a two-stage bloom ---------- */
 .dk__lens {
   position: absolute; z-index: 1; left: 0; top: var(--dk-pad); height: var(--dk-h); border-radius: 999px; pointer-events: none;
   transform-origin: 0 50%; will-change: transform, width; overflow: hidden;
   background: var(--sel-fill);
   box-shadow:
     inset 0 1px 0.5px rgba(255, 255, 255, 0.95),
-    inset 0 -3px 7px rgba(96, 66, 24, 0.38),
-    0 0 0 1px rgba(217, 182, 115, 0.7),
-    0 0 12px rgba(217, 182, 115, 0.62),
-    0 0 28px rgba(217, 182, 115, 0.34),
-    0 8px 20px -6px rgba(169, 129, 72, 0.75);
+    inset 0 -3px 7px rgba(70, 0, 10, 0.38),
+    0 0 0 1px rgba(212, 24, 44, 0.7),
+    0 0 12px rgba(212, 24, 44, 0.62),
+    0 0 28px rgba(212, 24, 44, 0.34),
+    0 8px 20px -6px rgba(160, 14, 34, 0.75);
 }
 /* the sheen that crosses the lens as it lands */
 .dk__sheen { position: absolute; inset: 0; border-radius: inherit; background: linear-gradient(105deg, rgba(255, 255, 255, 0) 30%, rgba(255, 255, 255, 0.75) 48%, rgba(255, 255, 255, 0) 64%); translate: -110% 0; }
@@ -117,16 +117,16 @@ body.dock-off::after { opacity: 0; }
 @media (hover: hover) and (pointer: fine) {
   .dk__item:not(.is-lit):hover { color: var(--dk-icon-hi); }
 }
-.dk__item:focus-visible { outline: 2px solid var(--dk-gold); outline-offset: 2px; box-shadow: 0 0 0 6px rgba(217, 182, 115, 0.25); }
+.dk__item:focus-visible { outline: 2px solid var(--dk-red); outline-offset: 2px; box-shadow: 0 0 0 6px rgba(212, 24, 44, 0.25); }
 
 /* account at the end, after a hairline */
 .dk__sep { position: relative; z-index: 2; flex: none; width: 1px; height: 26px; margin: 0 5px; background: linear-gradient(180deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0)); }
 .dk__avatar {
   display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%;
-  background: var(--dk-gold); color: var(--dk-ink); font-size: 12.5px; font-weight: 700; line-height: 1;
+  background: var(--dk-red); color: var(--dk-ink); font-size: 12.5px; font-weight: 700; line-height: 1;
   box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.12);
 }
-.dk__item.is-lit .dk__avatar { background: var(--dk-ink); color: var(--dk-gold); box-shadow: none; }
+.dk__item.is-lit .dk__avatar { background: var(--dk-ink); color: var(--dk-red); box-shadow: none; }
 
 /* ---------- thumb scrubbing ---------- */
 .dk.is-scrub .dk__item { transition-duration: 90ms; }
@@ -135,8 +135,8 @@ body.dock-off::after { opacity: 0; }
 .dk__tag {
   position: absolute; z-index: 3; left: 0; bottom: calc(100% + 14px); pointer-events: none; white-space: nowrap;
   padding: 7px 12px; border-radius: 999px; font-size: 12px; font-weight: 650; letter-spacing: 0.01em; color: var(--dk-ink);
-  background: linear-gradient(180deg, #f7ebcd, var(--dk-gold));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 0 0 1px rgba(217, 182, 115, 0.6), 0 0 18px rgba(217, 182, 115, 0.45), 0 10px 20px -10px rgba(10, 10, 11, 0.5);
+  background: linear-gradient(180deg, #ff6f7b, var(--dk-red));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 0 0 1px rgba(212, 24, 44, 0.6), 0 0 18px rgba(212, 24, 44, 0.45), 0 10px 20px -10px rgba(10, 10, 11, 0.5);
   margin-left: 0; translate: -50% 6px; opacity: 0; scale: 0.25; filter: blur(4px); transform-origin: 50% 100%;
   transition-property: opacity, scale, filter, translate; transition-duration: 220ms; transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
 }
@@ -167,14 +167,14 @@ body.dock-off::after { opacity: 0; }
 .dk-handle:active { scale: 0.96; }
 .dk-handle__ic {
   width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; color: var(--dk-ink);
-  background: linear-gradient(180deg, #f7ebcd, var(--dk-gold) 50%, var(--dk-gold-deep));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 0 0 1px rgba(217, 182, 115, 0.6), 0 0 14px rgba(217, 182, 115, 0.5);
+  background: linear-gradient(180deg, #ff6f7b, var(--dk-red) 50%, var(--dk-red-deep));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 0 0 1px rgba(212, 24, 44, 0.6), 0 0 14px rgba(212, 24, 44, 0.5);
 }
 .dk-handle__ic svg { width: 16px; height: 16px; stroke-width: 2; }
 .dk-handle__ic .dk__avatar { width: 32px; height: 32px; background: transparent; box-shadow: none; }
 .dk-handle__txt { font-size: 12.5px; font-weight: 650; letter-spacing: 0.005em; }
 .dk-handle__grip { width: 18px; height: 4px; border-radius: 2px; background: rgba(255, 255, 255, 0.5); }
-.dk-handle:focus-visible { outline: 2px solid var(--dk-gold); outline-offset: 3px; }
+.dk-handle:focus-visible { outline: 2px solid var(--dk-red); outline-offset: 3px; }
 
 /* ---------- narrower phones (360-379px Android, iPhone mini/SE): a slightly smaller dock, still 46px targets ---------- */
 @media (max-width: 379px) {

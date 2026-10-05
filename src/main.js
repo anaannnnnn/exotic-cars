@@ -1,6 +1,6 @@
-import '@fontsource-variable/jost/index.css';
 import '@fontsource/michroma/400.css';
-import '@fontsource-variable/inter-tight/index.css';
+import '@fontsource-variable/instrument-sans/wdth.css';
+import '@fontsource-variable/archivo/wdth.css';
 import './styles/main.css';
 import './styles/configurator.css';
 import './styles/pro.css';

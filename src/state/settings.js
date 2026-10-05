@@ -34,7 +34,7 @@ function applySettings() {
   root.dataset.theme = settings.dark ? 'dark' : 'light';
   root.dataset.motion = settings.reduceMotion ? 'reduce' : 'full';
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute('content', settings.dark ? '#09090c' : '#f4f1ea');
+  if (meta) meta.setAttribute('content', settings.dark ? '#0a0708' : '#f6f2f1');
 }
 
 /* visitor (name + email only, kept on this device) */

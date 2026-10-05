@@ -1,33 +1,33 @@
 /* ==========================================================================
    Finish: one "selected" language everywhere - the same radiance as the dock's lens. A selected control is filled
-   with champagne gold lit from the top left, carries a bright lip and a deeper base, a 1px gold rim and a two-stage
+   with rosso red lit from the top left, carries a bright lip and a deeper base, a 1px deep-red rim and a two-stage
    bloom (12px close, 28px wide) so it lifts off the page; whatever is not selected steps back. Crisp type, image
    edges, focus rings. Values follow better-ui: press 0.96, named transition properties, 1px image outlines.
    ========================================================================== */
 :root {
-  --acc-deep: #a98148;
-  --sel-ink: #2a1d0a;                     /* text and icons on champagne gold (about 10:1) */
-  /* polished champagne: a specular band over the top half, cream -> champagne -> brass, a brighter lip at the base */
+  --acc-deep: #8e0c1f;
+  --sel-ink: #ffffff;                     /* text and icons on rosso red (white on #d4182c is about 5:1) */
+  /* candy-apple paint: a clear-coat reflection over the top half, bright red to oxblood, a brighter lip at the base */
   --sel-fill:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.62) 0%, rgba(255, 255, 255, 0.18) 44%, rgba(255, 255, 255, 0) 50%),
-    linear-gradient(180deg, #f7ebcd 0%, #e6cc97 22%, #d4b26f 52%, #b88f52 86%, #c9a35f 100%);
-  /* on light paper the glow is a warm halo, never a smudge */
+    linear-gradient(180deg, rgba(255, 255, 255, 0.42) 0%, rgba(255, 255, 255, 0.12) 44%, rgba(255, 255, 255, 0) 50%),
+    linear-gradient(180deg, #ff5a68 0%, #e42437 26%, #c8142a 58%, #9c0c20 88%, #b5132a 100%);
+  /* on light paper the glow is a soft red halo with a deep rim */
   --glow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.95), inset 0 -2px 4px rgba(96, 66, 24, 0.22),
-    0 0 0 1px rgba(150, 113, 58, 0.55), 0 1px 2px rgba(80, 56, 20, 0.22), 0 8px 18px -8px rgba(150, 110, 50, 0.6), 0 0 20px rgba(217, 182, 115, 0.32);
+    inset 0 1px 0 rgba(255, 255, 255, 0.55), inset 0 -2px 4px rgba(70, 0, 10, 0.3),
+    0 0 0 1px rgba(142, 12, 31, 0.6), 0 1px 2px rgba(70, 0, 12, 0.25), 0 8px 18px -8px rgba(150, 12, 30, 0.6), 0 0 20px rgba(212, 24, 44, 0.28);
   --glow-sm:
-    inset 0 1px 0 rgba(255, 255, 255, 0.9),
-    0 0 0 1px rgba(150, 113, 58, 0.5), 0 4px 10px -5px rgba(150, 110, 50, 0.55), 0 0 12px rgba(217, 182, 115, 0.28);
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    0 0 0 1px rgba(142, 12, 31, 0.55), 0 4px 10px -5px rgba(150, 12, 30, 0.55), 0 0 12px rgba(212, 24, 44, 0.24);
   --recede: 0.62;                          /* how far unselected siblings step back */
 }
 /* at night the same metal blooms: a close halo and a wide one */
 :root[data-theme='dark'] {
   --glow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.9), inset 0 -2px 5px rgba(96, 66, 24, 0.3),
-    0 0 0 1px rgba(217, 182, 115, 0.6), 0 0 12px rgba(217, 182, 115, 0.45), 0 0 30px rgba(217, 182, 115, 0.22), 0 8px 18px -6px rgba(0, 0, 0, 0.6);
+    inset 0 1px 0 rgba(255, 255, 255, 0.5), inset 0 -2px 5px rgba(70, 0, 10, 0.35),
+    0 0 0 1px rgba(255, 70, 90, 0.55), 0 0 14px rgba(230, 30, 52, 0.55), 0 0 34px rgba(212, 24, 44, 0.3), 0 8px 18px -6px rgba(0, 0, 0, 0.6);
   --glow-sm:
-    inset 0 1px 0 rgba(255, 255, 255, 0.85),
-    0 0 0 1px rgba(217, 182, 115, 0.55), 0 0 10px rgba(217, 182, 115, 0.38), 0 5px 12px -5px rgba(0, 0, 0, 0.6);
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    0 0 0 1px rgba(255, 70, 90, 0.5), 0 0 12px rgba(230, 30, 52, 0.45), 0 5px 12px -5px rgba(0, 0, 0, 0.6);
 }
 
 /* ---------- type: crisp rendering, confident headings, steady numerals ---------- */
@@ -44,10 +44,10 @@ h1, h2, h3, .sect-head h2, .shop__title, .spot__head h2, .bb__txt h2, .slide__ti
 :root[data-theme='dark'] :is(.scard__img img, .ncard__img img, .slide__img, .body-t img, .vrc__img img, .gal__slide img) { outline-color: rgba(255, 255, 255, 0.1); }
 
 /* ---------- focus: one visible ring for keyboards, never for taps ---------- */
-:where(a, button, input, select, textarea, [role='tab'], [role='radio'], [tabindex]):focus-visible { outline: 2px solid #0a0a0b; outline-offset: 3px; box-shadow: 0 0 0 6px rgba(217, 182, 115, 0.32), 0 0 18px rgba(217, 182, 115, 0.35); }
+:where(a, button, input, select, textarea, [role='tab'], [role='radio'], [tabindex]):focus-visible { outline: 2px solid #0a0a0b; outline-offset: 3px; box-shadow: 0 0 0 6px rgba(212, 24, 44, 0.32), 0 0 18px rgba(212, 24, 44, 0.35); }
 :root[data-theme='dark'] :where(a, button, input, select, textarea, [role='tab'], [role='radio'], [tabindex]):focus-visible { outline-color: #fff; }
 
-/* ---------- selected = champagne gold with a contained glow, everywhere ---------- */
+/* ---------- selected = rosso red with a contained glow, everywhere ---------- */
 /* liquid tabs (shop stock tabs) */
 .lq--ink .lq__thumb { background: var(--sel-fill); box-shadow: var(--glow); }
 .lq--ink .lq__item[aria-selected='true'] { color: var(--sel-ink); font-weight: 650; }
@@ -69,8 +69,8 @@ h1, h2, h3, .sect-head h2, .shop__title, .spot__head h2, .bb__txt h2, .slide__ti
 /* chips, slots, switches */
 .chip2[aria-pressed='true'] { background: var(--sel-fill); color: var(--sel-ink); box-shadow: var(--glow-sm); font-weight: 650; }
 .slot[aria-checked='true'] { background: var(--sel-fill); color: var(--sel-ink); box-shadow: var(--glow-sm); }
-.trow input:checked + i { background: #0a0a0b; box-shadow: 0 0 0 1px rgba(217, 182, 115, 0.45), 0 4px 12px -4px rgba(169, 129, 72, 0.6); }
-/* slideshow progress fills in gold */
+.trow input:checked + i { background: #0a0a0b; box-shadow: 0 0 0 1px rgba(212, 24, 44, 0.45), 0 4px 12px -4px rgba(160, 14, 34, 0.6); }
+/* slideshow progress fills in red */
 .show__dot[aria-selected='true']::after { background: linear-gradient(90deg, #0a0a0b, #0a0a0b 60%, var(--acc)); }
 /* primary actions glow when focused or pressed */
 .pill--signal, .ask__go, .tb__btn--signal { transition-property: scale, box-shadow, background-color; transition-duration: 160ms; }
@@ -80,3 +80,23 @@ h1, h2, h3, .sect-head h2, .shop__title, .spot__head h2, .bb__txt h2, .slide__ti
 
 /* press: one tactile value */
 :is(.pill, .lq__item, .mk__item, .sg__item, .slot, .chip2, .fchip, .tb__btn, .circle-btn, .hub__icon, .prompt, .cta, .ghost):active { scale: 0.96; }
+
+/* ==========================================================================
+   Swipe to enquire (configurator): a compact, defined pill rather than a full-width bar - graphite glass with a
+   light rim, a rosso handle that leaves a red trail as it is slid, the cue as chevrons inside the pill.
+   ========================================================================== */
+.swipe { width: auto; max-width: none; gap: 0; justify-items: center; }
+.swipe__hint { display: none; }
+.swipe__track {
+  width: min(70vw, 248px); height: 50px; border-radius: 999px;
+  background: linear-gradient(180deg, #26262b 0%, #0d0d10 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), inset 0 0 0 1px rgba(255, 255, 255, 0.06), 0 1px 2px rgba(10, 10, 11, 0.3), 0 14px 28px -14px rgba(10, 10, 11, 0.6);
+}
+.swipe__fill { width: calc(var(--x) + 46px); background: linear-gradient(90deg, rgba(212, 24, 44, 0) 0%, rgba(212, 24, 44, 0.6) 100%); }
+.swipe__label { padding: 0 16px 0 46px; gap: 6px; font-size: 14px; font-weight: 650; letter-spacing: 0.01em; color: #fff; }
+.swipe__chev svg { width: 15px; height: 15px; opacity: 0.7; }
+.swipe__handle { left: 4px; top: 4px; bottom: 4px; width: 42px; border-radius: 50%; background: var(--sel-fill); color: #fff; box-shadow: var(--glow-sm); }
+.swipe__handle svg { width: 20px; height: 20px; }
+.swipe__handle:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.swipe__track.is-done { background: linear-gradient(180deg, #1f8a58 0%, #0f6b43 100%); }
+@media (max-height: 760px) { .swipe__track { height: 46px; } .swipe__handle { width: 38px; } .swipe__fill { width: calc(var(--x) + 42px); } .swipe__label { padding-left: 42px; } }

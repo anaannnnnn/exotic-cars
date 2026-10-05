@@ -212,8 +212,8 @@ export function mountHome(root) {
   /* ---------- lock: press and hold to unlock the showroom */
   const body = svg('rect', { x: '57.4', y: '65.6', width: '19.2', height: '14', rx: '1.4', fill: 'none', stroke: 'currentColor', 'stroke-width': '2.75' });
   const shackle = svg('path', { class: 'xh__shackle', d: 'M61.5 64.2V60a5.5 5.5 0 0 1 11 0v4.2', fill: 'none', stroke: 'currentColor', 'stroke-width': '2.75' });
-  /* the orb: an ivory ring on a soft shadow, a champagne-gold hold line that blooms as it fills, and a glossy black core
-     whose lock turns gold as the hold builds */
+  /* the orb: an ivory ring on a soft shadow, a rosso-red hold line that blooms as it fills, and a glossy black core
+     whose lock turns red as the hold builds */
   const lockSvg = svg('svg', { viewBox: '0 0 134 134', class: 'xh__locksvg', 'aria-hidden': 'true' }, [
     svg('defs', {}, [
       svg('radialGradient', { id: 'xh-core', cx: '38%', cy: '30%', r: '75%' }, [svg('stop', { offset: '0', 'stop-color': '#34343a' }), svg('stop', { offset: '0.55', 'stop-color': '#0d0d0f' }), svg('stop', { offset: '1', 'stop-color': '#000' })]),

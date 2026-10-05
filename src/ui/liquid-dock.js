@@ -3,7 +3,7 @@ import { haptic } from './haptics.js';
 
 /*
  * The dock: a graphite glass capsule of round buttons. The selected item opens into a pill that carries its name,
- * filled with champagne gold and lit from within - a lens of light whose bloom spills onto the page around the dock.
+ * filled with rosso red and lit from within - a lens of light whose bloom spills onto the page around the dock.
  *
  * Everything moves on springs, so any tap mid-flight is picked up from wherever things are:
  *  - the lens's two edges travel separately - the leading edge is thrown, the trailing edge follows - so it stretches

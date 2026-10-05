@@ -115,8 +115,8 @@ Nothing is sent to a server. The browser stores:
 - **Look:** light theme with a dark option, black ink, glass-effect floating controls, generous whitespace and no heavy text.
 - **Typeface:** Jost.
 - **Icons:** Lucide.
-- **Dock:** a graphite glass capsule. The selected item opens into a champagne-gold pill with its name, lit from within, and its light spills onto the page around the dock. The highlight travels on springs (its leading edge is thrown, the trailing edge follows), icons swell toward a mouse pointer, and a thumb can slide along the dock to choose (a label rides above it). Scrolling down tucks the dock behind a small handle. Arrow keys move between items. On the smallest phones (320px wide) the names move into tooltips.
-- **Selected states:** every selected control (dock, tabs, chips, segmented controls, time slots) uses the same gold fill with a rim and a two-stage glow; unselected siblings step back.
+- **Dock:** a graphite glass capsule. The selected item opens into a rosso-red pill with its name, lit from within, and its light spills onto the page around the dock. The highlight travels on springs (its leading edge is thrown, the trailing edge follows), icons swell toward a mouse pointer, and a thumb can slide along the dock to choose (a label rides above it). Scrolling down tucks the dock behind a small handle. Arrow keys move between items. On the smallest phones (320px wide) the names move into tooltips.
+- **Selected states:** every selected control (dock, tabs, chips, segmented controls, time slots) uses the same red fill with a rim and a two-stage glow; unselected siblings step back.
 - **Motion:** spring-like growth on selected buttons and dots, staggered entrance of option dots, a pulse on the "Active" chip when it changes, swipe-to-confirm with spring-back. A "reduce motion" setting calms all of it.
 - **Mobile-first:** designed at 390 × 844. On wider screens the controls scale up.
 

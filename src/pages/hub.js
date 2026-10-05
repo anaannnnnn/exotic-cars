@@ -9,12 +9,13 @@ import { brandTheme, brandVars } from '../ui/brand-theme.js';
 import { shopWithBrand } from './shop.js';
 import { liquidTabs } from '../ui/liquid-tabs.js';
 import { themeToggle } from '../ui/theme-toggle.js';
+import { flowRail } from '../ui/flow.js';
 
 /*
  * Home (after the lock screen): greeting, the day in big numerals, a concierge prompt, make filters, a slideshow of
  * featured cars and quick routes - with the liquid dock (home, booking, concierge, VR | account) at the bottom.
  */
-const AUTO_MS = 6000;
+const AUTO_MS = 4000;
 const MAKE_LABEL = { 'Rolls Royce': 'Rolls-Royce', 'Mercedes Benz': 'Mercedes-Benz' };
 const label = (b) => MAKE_LABEL[b] || b;
 
@@ -225,10 +226,10 @@ export function mountHub(root) {
   ]);
   const rail = (cards) => h('div', { class: 'rail2' }, cards);
 
-  /* ---------- the marques: an index of every make in stock, most cars first. Each row carries the make's mark on a
-     medallion in its own colours, the models it is best stocked in, the span of model years, how many can be built
-     in 3D and how many are new arrivals, and a bar for its share against the best-stocked make. Six show; the rest
-     open below. */
+  /* ---------- the marques: every make in stock, most cars first, as one continuous flow of cards that drifts sideways
+     for ever (ui/flow.js) - grab it, swipe it, or pause it. Each card carries the make's mark on a medallion in its
+     own colours, the models it is best stocked in, the span of model years, how many can be built in 3D and how many
+     are new arrivals, and a bar for its share against the best-stocked make. */
   const byMake = stock.stockBrands('sale');
   const goMake = (m) => (e) => { e.preventDefault(); shopWithBrand(m); };
   const lead = byMake[0]?.[1] || 1;
@@ -245,7 +246,7 @@ export function mountHub(root) {
     const fresh = cars.filter((c) => c.newArrival).length;
     const models = topModels(cars, 3);
     return h('a', {
-      class: 'mq rv', href: '#/shop', style: `${brandVars(m)};--i:${i % 6};--share:${(count / lead).toFixed(4)}`, onclick: goMake(m),
+      class: 'mq', href: '#/shop', style: `${brandVars(m)};--i:${i % 6};--share:${(count / lead).toFixed(4)}`, onclick: goMake(m),
       'aria-label': `${label(m)}: ${count} ${count === 1 ? 'car' : 'cars'} in stock`
     }, [
       h('span', { class: 'mq__medal', 'aria-hidden': 'true' }, brandMark(label(m)) || h('span', { class: 'mq__ini', text: label(m)[0] })),
@@ -262,25 +263,29 @@ export function mountHub(root) {
       h('span', { class: 'mq__bar', 'aria-hidden': 'true' }, h('i'))
     ]);
   };
-  const SHOW = 6;
-  const more = byMake.length > SHOW ? h('div', { class: 'mq-more', id: 'mq-more', inert: '' }, h('div', { class: 'mq-more__in' }, h('div', { class: 'mq-list' }, byMake.slice(SHOW).map((x, i) => marque(x, i))))) : null;
-  const moreBtn = more ? h('button', {
-    class: 'mq-toggle', type: 'button', 'aria-expanded': 'false', 'aria-controls': 'mq-more',
+  /* the track holds every card twice so the flow wraps without a seam; the second set is for the eye only */
+  const mqTrack = h('div', { class: 'mq-track' }, [
+    ...byMake.map((x, i) => marque(x, i)),
+    ...byMake.map((x, i) => { const c = marque(x, i); c.setAttribute('aria-hidden', 'true'); c.tabIndex = -1; return c; })
+  ]);
+  const flowEl = h('div', { class: 'mq-flow', role: 'group', 'aria-roledescription': 'carousel', 'aria-label': 'Makes in stock' }, mqTrack);
+  const flow = flowRail(flowEl, mqTrack, { speed: 30 });
+  const flowBtn = h('button', {
+    class: 'flow-tg', type: 'button', 'aria-pressed': 'false', 'aria-label': 'Pause the makes', 'data-tip': 'Pause',
     onclick: (e) => {
-      const open = more.classList.toggle('is-open');
-      more.inert = !open;
-      e.currentTarget.setAttribute('aria-expanded', String(open));
-      e.currentTarget.firstChild.textContent = open ? 'Show fewer makes' : `Show all ${byMake.length} makes`;
-      if (open) more.querySelectorAll('.rv:not(.is-in)').forEach((el) => el.classList.add('is-in'));
+      const b = e.currentTarget, on = b.getAttribute('aria-pressed') !== 'true';
+      b.setAttribute('aria-pressed', String(on));
+      b.setAttribute('aria-label', on ? 'Play the makes' : 'Pause the makes');
+      b.dataset.tip = on ? 'Play' : 'Pause';
+      flow.setPaused(on);
     }
-  }, [h('span', { text: `Show all ${byMake.length} makes` }), icon('chevron')]) : null;
-  const makesEl = h('section', { class: 'makes marques', 'aria-label': 'The marques' }, [
+  }, [h('span', { class: 'flow-tg__ic flow-tg__pause', 'aria-hidden': 'true' }, icon('pause')), h('span', { class: 'flow-tg__ic flow-tg__play', 'aria-hidden': 'true' }, icon('play'))]);
+  const makesEl = h('section', { class: 'makes marques rv', 'aria-label': 'The marques' }, [
     h('div', { class: 'sect-head' }, [
       h('div', {}, [h('p', { class: 'eyebrow', text: 'The marques' }), h('h2', { text: `${byMake.length} houses, one showroom` })]),
-      h('a', { class: 'sect-head__link', href: '#/shop' }, ['All cars', icon('right')])
+      h('div', { class: 'sect-head__tools' }, [flowBtn, h('a', { class: 'sect-head__link', href: '#/shop' }, ['All cars', icon('right')])])
     ]),
-    h('div', { class: 'mq-list' }, byMake.slice(0, SHOW).map((x, i) => marque(x, i))),
-    more, moreBtn
+    flowEl
   ]);
 
   /* ---------- make spotlight: the band takes the chosen make's colours; the chip's liquid thumb takes them too */
@@ -365,5 +370,5 @@ export function mountHub(root) {
   const onResize = () => moveThumb();
   window.addEventListener('resize', onResize);
 
-  return { kind: 'hub', destroy() { alive = false; clearInterval(timer); spotTabs.destroy(); window.removeEventListener('resize', onResize); closePanel(); } };
+  return { kind: 'hub', destroy() { alive = false; clearInterval(timer); spotTabs.destroy(); flow.destroy(); window.removeEventListener('resize', onResize); closePanel(); } };
 }

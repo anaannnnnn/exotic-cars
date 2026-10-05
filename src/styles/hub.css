@@ -94,7 +94,7 @@ body[data-page='hub'], body[data-page='concierge'] { background: var(--bg); }
 .hub { padding: calc(env(safe-area-inset-top) + 14px) 0 calc(env(safe-area-inset-bottom) + 140px); }
 .hub__glow {
   position: fixed; inset: 0 0 auto 0; height: 75vh; pointer-events: none; z-index: 0;
-  background: radial-gradient(42% 46% at 82% 22%, rgba(217, 182, 115, 0.32), rgba(217, 182, 115, 0) 70%), radial-gradient(40% 40% at 8% 6%, rgba(10, 10, 11, 0.05), rgba(10, 10, 11, 0) 70%);
+  background: radial-gradient(42% 46% at 82% 22%, rgba(212, 24, 44, 0.32), rgba(212, 24, 44, 0) 70%), radial-gradient(40% 40% at 8% 6%, rgba(10, 10, 11, 0.05), rgba(10, 10, 11, 0) 70%);
 }
 .hub > *:not(.hub__glow):not(.dockbar) { position: relative; z-index: 1; }
 
@@ -211,9 +211,10 @@ body[data-page='hub'], body[data-page='concierge'] { background: var(--bg); }
 .cg { display: flex; flex-direction: column; padding: calc(env(safe-area-inset-top) + 12px) 0 0; }
 .cg__top { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 12px; padding: 4px 18px 12px; background: linear-gradient(to bottom, var(--bg) 70%, color-mix(in srgb, var(--bg) 0%, transparent)); }
 .cg__title { flex: 1; min-width: 0; text-align: center; }
+.cg__tools { flex: none; display: flex; align-items: center; gap: 8px; }
 .cg__title h1 { font-size: 18px; font-weight: 600; letter-spacing: -0.015em; }
-.cg__title p { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
-.live { width: 7px; height: 7px; border-radius: 50%; background: var(--sel-fill); box-shadow: 0 0 0 3px rgba(217, 182, 115, 0.22); }
+.cg__title p { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; font-size: 12px; color: var(--muted); white-space: nowrap; }
+.live { width: 7px; height: 7px; border-radius: 50%; background: var(--sel-fill); box-shadow: 0 0 0 3px rgba(212, 24, 44, 0.22); }
 .cg__log { position: relative; z-index: 1; flex: 1; display: flex; flex-direction: column; gap: 14px; padding: 8px 18px calc(env(safe-area-inset-bottom) + 240px); }
 .msg { display: flex; gap: 10px; align-items: flex-start; }
 .msg--you { justify-content: flex-end; }

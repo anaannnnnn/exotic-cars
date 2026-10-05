@@ -1,4 +1,5 @@
 import * as stock from '../data/stock.js';
+import { themeToggle } from '../ui/theme-toggle.js';
 import { h, icon, clear } from '../ui/dom.js';
 import { openService, openVR, closePanel } from '../ui/panels.js';
 import { getSettings } from '../state/settings.js';
@@ -90,8 +91,11 @@ export function mountConcierge(root, firstQuestion = '') {
     h('div', { class: 'hub__glow', 'aria-hidden': 'true' }),
     h('header', { class: 'cg__top' }, [
       h('a', { class: 'circle-btn', href: '#/home', 'aria-label': 'Home', 'data-tip': 'Back home' }, icon('back')),
-      h('div', { class: 'cg__title' }, [h('h1', { text: 'Concierge' }), h('p', {}, [h('span', { class: 'live', 'aria-hidden': 'true' }), `Knows all ${stock.queryStock({ tab: 'sale' }).length} cars in the showroom`])]),
-      h('button', { class: 'circle-btn', type: 'button', 'aria-label': 'New conversation', 'data-tip': 'New conversation', onclick: () => { memory.log = []; memory.filters = null; memory.focus = null; clear(log); start(); } }, icon('rotate'))
+      h('div', { class: 'cg__title' }, [h('h1', { text: 'Concierge' }), h('p', {}, [h('span', { class: 'live', 'aria-hidden': 'true' }), `Knows all ${stock.queryStock({ tab: 'sale' }).length} cars`])]),
+      h('div', { class: 'cg__tools' }, [
+        themeToggle(),
+        h('button', { class: 'circle-btn', type: 'button', 'aria-label': 'New conversation', 'data-tip': 'New conversation', onclick: () => { memory.log = []; memory.filters = null; memory.focus = null; clear(log); start(); } }, icon('rotate'))
+      ])
     ]),
     log,
     h('div', { class: 'cg__composer' }, [suggest, form])

@@ -2,7 +2,7 @@
    Landing - the one place the landing screen (#/, src/pages/home.js) is styled.
    The showroom before the doors open: ivory paper lit from above (graphite at night), a fine grain, hairlines, the
    EXOTIC wordmark with one sheen of light, the car on a spotlit turntable with a real contact shadow, today's stock in
-   three figures, and one black orb that blooms champagne gold as it is held. Phones get one column; wide screens put the
+   three figures, and one black orb that blooms rosso red as it is held. Phones get one column; wide screens put the
    words and the orb on the left and give the stage the rest.
    ========================================================================== */
 :root {
@@ -16,8 +16,8 @@
   --xh-glass: rgba(255, 255, 255, 0.55);
   --xh-beam: rgba(255, 255, 255, 0.95);
   --xh-shade: 28, 22, 14;                           /* warm shadow, as rgb triplet */
-  --xh-gold: #d9b673;
-  --xh-arc: #96713a;                                /* the lit arc: deep enough to read on ivory */
+  --xh-red: #d4182c;
+  --xh-arc: #c41a2f;                                /* the lit arc: deep enough to read on ivory */
   --xh-word-1: #45454b;
   --xh-word-2: #0b0b0c;
   --xh-halo1: rgba(255, 255, 255, 0.5);
@@ -36,7 +36,7 @@
   --xh-glass: rgba(255, 255, 255, 0.06);
   --xh-beam: rgba(255, 255, 255, 0.16);
   --xh-shade: 0, 0, 0;
-  --xh-arc: #d9b673;
+  --xh-arc: #d4182c;
   --xh-word-1: #ffffff;
   --xh-word-2: #b9b9bf;
   --xh-halo1: rgba(255, 255, 255, 0.06);
@@ -68,10 +68,10 @@ body[data-page='home'] { overflow: hidden; overscroll-behavior: none; background
   content: ''; position: absolute; inset: -30%; will-change: transform;
   background:
     radial-gradient(30% 24% at 32% 42%, rgba(255, 255, 255, 0.55), transparent 70%),
-    radial-gradient(26% 22% at 70% 58%, rgba(217, 182, 115, 0.07), transparent 70%);
+    radial-gradient(26% 22% at 70% 58%, rgba(212, 24, 44, 0.07), transparent 70%);
   animation: xh-drift 26s ease-in-out infinite alternate;
 }
-:root[data-theme='dark'] .xh__aura::before { background: radial-gradient(30% 24% at 32% 42%, rgba(255, 255, 255, 0.05), transparent 70%), radial-gradient(26% 22% at 70% 58%, rgba(217, 182, 115, 0.08), transparent 70%); }
+:root[data-theme='dark'] .xh__aura::before { background: radial-gradient(30% 24% at 32% 42%, rgba(255, 255, 255, 0.05), transparent 70%), radial-gradient(26% 22% at 70% 58%, rgba(212, 24, 44, 0.08), transparent 70%); }
 @keyframes xh-drift { to { transform: translate3d(6%, -4%, 0) rotate(8deg); } }
 .xh__aura::after {
   content: ''; position: absolute; inset: 0; opacity: 0.06; mix-blend-mode: multiply;
@@ -108,7 +108,7 @@ body[data-page='home'] { overflow: hidden; overscroll-behavior: none; background
 .xh__brand { display: grid; justify-items: center; gap: 8px; margin: 0; font-weight: 400; }
 /* graphite metal, lit from above, with one sheen of light crossing it as the page opens */
 .xh__word {
-  display: block; font-family: 'Michroma', 'Jost Variable', 'Jost', system-ui, sans-serif; font-weight: 400;
+  display: block; font-family: 'Michroma', 'Instrument Sans Variable', system-ui, sans-serif; font-weight: 400;
   font-size: clamp(46px, 15.5vw, 118px); line-height: 1; letter-spacing: -0.05em; padding-right: 0.02em; white-space: nowrap;
   background:
     linear-gradient(100deg, transparent 0%, transparent 42%, rgba(255, 255, 255, 0.95) 50%, transparent 58%, transparent 100%) 120% 0 / 260% 100% no-repeat,
@@ -140,8 +140,8 @@ body[data-page='home'] { overflow: hidden; overscroll-behavior: none; background
 }
 .xh__year {
   font-size: 11px; font-weight: 650; letter-spacing: 0.06em; font-variant-numeric: tabular-nums; line-height: 1; padding: 5px 9px; border-radius: 999px;
-  color: #2a1d0a; background: linear-gradient(180deg, #f7ebcd, var(--xh-gold));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85), 0 0 0 1px rgba(217, 182, 115, 0.6), 0 0 14px rgba(217, 182, 115, 0.5), 0 4px 10px -4px rgba(150, 113, 58, 0.6);
+  color: #ffffff; background: linear-gradient(180deg, #ff6f7b, var(--xh-red));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85), 0 0 0 1px rgba(212, 24, 44, 0.6), 0 0 14px rgba(212, 24, 44, 0.5), 0 4px 10px -4px rgba(142, 12, 31, 0.6);
   translate: 0 -3px;
 }
 .xh__year:empty { display: none; }
@@ -173,12 +173,12 @@ body[data-page='home'] { overflow: hidden; overscroll-behavior: none; background
 .xh__loading { position: absolute; z-index: 2; left: 0; right: 0; bottom: 30%; display: grid; justify-items: center; gap: 12px; opacity: 0; pointer-events: none; transition: opacity 0.4s var(--xh-out); }
 .xh__show.is-loading .xh__loading, .xh__show.is-empty .xh__loading { opacity: 1; }
 .xh__loadbar { position: relative; width: 128px; height: 1px; overflow: hidden; background: var(--xh-line); }
-.xh__loadbar::after { content: ''; position: absolute; top: 0; bottom: 0; width: 40%; background: linear-gradient(90deg, transparent, var(--xh-arc), transparent); box-shadow: 0 0 8px rgba(217, 182, 115, 0.7); animation: xh-load 1.4s cubic-bezier(0.6, 0, 0.4, 1) infinite; }
+.xh__loadbar::after { content: ''; position: absolute; top: 0; bottom: 0; width: 40%; background: linear-gradient(90deg, transparent, var(--xh-arc), transparent); box-shadow: 0 0 8px rgba(212, 24, 44, 0.7); animation: xh-load 1.4s cubic-bezier(0.6, 0, 0.4, 1) infinite; }
 @keyframes xh-load { from { translate: -110% 0; } to { translate: 260% 0; } }
 .xh__show.is-empty .xh__loadbar { display: none; }
 .xh__loadtxt { font-size: 9.5px; font-weight: 500; letter-spacing: 0.3em; padding-left: 0.3em; text-transform: uppercase; color: var(--xh-ink-3); }
 
-/* ---------- turntable: hairline ring, a floor light, a gold arc that rides with the knob ---------- */
+/* ---------- turntable: hairline ring, a floor light, a red arc that rides with the knob ---------- */
 .xh__turn {
   position: relative; z-index: 2; width: min(94.5%, calc(var(--show-h) * 1.5)); aspect-ratio: 417 / 128;
   /* the ring's centre sits 73% of the way down the stage, whatever the screen (margin % = width of the floor) */
@@ -193,7 +193,7 @@ body[data-page='home'] { overflow: hidden; overscroll-behavior: none; background
 :root[data-theme='dark'] .xh__floorlight { fill: rgba(255, 255, 255, 0.025); }
 .xh__track { vector-effect: non-scaling-stroke; stroke-width: 1; }
 .xh__arc { stroke: var(--xh-arc); stroke-width: 1.8; stroke-linecap: round; vector-effect: non-scaling-stroke; transition: stroke-width 200ms var(--xh-out); }
-.xh__arcglow { stroke: var(--xh-gold); stroke-width: 8; stroke-linecap: round; vector-effect: non-scaling-stroke; opacity: 0.3; transition: opacity 200ms var(--xh-out), stroke-width 200ms var(--xh-out); }
+.xh__arcglow { stroke: var(--xh-red); stroke-width: 8; stroke-linecap: round; vector-effect: non-scaling-stroke; opacity: 0.3; transition: opacity 200ms var(--xh-out), stroke-width 200ms var(--xh-out); }
 .xh__turn.is-drag .xh__arc { stroke-width: 2.4; }
 .xh__turn.is-drag .xh__arcglow { opacity: 0.55; stroke-width: 12; }
 
@@ -210,7 +210,7 @@ body[data-page='home'] { overflow: hidden; overscroll-behavior: none; background
 .xh__pill svg { width: 11px; height: 11px; stroke-width: 2.6; opacity: 0.85; }
 @media (hover: hover) and (pointer: fine) { .xh__pill:hover { scale: 1.18; } }
 .xh__pill:active { scale: 0.9; }
-.xh__turn.is-drag .xh__pill, .xh__knob:focus-visible .xh__pill { box-shadow: 0 0 0 1px rgba(217, 182, 115, 0.7), 0 0 14px rgba(217, 182, 115, 0.55), 0 3px 8px rgba(var(--xh-shade), 0.2); }
+.xh__turn.is-drag .xh__pill, .xh__knob:focus-visible .xh__pill { box-shadow: 0 0 0 1px rgba(212, 24, 44, 0.7), 0 0 14px rgba(212, 24, 44, 0.55), 0 3px 8px rgba(var(--xh-shade), 0.2); }
 .xh__knob:focus-visible { outline: none; }
 .xh__tip {
   position: absolute; left: 50%; bottom: calc(100% + 12px); transform: translateX(-50%) rotate(calc(var(--tilt, 0deg) * -1));
@@ -244,7 +244,7 @@ body[data-page='home'] { overflow: hidden; overscroll-behavior: none; background
 /* bloom behind the orb: breathes faintly at rest, swells and brightens with the hold, bursts on opening */
 .xh__aurora {
   position: absolute; inset: -26%; z-index: 0; border-radius: 50%; pointer-events: none;
-  background: radial-gradient(closest-side, rgba(217, 182, 115, 0.55), rgba(217, 182, 115, 0.16) 55%, rgba(217, 182, 115, 0) 100%);
+  background: radial-gradient(closest-side, rgba(212, 24, 44, 0.55), rgba(212, 24, 44, 0.16) 55%, rgba(212, 24, 44, 0) 100%);
   opacity: calc(0.12 + var(--xh-breath) * 0.12 + var(--p) * 0.7); scale: calc(0.82 + var(--p) * 0.22);
   animation: xh-breathe 3.6s ease-in-out infinite;
 }
@@ -255,12 +255,12 @@ body[data-page='home'] { overflow: hidden; overscroll-behavior: none; background
 .xh__halo2 { fill: var(--xh-halo2); }
 .xh__holdglow, .xh__hold { stroke-dasharray: 100; stroke-dashoffset: calc(100 - var(--p) * 100); transform: rotate(-90deg); transform-origin: 67px 67px; stroke-linecap: round; }
 .xh__hold { stroke: var(--xh-arc); stroke-width: 2.6; opacity: min(1, calc(var(--p) * 8)); }
-.xh__holdglow { stroke: var(--xh-gold); stroke-width: 7; opacity: calc(var(--p) * 0.45); }
+.xh__holdglow { stroke: var(--xh-red); stroke-width: 7; opacity: calc(var(--p) * 0.45); }
 .xh__core { fill: url(#xh-core); transform-origin: 67px 67px; transform: scale(calc(1 - var(--p) * 0.07)); }
-.xh__lock.is-holding .xh__core, .xh__lock.is-open .xh__core { stroke: rgba(217, 182, 115, 0.55); stroke-width: calc(var(--p) * 1.4); }
+.xh__lock.is-holding .xh__core, .xh__lock.is-open .xh__core { stroke: rgba(212, 24, 44, 0.55); stroke-width: calc(var(--p) * 1.4); }
 .xh__shine { fill: url(#xh-shine); pointer-events: none; }
 .xh__lockicon { color: #f4f4f2; transform-origin: 67px 67px; transition: color 400ms var(--xh-ease); }
-.xh__lock.is-holding .xh__lockicon, .xh__lock.is-open .xh__lockicon { color: var(--xh-gold); }
+.xh__lock.is-holding .xh__lockicon, .xh__lock.is-open .xh__lockicon { color: var(--xh-red); }
 .xh__shackle { transform-origin: 72.5px 64.2px; transform: translateY(calc(var(--p) * -1.6px)); transition: transform 0.5s cubic-bezier(0.34, 1.36, 0.64, 1); }
 .xh__lock.is-holding .xh__shackle { transition: none; }
 .xh__lock.is-open .xh__shackle { transform: translateY(-3.5px) rotate(32deg); }

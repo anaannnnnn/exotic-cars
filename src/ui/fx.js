@@ -63,7 +63,7 @@ function initReveal() {
 }
 
 /* ---------- touch: an ink ripple spreads from where the finger lands ---------- */
-const TAP = '.pill, .qtile, .lq__item, .scard, .ncard, .mq, .mq-toggle, .body-t, .svc, .slot, .chip2, .tb__btn, .fchip, .cta, .ghost, .mk__item, .circle-btn, .hub__icon, .prompt, .vrc, .talk__card, .sg__item, .more, .slide, .ask__go, .bb__x, .way';
+const TAP = '.pill, .qtile, .lq__item, .scard, .ncard, .mq, .flow-tg, .body-t, .svc, .slot, .chip2, .tb__btn, .fchip, .cta, .ghost, .mk__item, .circle-btn, .hub__icon, .prompt, .vrc, .talk__card, .sg__item, .more, .slide, .ask__go, .bb__x, .way';
 function initTapRipple() {
   document.addEventListener('pointerdown', (e) => {
     if (e.button > 0 || reduced()) return;

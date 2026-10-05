@@ -14,7 +14,7 @@
   --ok: #1a7f4b;
   --radius: 24px;
   --bar: 56px;
-  --font: 'Jost Variable', 'Jost', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font: 'Instrument Sans Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
   color-scheme: light;
 }
