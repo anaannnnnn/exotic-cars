@@ -131,7 +131,7 @@ export function mountHub(root) {
   function slide(c, i, total) {
     const can = stock.configuratorMatch(c);
     const meta = [c.year, stock.kmLabel(c)].filter(Boolean).join(' · ');
-    const media = h('div', { class: 'slide__media' }, [h('img', { class: 'slide__img', src: stock.coverUrl(c), alt: c.title, loading: i < 2 ? 'eager' : 'lazy', decoding: 'async', onerror: (e) => { if (e.target.src !== c.cover) e.target.src = c.cover; } })]);
+    const media = h('div', { class: 'slide__media' }, [h('img', { class: 'slide__img', src: stock.coverUrl(c), alt: c.title, loading: i < 2 ? 'eager' : 'lazy', decoding: 'async', onerror: stock.coverError(c) })]);
     const card = h('article', { class: 'slide', 'aria-roledescription': 'slide', 'aria-label': `${i + 1} of ${total}: ${c.title}` }, [
       media,
       h('div', { class: 'slide__top' }, [
@@ -213,7 +213,7 @@ export function mountHub(root) {
   const short = (c) => c.title.replace(new RegExp(`^${c.brand.replace(/\s+/g, '[\\s-]*')}\\s*`, 'i'), '') || c.title;
   const ncard = (c, i, { dark = false } = {}) => h('a', { class: `ncard rv${dark ? ' ncard--dark' : ''}${c.sold ? ' is-sold' : ''}`, href: `#/shop/${c.id}`, style: `--i:${i % 8}`, 'data-tip': c.title, 'data-tip-desc': c.sold ? 'Sold - ask about similar cars' : 'Photos, specs and booking' }, [
     h('span', { class: 'ncard__img' }, [
-      h('img', { src: stock.coverUrl(c), alt: '', loading: 'lazy', decoding: 'async', onerror: (e) => { if (e.target.src !== c.cover) e.target.src = c.cover; } }),
+      h('img', { src: stock.coverUrl(c), alt: '', loading: 'lazy', decoding: 'async', onerror: stock.coverError(c) }),
       !c.sold && stock.configuratorMatch(c) ? h('span', { class: 'ncard__3d', 'aria-label': 'Configurable in 3D' }, icon('model')) : null,
       c.sold ? h('span', { class: 'ncard__sold', text: 'Sold' }) : null
     ]),
@@ -332,7 +332,7 @@ export function mountHub(root) {
     h('div', { class: 'bgrid' }, BODIES.map(([b, name, sub], i) => {
       const pick = sale.find((c) => c.body === b && stock.configuratorMatch(c)) || sale.find((c) => c.body === b);
       return h('a', { class: 'body-t tilt rv', href: `#/concierge/${encodeURIComponent(`Show me ${name.toLowerCase()}`)}`, style: `--i:${i}`, 'data-tip': `${bodyCount(b)} ${name.toLowerCase()}`, 'data-tip-desc': 'Ask the concierge' }, [
-        pick ? h('img', { src: stock.coverUrl(pick), alt: '', loading: 'lazy', onerror: (e) => { if (e.target.src !== pick.cover) e.target.src = pick.cover; } }) : null,
+        pick ? h('img', { src: stock.coverUrl(pick), alt: '', loading: 'lazy', onerror: stock.coverError(pick) }) : null,
         h('span', { class: 'body-t__txt' }, [h('b', { text: name }), h('small', { text: `${bodyCount(b)} cars · ${sub}` })])
       ]);
     }))

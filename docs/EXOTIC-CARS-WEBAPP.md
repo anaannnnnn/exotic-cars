@@ -1,6 +1,6 @@
 # Exotic Cars web app: full project document
 
-Version 2.0.0 · Document date: 2 October 2026 · Repository: `anaannnnnn/exotic-cars` (private)
+Version 2.1.0 · Document date: 5 October 2026 · Repository: `anaannnnnn/exotic-cars` (private)
 
 ---
 
@@ -10,7 +10,8 @@ Exotic Cars is a mobile-first web app for a luxury and exotic car dealership in 
 
 1. **Shows the dealership's real stock** (478 cars: 408 for sale, 70 sold, 18 brands) with photos and specifications.
 2. **Lets a customer configure the car in 3D**: change the paint colour on a live 3D model, and choose wheels and aero kits from Dubai suppliers that list fitment for that exact car.
-3. **Captures leads**: an enquiry by swipe, a service or test-drive appointment form, and a sign-in that remembers a visitor on their device.
+3. **Captures leads**: configurator and car-page enquiries, service and test-drive bookings, and customer accounts, all delivered to the dealership's CRM.
+4. **Runs from a CRM** at `/admin/`: staff edit the stock, wheels and kits, work the lead pipeline and bookings, and see customers. Changes reach the website within a minute (see `docs/DEPLOY.md`).
 
 The stock was imported from the client's own website (`exoticcars.ae`) with the client's permission. The site lists no prices, so cars show "Price on request".
 
@@ -100,13 +101,21 @@ A pipeline picks the best model for each real car and rejects wrong ones. It is 
 
 A wheel or kit is linked to a car only when the supplier's title names that car and the years overlap. Wheels whose bolt pattern contradicts the factory specification are rejected. Surcharges, spacers and bolts are not treated as wheels.
 
-### 5.2 What is saved on the visitor's device
+### 5.2 What is saved on the visitor's device, and what goes to the dealership
 
-Nothing is sent to a server. The browser stores:
+Sent to the dealership's API (`/api/v1`, stored in Netlify Blobs): enquiries (with the full 3D build), bookings and customer accounts (scrypt-hashed passwords, HttpOnly session cookie).
+
+The browser stores:
 
 - settings (dark appearance, hide prices, reduce motion),
 - the signed-in name and email,
-- saved appointment requests (a reference number, service, vehicle, date, time, contact details and notes).
+- a copy of the visitor's appointment requests for "Your requests",
+- an outbox of enquiries and bookings made while offline, sent automatically later (each with its own reference, so a retry never duplicates it),
+- device-only accounts made before the backend existed; they move to the server at the next sign-in.
+
+### 5.3 Backend and CRM
+
+One Netlify Function serves the API (`server/app.mjs`): public stock and products (CDN-cached for 30 seconds), enquiries, bookings, customer accounts, and staff routes for the CRM. Data lives in Netlify Blobs: the stock and catalogue as two documents guarded by entity tags (concurrent edits retry instead of overwriting), CRM records one per key. The first staff sign-in imports the built-in stock and catalogue. Contract: `docs/openapi.yaml`; design and security checklist: `specs/crm-backend_design.md`.
 
 ---
 
@@ -130,12 +139,14 @@ A Figma file with the eight mobile screens exists: https://www.figma.com/design/
 | --- | --- |
 | Language | Plain JavaScript (ES modules), no framework |
 | Build tool | Vite 8 |
-| Tests | Vitest 5 (40 tests: parsers, fitment checks, totals, share links) |
+| Tests | Vitest 5 (82 tests: parsers, fitment checks, totals, share links, CRM fitment, and API integration against a local Blobs store) |
+| Backend | Netlify Functions (v2) + Netlify Blobs, Zod validation, scrypt passwords, HMAC-signed cookies |
+| CRM | `/admin/`, plain JavaScript, same fonts and rosso palette as the site, light and dark |
 | 3D | Sketchfab Viewer API 1.12.1 |
 | Icons | Lucide, Simple Icons (brand marks) |
 | Fonts | Jost, Bodoni Moda, Instrument Sans, IBM Plex Mono through Fontsource |
 | Image processing | sharp (build tools only) |
-| Hosting | Static files. `npm run build` produces `dist/`, which any static host can serve. |
+| Hosting | Netlify. `npm run build` produces `dist/` (website and CRM); Netlify bundles the API function. Deploy from Git or the CLI (`docs/DEPLOY.md`). A static-only upload still serves the showroom from built-in data. |
 
 ---
 
@@ -143,8 +154,13 @@ A Figma file with the eight mobile screens exists: https://www.figma.com/design/
 
 ```
 index.html                  page shell
-vite.config.js              build settings
+admin/index.html            CRM page shell (/admin/)
+netlify.toml                build, function and CRM header settings
+netlify/functions/api.mjs   the API function (/api/v1/*)
+server/                     API: app.mjs (routes), auth, http, schemas, store, repo
+vite.config.js              build settings (website + CRM; /api proxy for local dev)
 src/
+  admin/                    CRM: main.js (shell, router), api.js, ui.js, media.js, admin.css, views/
   main.js                   starts the app and loads styles
   app.js                    hash router
   pages/
@@ -155,7 +171,10 @@ src/
   state/
     build.js                paints, parts list, totals, share links (tested)
     settings.js             settings, signed-in user, appointments (browser storage)
+    accounts.js             customer accounts (API first, device fallback)
+    outbox.js               enquiries and bookings to the API, offline queue
   data/
+    api.js                  API client for the website
     catalog.js              catalogue queries, fitment checks, labels
     stock.js                stock loading, model matching, filters
     brand-paths.json        brand mark drawings
@@ -163,9 +182,10 @@ src/
   styles/                   main.css, configurator.css
 public/data/                catalog, products, stock, stock-models (JSON)
 public/stock/               478 cover photos
-tools/                      data pipeline (section 9)
-tests/                      build.test.mjs, products.test.mjs
-docs/                       this document
+tools/                      data pipeline (section 9), dev-api.mjs, admin-hash.mjs
+tests/                      build, products, fits (CRM fitment) and api (integration) tests
+specs/                      backend and CRM design
+docs/                       this document, DEPLOY.md, openapi.yaml
 ```
 
 ---
@@ -207,11 +227,11 @@ docs/                       this document
 - 35 cars for sale have no 3D model by design.
 - Very detailed models (for example a 1.8-million-face Cullinan) can load slowly on phones, taking around 15 to 20 seconds in testing.
 - Wheels and kits appear on the quote but are not drawn on the 3D car, because the viewer cannot add geometry.
-- The enquiry and appointment forms save to the visitor's device only. There is no server, email or CRM connection yet. Sending them to the dealership needs a back end.
-- There is no sign-in with passwords, and prices are not listed by the dealership.
+- The CRM has one staff account (set by environment variables). Email or WhatsApp notifications for new leads are not sent yet; staff see them in the CRM (with a badge) and can export them.
+- Prices are not listed by the dealership; staff can add them per car in the CRM.
 - Desktop layout has been checked less than the mobile layout.
 
-**Suggested next steps:** connect the forms to email or a CRM, replace the 59 non-commercially licensed models, add real prices, and finish the Figma file as reusable components with a dark theme.
+**Suggested next steps:** email or WhatsApp alerts for new leads, more staff accounts with roles, replace the 59 non-commercially licensed models, add real prices, and finish the Figma file as reusable components with a dark theme.
 
 ---
 

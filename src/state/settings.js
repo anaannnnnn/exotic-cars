@@ -1,4 +1,4 @@
-/* Device-local preferences, the signed-in visitor and saved appointment requests. Nothing leaves the browser. */
+/* Device-local preferences, the signed-in visitor and a copy of the visitor's appointment requests. */
 const KEY = 'apex-settings-v1';
 const USER = 'apex-user-v1';
 const APPTS = 'apex-appointments-v1';
@@ -44,10 +44,10 @@ export const signOut = () => { try { localStorage.removeItem(USER); } catch { /*
 
 /* appointment requests */
 export const getAppointments = () => read(APPTS, []);
+/** Keep a copy of a request on this device for "Your requests" (state/outbox.js sends it to the dealership). */
 export function saveAppointment(a) {
-  const list = getAppointments();
-  const ref = `AA-${Date.now().toString(36).toUpperCase().slice(-6)}`;
-  const item = { ...a, ref, createdAt: new Date().toISOString() };
+  const list = getAppointments().filter((x) => x.ref !== a.ref);
+  const item = { ...a, ref: a.ref || `AA-${Date.now().toString(36).toUpperCase().slice(-6)}`, createdAt: new Date().toISOString() };
   write(APPTS, [item, ...list].slice(0, 50));
   return item;
 }

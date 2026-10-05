@@ -96,7 +96,7 @@ export function mountAccount(root) {
 
     main.append(
       h('section', { class: 'acct__hero' }, [
-        h('img', { class: 'acct__img', src: stock.coverUrl(cover), alt: '', onerror: (e) => { if (e.target.src !== cover.cover) e.target.src = cover.cover; } }),
+        h('img', { class: 'acct__img', src: stock.coverUrl(cover), alt: '', onerror: stock.coverError(cover) }),
         h('div', { class: 'acct__veil', 'aria-hidden': 'true' }),
         h('a', { class: 'circle-btn circle-btn--glass acct__back', href: '#/home', 'aria-label': 'Back home' }, icon('back')),
         h('div', { class: 'acct__brand' }, [h('span', { class: 'acct__mark', text: 'EXOTIC' }), h('span', { class: 'acct__sub', text: 'Private client access' })])

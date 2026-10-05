@@ -4,6 +4,7 @@
  */
 
 import { getSettings } from '../state/settings.js';
+import { api } from './api.js';
 
 let catalog = null;
 let products = null;
@@ -11,18 +12,44 @@ const vehicleIndex = new Map();
 
 export const norm = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
 
+/** Wheels and kits come live from the CRM when the backend is deployed, else from the copy built into the site. */
 export async function loadCatalog(base = './data/') {
+  const builtIn = () => fetch(`${base}products.json`).then((r) => { if (!r.ok) throw new Error('products.json missing - run "npm run db"'); return r.json(); });
   const [c, p] = await Promise.all([
     fetch(`${base}catalog.json`).then((r) => { if (!r.ok) throw new Error('catalog.json missing - run "npm run db"'); return r.json(); }),
-    fetch(`${base}products.json`).then((r) => { if (!r.ok) throw new Error('products.json missing - run "npm run db"'); return r.json(); })
+    api('products', { timeout: 7000 }).catch(() => builtIn())
   ]);
   init(c, p);
   return catalog;
 }
 
+/**
+ * Products edited in the CRM carry `fits` (catalogue vehicle ids). That list is authoritative: the product is listed
+ * as a direct fit on exactly those vehicles, replacing whatever the harvested fitment said.
+ */
+export function applyFits(c, p) {
+  const owned = Object.values(p).filter((x) => Array.isArray(x.fits));
+  if (!owned.length) return;
+  const ids = new Set(owned.map((x) => x.id));
+  const add = new Map();
+  owned.forEach((x) => x.fits.forEach((vid) => { if (!add.has(vid)) add.set(vid, []); add.get(vid).push(x.id); }));
+  c.vehicles.forEach((v) => {
+    if (!v.parts) return;
+    const extra = add.get(v.id) || [];
+    const touched = extra.length || v.parts.direct.some((id) => ids.has(id)) || v.parts.makeLevel.some((id) => ids.has(id));
+    if (!touched) return;
+    v.parts = { direct: [...v.parts.direct.filter((id) => !ids.has(id)), ...extra], makeLevel: v.parts.makeLevel.filter((id) => !ids.has(id)) };
+    if (v.counts) {
+      const live = v.parts.direct.map((id) => p[id]).filter(Boolean);
+      v.counts = { ...v.counts, wheels: live.filter((x) => x.category === 'wheel').length, kits: live.filter((x) => x.category === 'kit').length };
+    }
+  });
+}
+
 export function init(c, p) {
   catalog = c;
   products = p;
+  applyFits(c, p);
   vehicleIndex.clear();
   c.vehicles.forEach((v) => {
     v._hay = norm(`${v.make} ${v.model} ${v.generation} ${v.body} ${v.country} ${v.fuel === 'E' ? 'electric' : v.fuel === 'H' ? 'hybrid' : 'gasoline petrol'} ${v.yearFrom} ${v.yearTo || ''}`);
@@ -63,8 +90,9 @@ export const yearsLabel = (v) => `${v.yearFrom}–${v.yearTo || 'now'}`;
  * are wheels listed for the make with a verified matching pattern and are only returned on request.
  */
 export function partsFor(v, { includeMakeLevel = false } = {}) {
-  const direct = v.parts.direct.map(product).filter(Boolean);
-  const level = includeMakeLevel ? v.parts.makeLevel.map(product).filter(Boolean) : [];
+  const listed = (p) => p && p.available !== false;   /* marked unavailable in the CRM (or by the vendor) */
+  const direct = v.parts.direct.map(product).filter(listed);
+  const level = includeMakeLevel ? v.parts.makeLevel.map(product).filter(listed) : [];
   const tag = (list, tier) => list.map((p) => ({ ...p, tier }));
   const all = [...tag(direct, 'direct'), ...tag(level, 'make-level')];
   return { wheels: all.filter((p) => p.category === 'wheel'), kits: all.filter((p) => p.category === 'kit') };

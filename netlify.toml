@@ -1,0 +1,24 @@
+# Deploy from Git (or `netlify deploy --build`) so the API function is built and published with the site.
+# A drag-and-drop upload of dist/ only publishes the static showroom; the CRM and the live data need the function.
+
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
+# The CRM: strict content policy, never framed, never indexed.
+[[headers]]
+  for = "/admin/*"
+  [headers.values]
+    Content-Security-Policy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
+    X-Robots-Tag = "noindex, nofollow"
+    Referrer-Policy = "same-origin"
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[redirects]]
+  from = "/admin"
+  to = "/admin/"
+  status = 301

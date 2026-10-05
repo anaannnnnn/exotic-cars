@@ -1,9 +1,11 @@
 import { getUser, signIn, signOut } from './settings.js';
+import { api, unavailable, ApiError } from '../data/api.js';
 
 /*
- * Customer accounts, kept on this device until the dealership's account server is connected.
- * Passwords are never stored: only a salted PBKDF2-SHA-256 hash (Web Crypto). Swap register/login for API calls later;
- * the pages only use these four functions.
+ * Customer accounts. With the backend deployed they live on the dealership's server (scrypt-hashed passwords,
+ * HttpOnly session cookie), so they work on every device and show up in the CRM. Without it (a static deploy, or
+ * offline) they fall back to this device: a salted PBKDF2-SHA-256 hash in localStorage, never the password itself.
+ * The pages only use these four functions.
  */
 const KEY = 'exotic-accounts-v1';
 const read = () => { try { return JSON.parse(localStorage.getItem(KEY) || '{}'); } catch { return {}; } };
@@ -20,7 +22,7 @@ async function hash(password, salt) {
 
 export const currentUser = getUser;
 
-export async function register({ name, email, phone, password }) {
+async function registerHere({ name, email, phone, password }) {
   const id = norm(email);
   const all = read();
   if (all[id]) throw new Error('An account with this email already exists. Sign in instead.');
@@ -31,7 +33,7 @@ export async function register({ name, email, phone, password }) {
   return getUser();
 }
 
-export async function login({ email, password }) {
+async function loginHere({ email, password }) {
   const id = norm(email);
   const acct = read()[id];
   if (!acct || (await hash(password, acct.salt)) !== acct.hash) throw new Error('That email and password don’t match an account on this device.');
@@ -39,4 +41,40 @@ export async function login({ email, password }) {
   return getUser();
 }
 
-export function logout() { signOut(); }
+const fromServer = (u) => { signIn({ name: u.name, email: u.email, phone: u.phone || '', server: true }); return getUser(); };
+const say = (e) => new Error(e.fields ? Object.values(e.fields)[0] : e.message);
+
+export async function register({ name, email, phone, password }) {
+  try {
+    const { user } = await api('auth/register', { method: 'POST', body: { name: name.trim(), email: norm(email), phone: (phone || '').trim(), password } });
+    return fromServer(user);
+  } catch (e) {
+    if (e instanceof ApiError && !unavailable(e)) throw say(e);
+    return registerHere({ name, email, phone, password });
+  }
+}
+
+export async function login({ email, password }) {
+  try {
+    const { user } = await api('auth/login', { method: 'POST', body: { email: norm(email), password } });
+    return fromServer(user);
+  } catch (e) {
+    if (e instanceof ApiError && !unavailable(e)) {
+      /* an account made on this phone before the server existed: move it to the server on first sign-in */
+      const acct = read()[norm(email)];
+      if (e.status === 401 && acct && (await hash(password, acct.salt)) === acct.hash) {
+        try {
+          const { user } = await api('auth/register', { method: 'POST', body: { name: acct.name, email: acct.email, phone: acct.phone || '', password } });
+          return fromServer(user);
+        } catch { return loginHere({ email, password }); }
+      }
+      throw say(e);
+    }
+    return loginHere({ email, password });
+  }
+}
+
+export function logout() {
+  if (getUser()?.server) api('auth/logout', { method: 'POST' }).catch(() => {});
+  signOut();
+}

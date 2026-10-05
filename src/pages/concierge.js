@@ -22,7 +22,7 @@ export function mountConcierge(root, firstQuestion = '') {
   function carCard(c) {
     const can = !c.sold && stock.configuratorMatch(c);
     return h('article', { class: 'ccard' }, [
-      h('a', { class: 'ccard__img', href: `#/shop/${c.id}`, 'aria-label': c.title, onclick: () => { memory.focus = c.id; } }, h('img', { src: stock.coverUrl(c), alt: '', loading: 'lazy', onerror: (e) => { if (e.target.src !== c.cover) e.target.src = c.cover; } })),
+      h('a', { class: 'ccard__img', href: `#/shop/${c.id}`, 'aria-label': c.title, onclick: () => { memory.focus = c.id; } }, h('img', { src: stock.coverUrl(c), alt: '', loading: 'lazy', onerror: stock.coverError(c) })),
       h('div', { class: 'ccard__body' }, [
         h('b', { text: c.title }),
         h('span', { text: [c.year, stock.kmLabel(c), c.exterior].filter(Boolean).join(' · ') }),

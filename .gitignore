@@ -6,3 +6,4 @@ inventory-png/
 data/*.db
 .env
 .env.*
+.netlify/

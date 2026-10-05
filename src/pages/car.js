@@ -5,8 +5,9 @@ import { h, icon, clear, countTo } from '../ui/dom.js';
 import { brandMark } from '../ui/brand.js';
 import { wheelGlyph } from '../ui/glyph.js';
 import { createSwipe } from '../ui/swipe.js';
-import { openService } from '../ui/panels.js';
-import { getSettings } from '../state/settings.js';
+import { openService, openEnquiry } from '../ui/panels.js';
+import { getSettings, getUser } from '../state/settings.js';
+import { coverUrl, coverError } from '../data/stock.js';
 
 /* A complete kit already contains these parts - selecting both would double count. */
 const FULL_KIT_COVERS = ['front-lip', 'front-bumper', 'rear-bumper', 'rear-diffuser', 'decklid-spoiler', 'side-skirts'];
@@ -443,7 +444,7 @@ export function mountCar(root, id, share, { toast, stock = null, vehicle = null,
         onclick: () => { if (m.uid !== state.modelUid) { loadModel(i); renderModels(); } }
       }, m.thumb ? h('img', { src: m.thumb, alt: '', loading: 'lazy' }) : `${i + 1}`)));
     } else if (stock?.cover) {
-      modelsEl.append(h('span', { class: 'viewed__label', text: 'Photos' }), h('a', { class: 'thumb', href: back ? back.href : '#/shop', 'aria-label': 'Back to the car photos' }, h('img', { src: `${import.meta.env.BASE_URL}stock/${stock.id}.webp`, alt: '', onerror: (e) => { e.target.src = stock.cover; } })));
+      modelsEl.append(h('span', { class: 'viewed__label', text: 'Photos' }), h('a', { class: 'thumb', href: back ? back.href : '#/shop', 'aria-label': 'Back to the car photos' }, h('img', { src: coverUrl(stock), alt: '', onerror: coverError(stock) })));
     }
   }
 
@@ -517,8 +518,9 @@ export function mountCar(root, id, share, { toast, stock = null, vehicle = null,
         b.lines.length ? h('ul', { class: 'lines' }, b.lines.map(line)) : h('p', { class: 'sheet__empty', text: 'Add wheels or a body kit to build a quote.' }),
         !cov.complete ? h('p', { class: 'sheet__warn', text: cov.message }) : null,
         h('div', { class: 'sheet__total' }, [h('span', { text: 'Total' }), h('strong', { text: data.aed(b.total) })]),
+        h('button', { class: 'cta cta--block sheet__send', type: 'button', onclick: sendBuild }, [icon('send'), 'Send to the dealership']),
         h('div', { class: 'sheet__actions' }, [
-          h('button', { class: 'cta', type: 'button', onclick: () => copy(requestText(), 'Request copied') }, [icon('copy'), 'Copy request']),
+          h('button', { class: 'ghost', type: 'button', onclick: () => copy(requestText(), 'Request copied') }, [icon('copy'), 'Copy']),
           h('button', { class: 'ghost', type: 'button', onclick: () => copy(shareUrl(), 'Link copied') }, [icon('share'), 'Share link']),
           h('button', { class: 'ghost', type: 'button', onclick: printSheet }, [icon('print'), 'Print'])
         ])
@@ -527,6 +529,30 @@ export function mountCar(root, id, share, { toast, stock = null, vehicle = null,
     document.body.classList.add('is-locked');
     root.append(sheet);
     sheet.querySelector('.sheet__panel').focus?.();
+  }
+
+  /* the whole build goes to the CRM as a lead: paint, wheels, kits, total and the link that reopens it */
+  function sendBuild() {
+    const b = B.bom(state, product);
+    const cur = B.byId(B.PAINTS, state.paint.preset);
+    const cal = B.byId(B.CALIPERS, state.caliper);
+    const paint = [cur ? cur.name : `Custom ${state.paint.color}`, cal ? `${cal.name} calipers` : null, state.tint ? 'tinted glass' : null].filter(Boolean).join(' · ');
+    const wheels = b.lines.filter((l) => l.kind === 'wheel').map((l) => ({ id: l.product.id, title: `${l.product.vendor} ${wheelName(l.product)} ${data.sizeLabel(l.product)}`.trim().slice(0, 300), qty: l.qty, price: l.total || null }));
+    const kits = b.lines.filter((l) => l.kind !== 'wheel').map((l) => ({ id: l.product.id, title: `${l.product.vendor} ${data.KIT_LABEL[l.product.subtype] || 'Body kit'} ${l.product.sku || ''}`.trim().slice(0, 300), price: l.total || null }));
+    closeSheet();
+    openEnquiry({
+      title: 'Send your build',
+      sub: 'The sales team receives this exact configuration and calls you back.',
+      type: 'configuration',
+      source: 'configurator',
+      car: { id: stock ? stock.id : v.id, title: name },
+      configuration: { paint, wheels, kits, total: b.total || null, url: shareUrl() },
+      summary: [
+        h('span', { class: 'dot', style: `background:${state.paint.color}` }),
+        h('span', { class: 'enq__t' }, [h('b', { text: name }), h('small', { text: [paint, b.lines.length ? `${b.lines.length} item${b.lines.length > 1 ? 's' : ''}` : 'Colour only'].join(' · ') })]),
+        h('strong', { class: 'enq__total', text: b.total ? data.aed(b.total) : '' })
+      ]
+    });
   }
 
   function printSheet() {

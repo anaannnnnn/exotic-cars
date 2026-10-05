@@ -4,6 +4,7 @@ import { toast } from './toast.js';
 import {
   getSettings, setSetting, getUser, signIn, signOut, saveAppointment, getAppointments, resetLocalData
 } from '../state/settings.js';
+import { send as sendRequest, problemText } from '../state/outbox.js';
 
 /* Modal sheets opened from the dock: service appointment, sign in, settings and the VR viewer. */
 
@@ -69,11 +70,14 @@ export function openService(prefill = {}) {
     if (!f.name.value.trim()) { err.textContent = 'Please enter your name.'; f.name.focus(); return; }
     if (f.phone.value.replace(/\D/g, '').length < 7) { err.textContent = 'Please enter a phone number we can reach you on.'; f.phone.focus(); return; }
     if (!f.date.value || f.date.value < today()) { err.textContent = 'Please choose a date from today onwards.'; f.date.focus(); return; }
-    const item = saveAppointment({
+    const payload = {
       name: f.name.value.trim(), phone: f.phone.value.trim(), email: f.email.value.trim(), service: f.service.value,
       car: f.car.value.trim(), date: f.date.value, slot: f.slot.value, notes: f.notes.value.trim()
-    });
-    confirmation(item);
+    };
+    const btn = form.querySelector('button[type="submit"]');
+    btn.disabled = true;
+    sendRequest('appointment', payload).then((r) => confirmation(saveAppointment({ ...payload, ref: r.ref, sent: r.sent })), (e2) => { err.textContent = problemText(e2); })
+      .finally(() => { btn.disabled = false; });
   } }, [
     field('Service', f.service),
     field('Vehicle', f.car),
@@ -93,7 +97,8 @@ export function openService(prefill = {}) {
     const text = [`Appointment request ${item.ref}`, item.service, item.car && `Vehicle: ${item.car}`, `${item.date} at ${item.slot}`, `${item.name} · ${item.phone}${item.email ? ` · ${item.email}` : ''}`, item.notes && `Notes: ${item.notes}`].filter(Boolean).join('\n');
     const body = h('div', { class: 'done' }, [
       h('span', { class: 'done__tick' }, icon('check')),
-      h('h3', { text: 'Request saved' }),
+      h('h3', { text: item.sent === false ? 'Request saved' : 'Request sent' }),
+      item.sent === false ? h('p', { class: 'form__note', text: 'You are offline: it is kept on this device and sent automatically when you reconnect.' }) : null,
       h('p', { text: `${item.service}${item.car ? ` · ${item.car}` : ''}` }),
       h('p', { class: 'done__when', text: `${new Date(`${item.date}T${item.slot}`).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })} · ${item.slot}` }),
       h('p', { class: 'done__ref', text: `Reference ${item.ref}` }),
@@ -104,6 +109,52 @@ export function openService(prefill = {}) {
     ]);
     modal('Service appointment', null, body);
   }
+}
+
+/* ------------------------------------------------------------------ enquiry to the sales team */
+/**
+ * A short form that sends an enquiry (lead) to the dealership's CRM: about a car, or a full 3D configuration with
+ * paint, wheels, kits, total and the link that reopens it.
+ *   openEnquiry({ title, sub, type: 'configuration' | 'viewing' | 'general', car: { id, title }, configuration, summary, source })
+ */
+export function openEnquiry({ title = 'Send to the dealership', sub = 'A sales advisor will contact you by phone or WhatsApp.', type = 'general', car = null, configuration = null, summary = null, source = 'website', message = '' } = {}) {
+  const user = getUser();
+  const f = {
+    name: h('input', { type: 'text', autocomplete: 'name', required: true, value: user?.name || '' }),
+    phone: h('input', { type: 'tel', autocomplete: 'tel', inputmode: 'tel', required: true, placeholder: '+971 5X XXX XXXX', value: user?.phone || '' }),
+    email: h('input', { type: 'email', autocomplete: 'email', value: user?.email || '' }),
+    message: h('textarea', { rows: 3, placeholder: type === 'configuration' ? 'Questions, trade-in, preferred contact time…' : 'What would you like to know?' }),
+    website: h('input', { type: 'text', name: 'website', tabindex: '-1', autocomplete: 'off', class: 'hp', 'aria-hidden': 'true' })
+  };
+  f.message.value = message;
+  const err = h('p', { class: 'form__err', role: 'alert' });
+  const btn = h('button', { class: 'cta cta--block', type: 'submit' }, [icon('send'), 'Send enquiry']);
+  const form = h('form', { class: 'form', novalidate: true, onsubmit: (e) => {
+    e.preventDefault();
+    err.textContent = '';
+    if (f.name.value.trim().length < 2) { err.textContent = 'Please enter your name.'; f.name.focus(); return; }
+    if (f.phone.value.replace(/\D/g, '').length < 7) { err.textContent = 'Please enter a phone number we can reach you on.'; f.phone.focus(); return; }
+    btn.disabled = true;
+    const payload = { type, name: f.name.value.trim(), phone: f.phone.value.trim(), email: f.email.value.trim(), message: f.message.value.trim(), car, configuration, source, website: f.website.value };
+    sendRequest('lead', payload).then((r) => {
+      modal('Enquiry sent', null, h('div', { class: 'done' }, [
+        h('span', { class: 'done__tick' }, icon('check')),
+        h('h3', { text: r.sent ? 'With the sales team' : 'Saved on this device' }),
+        h('p', { text: r.sent ? 'An advisor will call you shortly to talk it through.' : 'You are offline. It is sent automatically when you reconnect.' }),
+        car?.title ? h('p', { class: 'done__when', text: car.title }) : null,
+        h('p', { class: 'done__ref', text: `Reference ${r.ref}` }),
+        h('div', { class: 'sheet__actions' }, [h('button', { class: 'cta', type: 'button', text: 'Done', onclick: closePanel })])
+      ]));
+    }, (e2) => { err.textContent = problemText(e2); }).finally(() => { btn.disabled = false; });
+  } }, [
+    summary ? h('div', { class: 'enq__sum' }, summary) : null,
+    field('Name', f.name),
+    h('div', { class: 'row' }, [field('Phone', f.phone), field('Email (optional)', f.email)]),
+    field('Message', f.message),
+    f.website, err, btn,
+    h('p', { class: 'form__note', text: 'Your details go only to Exotic Cars Dubai, to answer this enquiry.' })
+  ]);
+  modal(title, sub, form);
 }
 
 /* ------------------------------------------------------------------ sign in */

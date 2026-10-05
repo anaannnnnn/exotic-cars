@@ -5,10 +5,24 @@ model and add **wheels and aero kits that Dubai suppliers list for that exact ca
 
 ```
 npm install
-npm run dev        # http://localhost:5173
-npm test           # vitest: parsers, fitment checks, totals, share links
-npm run build      # static site in dist/
+npm run dev:api    # the API + a local database on :8787 (second terminal)
+npm run dev        # website http://127.0.0.1:5173 · CRM http://127.0.0.1:5173/admin/
+npm test           # vitest: parsers, fitment checks, totals, share links, API integration
+npm run build      # website + CRM in dist/, API function in netlify/functions/
 ```
+
+## Backend and CRM
+
+The dealership runs the site from a CRM at **`/admin/`**: inventory (add, edit, photos, price, sold, hidden, featured),
+wheels and kits (price, availability, finish, which cars they fit), a lead pipeline with drag and drop, bookings,
+customer accounts, CSV exports and an activity log. Changes reach the website within a minute.
+
+* **API:** one Netlify Function, `/api/v1/*` (`netlify/functions/api.mjs` → `server/`). Contract: `docs/openapi.yaml`.
+* **Database:** Netlify Blobs (stock, catalogue, leads, bookings, customers, photos). Nothing to provision.
+* **Website:** reads live stock and products from the API and falls back to `public/data/*.json`; enquiries and bookings
+  go to the API, or wait in an on-device outbox when offline.
+* **Deploy:** from Git or the Netlify CLI with `ADMIN_EMAIL`, `ADMIN_PASSWORD_HASH` (`npm run admin:hash`) and
+  `SESSION_SECRET`. Step by step: **`docs/DEPLOY.md`**. Design and security review: `specs/crm-backend_design.md`.
 
 ## What the customer sees
 
@@ -65,8 +79,13 @@ src/app.js            hash router
 src/pages/car.js      car page (hero, sections, bar, enquiry sheet)
 src/viewer/           Sketchfab wrapper (materials, axes, cameras)
 src/state/build.js    paints, BOM, quantities, share links (pure, tested)
+src/state/outbox.js   enquiries and bookings to the API, with an offline queue
+src/data/api.js       API client used by the website
 src/data/catalog.js   catalogue queries, fitment checks, labels
-tools/                data pipeline
+admin/index.html      CRM entry; src/admin/ its views, styles and API client
+server/               API: routes (app.mjs), auth, validation, storage, data
+netlify/functions/    the Netlify Function wrapping server/app.mjs
+tools/                data pipeline, dev-api.mjs, admin-hash.mjs
 ```
 ## Dealership stock (the Shop)
 

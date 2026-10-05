@@ -21,7 +21,7 @@ export function mountVR(root) {
   function card(c, i) {
     const m = stock.stockModels3d(c)[0];
     const name = c.title;
-    const media = h('span', { class: 'vrc__img' }, h('img', { src: stock.coverUrl(c), alt: '', loading: 'lazy', onerror: (e) => { if (e.target.src !== c.cover) e.target.src = c.cover; } }));
+    const media = h('span', { class: 'vrc__img' }, h('img', { src: stock.coverUrl(c), alt: '', loading: 'lazy', onerror: stock.coverError(c) }));
     const btn = h('button', { class: 'vrc', type: 'button', 'data-tip': 'Open in VR', 'data-tip-desc': 'Headset, phone AR or 360° on screen', onclick: () => launchVRModel(m, name) }, [
       media,
       h('span', { class: 'vrc__body' }, [h('b', { text: name }), h('small', { text: [c.year, LABEL[c.brand] || c.brand].filter(Boolean).join(' · ') })])

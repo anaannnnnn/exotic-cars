@@ -12,7 +12,9 @@
     "harvest": "node tools/harvest/crawl.mjs",
     "db": "node --disable-warning=ExperimentalWarning tools/build-db.mjs",
     "report": "node tools/report.mjs",
-    "stock": "node tools/harvest/exotic.mjs && node --disable-warning=ExperimentalWarning tools/build-stock.mjs --images"
+    "stock": "node tools/harvest/exotic.mjs && node --disable-warning=ExperimentalWarning tools/build-stock.mjs --images",
+    "dev:api": "node tools/dev-api.mjs",
+    "admin:hash": "node tools/admin-hash.mjs"
   },
   "dependencies": {
     "@fontsource-variable/archivo": "^5.3.0",
@@ -22,12 +24,14 @@
     "@fontsource-variable/jost": "^5.3.0",
     "@fontsource/ibm-plex-mono": "^5.3.0",
     "@fontsource/michroma": "^5.3.0",
+    "@netlify/blobs": "^11.1.3",
     "clsx": "^2.1.1",
     "lucide": "^1.48.0",
     "lucide-svelte": "^1.0.1",
     "simple-icons": "^16.33.0",
     "svelte-motion": "^0.12.2",
-    "tailwind-merge": "^3.7.0"
+    "tailwind-merge": "^3.7.0",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "sharp": "^0.35.5",

@@ -1,15 +1,21 @@
 import * as data from './catalog.js';
+import { api } from './api.js';
 
-/* The dealership's own stock (public/data/stock.json, built by tools/build-stock.mjs). */
+/*
+ * The dealership's own stock. Live from the CRM (/api/v1/stock) when the backend is deployed; otherwise the copy built
+ * into the site (public/data/stock.json, made by tools/build-stock.mjs), so the showroom always opens.
+ */
 let stock = null;
 let models = {};
 let loading = null;
 const BASE = import.meta.env.BASE_URL;
 
+const builtIn = () => fetch(`${BASE}data/stock.json`).then((r) => { if (!r.ok) throw new Error('stock.json missing - run "npm run stock"'); return r.json(); });
+
 export function loadStock() {
   if (stock) return Promise.resolve(stock);
   loading ||= Promise.all([
-    fetch(`${BASE}data/stock.json`).then((r) => { if (!r.ok) throw new Error('stock.json missing - run "npm run stock"'); return r.json(); }),
+    api('stock', { timeout: 7000 }).then((s) => ({ ...s, live: true })).catch(() => builtIn()),
     fetch(`${BASE}data/stock-models.json`).then((r) => (r.ok ? r.json() : {})).catch(() => ({}))
   ])
     .then(([s, m]) => {
@@ -23,8 +29,21 @@ export function loadStock() {
 
 export const stockCar = (id) => (stock ? stock.cars.find((c) => String(c.id) === String(id)) || null : null);
 
-/** Cover photo: the self-hosted copy when present, else the dealer's own URL. */
-export const coverUrl = (c) => `${BASE}stock/${c.id}.webp`;
+/* cars added in the CRM have ids from 900001 and no copy in /stock */
+export const PLACEHOLDER = `${BASE}stock/coming-soon.svg`;
+const builtInPhoto = (c) => c.id < 900000;
+
+/** Cover photo: a photo chosen in the CRM, else the self-hosted copy, else the dealer's own URL. */
+export const coverUrl = (c) => c.thumb || (builtInPhoto(c) ? `${BASE}stock/${c.id}.webp` : c.cover || PLACEHOLDER);
+
+/** onerror for a cover <img>: try the dealer's own URL once, then the placeholder; never loops. */
+export const coverError = (c) => (e) => {
+  const img = e.currentTarget || e.target;
+  const step = Number(img.dataset.fallback || 0);
+  img.dataset.fallback = String(step + 1);
+  if (step === 0 && c.cover && !img.src.endsWith(c.cover)) img.src = c.cover;
+  else if (step <= 1 && !img.src.endsWith(PLACEHOLDER.replace(/^\.\//, ''))) img.src = PLACEHOLDER;
+};
 
 export const TABS = [
   { id: 'new', label: 'New arrival', test: (c) => !c.sold && c.newArrival },

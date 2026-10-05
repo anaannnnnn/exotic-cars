@@ -9,6 +9,7 @@ import { mountService } from './pages/service.js';
 import { mountVR } from './pages/vr.js';
 import { mountAccount } from './pages/account.js';
 import { initSettings } from './state/settings.js';
+import { initOutbox } from './state/outbox.js';
 import { toast } from './ui/toast.js';
 import { initFloatTip } from './ui/float-tip.js';
 import { initFx } from './ui/fx.js';
@@ -24,6 +25,7 @@ const BASE = import.meta.env.BASE_URL;
  */
 export async function boot() {
   initSettings();
+  initOutbox();
   initFloatTip();
   initFx();
   await data.loadCatalog(`${BASE}data/`);

@@ -2,7 +2,7 @@ import * as stock from '../data/stock.js';
 import { themeToggle } from '../ui/theme-toggle.js';
 import { h, icon, clear, debounce } from '../ui/dom.js';
 import { brandMark } from '../ui/brand.js';
-import { openService } from '../ui/panels.js';
+import { openService, openEnquiry } from '../ui/panels.js';
 import { toast } from '../ui/toast.js';
 import { notch, biteFor } from '../ui/notch.js';
 import { liquidTabs } from '../ui/liquid-tabs.js';
@@ -37,7 +37,7 @@ const meta = (c) => h('span', { class: 'scard__meta' }, [bit('year', c.year), bi
 function card(c, canConfigure, i = 0) {
   const badge = c.sold ? 'Sold' : c.newArrival ? 'New arrival' : c.featured ? 'Featured' : null;
   const img = h('span', { class: 'scard__img' }, [
-    h('img', { src: stock.coverUrl(c), alt: '', loading: 'lazy', decoding: 'async', width: 800, height: 600, onerror: (e) => { if (e.target.src !== c.cover) e.target.src = c.cover; } }),
+    h('img', { src: stock.coverUrl(c), alt: '', loading: 'lazy', decoding: 'async', width: 800, height: 600, onerror: stock.coverError(c) }),
     badge ? h('span', { class: `badge${c.sold ? ' badge--sold' : c.newArrival ? ' badge--new' : ''}`, text: badge }) : null
   ]);
   const a = h('a', {
@@ -178,11 +178,12 @@ const SPECS = [
 export function mountShopCar(root, id) {
   const c = stock.stockCar(id);
   if (!c) return null;
-  const photos = [c.cover, ...c.gallery].filter(Boolean);
+  const photos = [...new Set([c.cover, ...(c.gallery || [])].filter(Boolean))];
+  if (!photos.length) photos.push(stock.PLACEHOLDER);
   const local = (u, i) => (i === 0 ? stock.coverUrl(c) : u);
   const track = h('div', { class: 'gal__track', tabindex: '0', 'aria-label': 'Photos' }, photos.map((u, i) => h('div', { class: 'gal__slide' }, h('img', {
     src: local(u, i), alt: i === 0 ? c.title : '', loading: i < 2 ? 'eager' : 'lazy', decoding: 'async',
-    onerror: (e) => { if (e.target.src !== u) e.target.src = u; }
+    onerror: i === 0 ? stock.coverError(c) : undefined
   }))));
   const counter = h('span', { class: 'gal__count', text: `1 / ${photos.length}` });
   const thumbs = h('div', { class: 'gal__thumbs' }, photos.map((u, i) => h('button', { class: 'gal__thumb', type: 'button', 'aria-label': `Photo ${i + 1}`, 'aria-pressed': String(i === 0), onclick: () => go(i) }, h('img', { src: u, alt: '', loading: 'lazy' }))));
@@ -225,7 +226,8 @@ export function mountShopCar(root, id) {
         h('div', { class: 'scar__actions' }, [
           !c.sold && match ? h('a', { class: 'cta', href: `#/shop/${c.id}/configure`, 'data-tip': 'Configure in 3D', 'data-tip-desc': 'Paint, wheels and aero on a live model' }, [icon('paint'), 'Configure in 3D']) : null,
           h('button', { class: !c.sold && match ? 'ghost' : 'cta', type: 'button', text: c.sold ? 'Ask about similar cars' : 'Book a viewing', onclick: () => openService({ car: name, service: c.sold ? 'Configuration consultation' : 'Test drive' }) }),
-          h('a', { class: 'ghost', href: c.url, target: '_blank', rel: 'noopener noreferrer' }, 'View on exoticcars.ae')
+          h('button', { class: 'ghost', type: 'button', onclick: () => openEnquiry({ title: c.sold ? 'Find me one like this' : 'Ask about this car', type: c.sold ? 'general' : 'viewing', car: { id: c.id, title: name }, source: 'car page', message: c.sold ? 'I am looking for a similar car.' : '' }) }, [icon('chat'), c.sold ? 'Find me one' : 'Enquire']),
+          c.url ? h('a', { class: 'ghost', href: c.url, target: '_blank', rel: 'noopener noreferrer' }, 'View on exoticcars.ae') : null
         ])
       ])
     ])

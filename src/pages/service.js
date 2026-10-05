@@ -3,6 +3,7 @@ import { h, icon, clear } from '../ui/dom.js';
 import { closePanel } from '../ui/panels.js';
 import { toast } from '../ui/toast.js';
 import { getUser, saveAppointment, getAppointments } from '../state/settings.js';
+import { send as sendRequest, problemText } from '../state/outbox.js';
 import { pageHead, segmented, field, chips, toggleRow } from '../ui/kit.js';
 import { mainDock } from './hub.js';
 
@@ -108,19 +109,25 @@ export function mountService(root) {
     const extra = type === 'repair'
       ? [`Areas: ${issues.values().map((v) => ISSUES.find((x) => x.id === v).label).join(', ') || 'not specified'}`, warning.input.checked ? 'Warning light on' : '', drivable.input.checked ? 'Drivable' : 'Not drivable - needs recovery', pickup.input.checked ? 'Collect from customer' : '', photos.files.length ? `${photos.files.length} photo(s) to share` : '']
       : type === 'quote' ? [`Quote for: ${quoteFor.values().map((v) => SERVICES.find((s) => s.id === v).title).join(', ') || 'see details'}`] : [];
-    const item = saveAppointment({
+    const payload = {
       name: name.input.value.trim(), phone: phone.input.value.trim(), email: email.input.value.trim(), service: kind,
       car: (type === 'drive' ? testCar.input.value : vehicle.input.value).trim(), date: date.input.value, slot,
       notes: [...extra.filter(Boolean), details.input.value.trim()].filter(Boolean).join(' · ')
-    });
-    done(item, kind);
-    renderMine();
+    };
+    submit.disabled = true;
+    form.setAttribute('aria-busy', 'true');
+    sendRequest('appointment', payload).then((r) => {
+      const item = saveAppointment({ ...payload, ref: r.ref, sent: r.sent });
+      done(item, kind);
+      renderMine();
+    }, (e) => { err.textContent = problemText(e); }).finally(() => { submit.disabled = false; form.removeAttribute('aria-busy'); });
   }
 
   function done(item, kind) {
     const card = h('div', { class: 'sdone' }, [
       h('span', { class: 'sdone__tick' }, icon('check')),
-      h('h2', { text: 'Request sent' }),
+      h('h2', { text: item.sent === false ? 'Request saved' : 'Request sent' }),
+      item.sent === false ? h('p', { class: 'sdone__note', text: 'You are offline, so it is kept on this phone and sent to the team automatically when you reconnect.' }) : null,
       h('p', { text: `${kind}${item.car ? ` · ${item.car}` : ''}` }),
       h('p', { class: 'sdone__when', text: `${new Date(`${item.date}T${item.slot}`).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })} · ${item.slot}` }),
       h('p', { class: 'sdone__ref', text: `Reference ${item.ref}` }),
@@ -139,9 +146,12 @@ export function mountService(root) {
   const callback = h('form', { class: 'cb', novalidate: true, onsubmit: (e) => {
     e.preventDefault();
     if (!cbName.input.value.trim() || cbPhone.input.value.replace(/\D/g, '').length < 7) { toast('Add your name and a phone number'); return; }
-    const item = saveAppointment({ name: cbName.input.value.trim(), phone: cbPhone.input.value.trim(), email: user?.email || '', service: 'Call back from an advisor', car: '', date: today(), slot: 'Today', notes: '' });
-    callback.replaceChildren(h('p', { class: 'cb__ok' }, [icon('done'), `An advisor will call you. Reference ${item.ref}.`]));
-    renderMine();
+    const payload = { name: cbName.input.value.trim(), phone: cbPhone.input.value.trim(), email: user?.email || '', service: 'Call back from an advisor', car: '', date: today(), slot: 'Today', notes: '' };
+    sendRequest('appointment', payload).then((r) => {
+      const item = saveAppointment({ ...payload, ref: r.ref, sent: r.sent });
+      callback.replaceChildren(h('p', { class: 'cb__ok' }, [icon('done'), r.sent ? `An advisor will call you. Reference ${item.ref}.` : `Saved as ${item.ref}. It is sent to an advisor as soon as you are back online.`]));
+      renderMine();
+    }, (e2) => toast(problemText(e2)));
   } }, [cbName.el, cbPhone.el, h('button', { class: 'pill pill--ink', type: 'submit' }, [icon('phone'), 'Call me back'])]);
   const talk = h('section', { class: 'talk', 'aria-label': 'Talk to someone' }, [
     h('div', { class: 'sect-head' }, [h('h2', { text: 'Talk to someone' })]),

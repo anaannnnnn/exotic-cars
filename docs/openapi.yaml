@@ -1,0 +1,557 @@
+openapi: 3.1.0
+info:
+  title: Exotic Cars API
+  version: 1.0.0
+  summary: Stock, catalogue, enquiries, bookings, customer accounts and the dealership CRM.
+  description: |
+    Served by one Netlify Function (`netlify/functions/api.mjs`, routes in `server/app.mjs`) at `/api/v1`.
+
+    * JSON in and out. Errors are RFC 7807 problems (`application/problem+json`) with `title`, `status`, `detail`
+      and, for validation errors, `fields` (one message per field, never echoing the submitted value).
+    * Every POST, PATCH and DELETE must carry the site's own `Origin` header (CSRF protection), on top of
+      `SameSite=Strict` cookies.
+    * Staff routes (`/admin/*`) need the `ec_staff` cookie from `POST /admin/session`. Customer routes use `ec_user`.
+    * Collections return `{ data, pagination: { total, limit, offset, next } }`.
+servers:
+  - url: /api/v1
+tags:
+  - name: Public
+  - name: Customers
+  - name: Staff session
+  - name: Inventory
+  - name: Products
+  - name: Leads
+  - name: Appointments
+  - name: CRM customers
+  - name: System
+
+paths:
+  /health:
+    get:
+      tags: [Public]
+      summary: Liveness, storage and setup status
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, enum: [ok, degraded] }
+                  version: { type: string }
+                  time: { type: string, format: date-time }
+                  storage: { type: string, enum: [ok, unavailable] }
+                  imported: { type: [object, 'null'], properties: { cars: { type: boolean }, products: { type: boolean } } }
+                  crm: { type: boolean, description: Staff sign-in is configured }
+
+  /stock:
+    get:
+      tags: [Public]
+      summary: The live stock (hidden cars removed)
+      description: Browser revalidates every time (ETag); Netlify's CDN caches for 30 s plus 30 s stale-while-revalidate.
+      parameters:
+        - { in: header, name: If-None-Match, schema: { type: string } }
+      responses:
+        '200':
+          description: Stock document
+          headers:
+            ETag: { schema: { type: string } }
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  brands: { type: array, items: { type: object, properties: { name: { type: string }, logo: { type: [string, 'null'] } } } }
+                  cars: { type: array, items: { $ref: '#/components/schemas/PublicCar' } }
+        '304': { description: Not modified }
+        '404': { $ref: '#/components/responses/NotImported' }
+
+  /products:
+    get:
+      tags: [Public]
+      summary: Wheels and body kits, keyed by product id
+      parameters:
+        - { in: header, name: If-None-Match, schema: { type: string } }
+      responses:
+        '200':
+          description: Products by id
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: { $ref: '#/components/schemas/Product' } }
+        '304': { description: Not modified }
+        '404': { $ref: '#/components/responses/NotImported' }
+
+  /media/{key}:
+    get:
+      tags: [Public]
+      summary: An uploaded photo (immutable)
+      parameters:
+        - { in: path, name: key, required: true, schema: { type: string, pattern: '^[a-z0-9]{9}-[a-f0-9]{8}$' } }
+      responses:
+        '200': { description: The image, content: { image/webp: {}, image/jpeg: {}, image/png: {} } }
+        '404': { $ref: '#/components/responses/Problem' }
+
+  /leads:
+    post:
+      tags: [Public]
+      summary: Send an enquiry (from the configurator, a car page or a general form)
+      description: |
+        Rate limit 20 per hour per address. A client `ref` makes the call idempotent: sending the same `ref` again
+        returns the first lead (200) instead of creating another. A filled-in `website` (honeypot) is accepted and dropped.
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/LeadCreate' } } }
+      responses:
+        '201': { $ref: '#/components/responses/Receipt' }
+        '200': { $ref: '#/components/responses/Receipt' }
+        '400': { $ref: '#/components/responses/Invalid' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /appointments:
+    post:
+      tags: [Public]
+      summary: Book a service, repair, quote, test drive or call-back
+      description: Same rate limit, idempotency and honeypot rules as `/leads`.
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/AppointmentCreate' } } }
+      responses:
+        '201': { $ref: '#/components/responses/Receipt' }
+        '200': { $ref: '#/components/responses/Receipt' }
+        '400': { $ref: '#/components/responses/Invalid' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /auth/register:
+    post:
+      tags: [Customers]
+      summary: Create a customer account and sign in
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, password]
+              properties:
+                name: { type: string, minLength: 2, maxLength: 80 }
+                email: { type: string, format: email }
+                phone: { type: string }
+                password: { type: string, minLength: 8, maxLength: 128 }
+      responses:
+        '201': { $ref: '#/components/responses/User' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+  /auth/login:
+    post:
+      tags: [Customers]
+      summary: Sign in (sets the ec_user cookie for 30 days)
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [email, password], properties: { email: { type: string }, password: { type: string } } } } }
+      responses:
+        '200': { $ref: '#/components/responses/User' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+  /auth/logout:
+    post: { tags: [Customers], summary: Sign out, responses: { '204': { description: Signed out } } }
+  /auth/me:
+    get:
+      tags: [Customers]
+      summary: The signed-in customer
+      security: [{ customer: [] }]
+      responses:
+        '200': { $ref: '#/components/responses/User' }
+        '401': { $ref: '#/components/responses/Problem' }
+  /auth/appointments:
+    get:
+      tags: [Customers]
+      summary: The signed-in customer's own bookings (no staff notes)
+      security: [{ customer: [] }]
+      responses:
+        '200': { description: Bookings, content: { application/json: { schema: { type: object, properties: { data: { type: array, items: { $ref: '#/components/schemas/Appointment' } } } } } } }
+        '401': { $ref: '#/components/responses/Problem' }
+
+  /admin/session:
+    post:
+      tags: [Staff session]
+      summary: Staff sign-in
+      description: Rate limit 8 per 15 minutes per address. The first sign-in on a new site imports the built-in stock and catalogue.
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [email, password], properties: { email: { type: string }, password: { type: string } } } } }
+      responses:
+        '200':
+          description: Signed in (sets ec_staff, 12 hours)
+          content: { application/json: { schema: { type: object, properties: { email: { type: string }, expiresAt: { type: string, format: date-time }, imported: { type: [object, 'null'] }, importError: { type: [string, 'null'] } } } } }
+        '401': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { description: Staff sign-in is not configured (missing environment variables), content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } } }
+    get:
+      tags: [Staff session]
+      summary: The current staff session
+      security: [{ staff: [] }]
+      responses:
+        '200': { description: Session, content: { application/json: { schema: { type: object, properties: { email: { type: string }, expiresAt: { type: string } } } } } }
+        '401': { $ref: '#/components/responses/Problem' }
+    delete:
+      tags: [Staff session]
+      summary: Sign out
+      responses: { '204': { description: Signed out } }
+
+  /admin/stats:
+    get:
+      tags: [System]
+      summary: Dashboard figures
+      security: [{ staff: [] }]
+      responses: { '200': { description: Inventory, leads (by stage, last 7 days, per day, pipeline value, conversion), appointments and customers } }
+
+  /admin/cars:
+    get:
+      tags: [Inventory]
+      summary: List cars
+      security: [{ staff: [] }]
+      parameters:
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/q'
+        - { in: query, name: make, schema: { type: string } }
+        - { in: query, name: status, schema: { type: string, enum: [sale, sold, hidden, featured, new] } }
+        - { in: query, name: sort, schema: { type: string, enum: [newest, oldest, price, year, title] } }
+      responses:
+        '200':
+          description: Page of cars, with every make in `makes`
+          content: { application/json: { schema: { allOf: [{ $ref: '#/components/schemas/Page' }, { type: object, properties: { data: { type: array, items: { $ref: '#/components/schemas/Car' } }, makes: { type: array, items: { type: string } }, imported: { type: boolean } } }] } } }
+    post:
+      tags: [Inventory]
+      summary: Add a car
+      security: [{ staff: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CarInput' } } } }
+      responses:
+        '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/Car' } } } }
+        '400': { $ref: '#/components/responses/Invalid' }
+  /admin/cars/{id}:
+    parameters: [{ in: path, name: id, required: true, schema: { type: integer } }]
+    get: { tags: [Inventory], summary: One car, security: [{ staff: [] }], responses: { '200': { description: Car, content: { application/json: { schema: { $ref: '#/components/schemas/Car' } } } }, '404': { $ref: '#/components/responses/Problem' } } }
+    patch:
+      tags: [Inventory]
+      summary: Change some fields (price, sold, hidden, photos…)
+      security: [{ staff: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CarInput' } } } }
+      responses:
+        '200': { description: Updated car, content: { application/json: { schema: { $ref: '#/components/schemas/Car' } } } }
+        '400': { $ref: '#/components/responses/Invalid' }
+        '409': { description: Edit conflict after retries, content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } } }
+    delete: { tags: [Inventory], summary: Remove a car, security: [{ staff: [] }], responses: { '204': { description: Deleted } } }
+
+  /admin/products:
+    get:
+      tags: [Products]
+      summary: List wheels and kits
+      security: [{ staff: [] }]
+      parameters:
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/q'
+        - { in: query, name: category, schema: { type: string, enum: [wheel, kit] } }
+        - { in: query, name: status, schema: { type: string, enum: [available, unavailable] } }
+        - { in: query, name: sort, schema: { type: string, enum: [newest, price, cheapest, title] } }
+      responses: { '200': { description: Page of products, with every brand in `vendors` } }
+    post:
+      tags: [Products]
+      summary: Add a wheel or kit
+      security: [{ staff: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ProductInput' } } } }
+      responses: { '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/Product' } } } }, '400': { $ref: '#/components/responses/Invalid' } }
+  /admin/products/{id}:
+    parameters: [{ in: path, name: id, required: true, description: URL-encoded product id (may contain `:`), schema: { type: string } }]
+    get: { tags: [Products], summary: One product, security: [{ staff: [] }], responses: { '200': { description: Product } } }
+    patch:
+      tags: [Products]
+      summary: Re-price, mark unavailable, set fitment (`fits`) or finish
+      security: [{ staff: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ProductInput' } } } }
+      responses: { '200': { description: Updated product }, '400': { $ref: '#/components/responses/Invalid' } }
+    delete: { tags: [Products], summary: Remove a product, security: [{ staff: [] }], responses: { '204': { description: Deleted } } }
+
+  /admin/leads:
+    get:
+      tags: [Leads]
+      summary: List leads, newest first
+      security: [{ staff: [] }]
+      parameters: [{ $ref: '#/components/parameters/limit' }, { $ref: '#/components/parameters/offset' }, { $ref: '#/components/parameters/q' }, { in: query, name: status, schema: { $ref: '#/components/schemas/LeadStatus' } }]
+      responses: { '200': { description: Page of leads } }
+  /admin/leads/{id}:
+    parameters: [{ $ref: '#/components/parameters/recordId' }]
+    get: { tags: [Leads], summary: One lead, security: [{ staff: [] }], responses: { '200': { description: Lead, content: { application/json: { schema: { $ref: '#/components/schemas/Lead' } } } } } }
+    patch:
+      tags: [Leads]
+      summary: Move stage or edit contact and value (stage changes are kept in `history`)
+      security: [{ staff: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, properties: { status: { $ref: '#/components/schemas/LeadStatus' }, name: { type: string }, phone: { type: string }, email: { type: [string, 'null'] }, message: { type: [string, 'null'] }, value: { type: [number, 'null'] } } }
+      responses: { '200': { description: Updated lead } }
+    delete: { tags: [Leads], summary: Delete a lead, security: [{ staff: [] }], responses: { '204': { description: Deleted } } }
+  /admin/leads/{id}/notes:
+    parameters: [{ $ref: '#/components/parameters/recordId' }]
+    post:
+      tags: [Leads]
+      summary: Add a note
+      security: [{ staff: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/Note' } } } }
+      responses: { '201': { description: The lead with the new note } }
+
+  /admin/appointments:
+    get:
+      tags: [Appointments]
+      summary: List bookings (by date and time; newest first with sort=created)
+      security: [{ staff: [] }]
+      parameters: [{ $ref: '#/components/parameters/limit' }, { $ref: '#/components/parameters/offset' }, { $ref: '#/components/parameters/q' }, { in: query, name: status, schema: { type: string, enum: [upcoming, past, requested, confirmed, completed, cancelled, no-show] } }, { in: query, name: sort, schema: { type: string, enum: [created] } }]
+      responses: { '200': { description: Page of bookings } }
+  /admin/appointments/{id}:
+    parameters: [{ $ref: '#/components/parameters/recordId' }]
+    get: { tags: [Appointments], summary: One booking, security: [{ staff: [] }], responses: { '200': { description: Booking, content: { application/json: { schema: { $ref: '#/components/schemas/Appointment' } } } } } }
+    patch:
+      tags: [Appointments]
+      summary: Confirm, complete, cancel, mark no-show or reschedule
+      security: [{ staff: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, properties: { status: { $ref: '#/components/schemas/AppointmentStatus' }, date: { type: string, format: date }, slot: { type: string } } } } } }
+      responses: { '200': { description: Updated booking } }
+    delete: { tags: [Appointments], summary: Delete a booking, security: [{ staff: [] }], responses: { '204': { description: Deleted } } }
+  /admin/appointments/{id}/notes:
+    parameters: [{ $ref: '#/components/parameters/recordId' }]
+    post:
+      tags: [Appointments]
+      summary: Add a team note
+      security: [{ staff: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/Note' } } } }
+      responses: { '201': { description: The booking with the new note } }
+
+  /admin/customers:
+    get:
+      tags: [CRM customers]
+      summary: Customer accounts with lead and booking counts (no password hashes)
+      security: [{ staff: [] }]
+      parameters: [{ $ref: '#/components/parameters/limit' }, { $ref: '#/components/parameters/offset' }, { $ref: '#/components/parameters/q' }]
+      responses: { '200': { description: Page of customers } }
+  /admin/customers/{id}:
+    parameters: [{ in: path, name: id, required: true, schema: { type: string, pattern: '^[a-f0-9]{40}$' } }]
+    get: { tags: [CRM customers], summary: One customer with their leads and bookings, security: [{ staff: [] }], responses: { '200': { description: Customer } } }
+    delete: { tags: [CRM customers], summary: Delete the account (their leads and bookings stay), security: [{ staff: [] }], responses: { '204': { description: Deleted } } }
+
+  /admin/media:
+    post:
+      tags: [System]
+      summary: Upload a photo (JPEG, PNG or WebP by file signature, at most 4 MB)
+      security: [{ staff: [] }]
+      requestBody: { required: true, content: { image/webp: {}, image/jpeg: {}, image/png: {} } }
+      responses:
+        '201': { description: Stored, content: { application/json: { schema: { type: object, properties: { url: { type: string, example: /api/v1/media/0mg2x8k1q-3fa9c2d1 }, type: { type: string }, size: { type: integer } } } } } }
+        '413': { $ref: '#/components/responses/Problem' }
+        '415': { $ref: '#/components/responses/Problem' }
+
+  /admin/import:
+    get: { tags: [System], summary: What is in the database, security: [{ staff: [] }], responses: { '200': { description: Import status } } }
+    post:
+      tags: [System]
+      summary: Copy the website's built-in stock and catalogue into the database
+      security: [{ staff: [] }]
+      requestBody:
+        content: { application/json: { schema: { type: object, properties: { mode: { type: string, enum: [missing, replace], default: missing }, what: { type: array, items: { type: string, enum: [cars, products] } } } } } }
+      responses: { '200': { description: What was done } }
+
+  /admin/export/{collection}:
+    get:
+      tags: [System]
+      summary: CSV export (formula-injection safe)
+      security: [{ staff: [] }]
+      parameters: [{ in: path, name: collection, required: true, schema: { type: string, enum: [cars, products, leads, appointments, customers] } }]
+      responses: { '200': { description: CSV file, content: { text/csv: {} } } }
+
+  /admin/audit:
+    get: { tags: [System], summary: The newest 80 audit entries, security: [{ staff: [] }], responses: { '200': { description: Audit log } } }
+
+components:
+  securitySchemes:
+    staff: { type: apiKey, in: cookie, name: ec_staff }
+    customer: { type: apiKey, in: cookie, name: ec_user }
+
+  parameters:
+    limit: { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 500, default: 50 } }
+    offset: { in: query, name: offset, schema: { type: integer, minimum: 0, default: 0 } }
+    q: { in: query, name: q, description: Search words (all must match), schema: { type: string, maxLength: 100 } }
+    recordId: { in: path, name: id, required: true, schema: { type: string, pattern: '^[a-z0-9]{9}-[a-f0-9]{8}$' } }
+
+  responses:
+    Problem:
+      description: Problem
+      content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } }
+    Invalid:
+      description: Validation failed
+      content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } }
+    RateLimited:
+      description: Too many requests
+      headers: { Retry-After: { schema: { type: integer } } }
+      content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } }
+    NotImported:
+      description: The database has not been filled yet; the website falls back to its built-in data
+      content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } }
+    Receipt:
+      description: Received (201) or already received with this ref (200)
+      content: { application/json: { schema: { type: object, properties: { ref: { type: string, example: EX-7K2QD9 }, status: { type: string }, createdAt: { type: string, format: date-time } } } } }
+    User:
+      description: The customer
+      headers: { Set-Cookie: { schema: { type: string } } }
+      content: { application/json: { schema: { type: object, properties: { user: { type: object, properties: { id: { type: string }, name: { type: string }, email: { type: string }, phone: { type: [string, 'null'] }, createdAt: { type: string } } } } } } }
+
+  schemas:
+    Problem:
+      type: object
+      properties:
+        type: { type: string, example: 'urn:exotic-cars:problem:invalid-request' }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        fields: { type: object, additionalProperties: { type: string } }
+    Page:
+      type: object
+      properties:
+        pagination: { type: object, properties: { total: { type: integer }, limit: { type: integer }, offset: { type: integer }, next: { type: [integer, 'null'] } } }
+    CarInput:
+      type: object
+      description: All fields optional on PATCH; title, brand and year required on POST. Empty strings clear a field.
+      properties:
+        title: { type: string, maxLength: 140 }
+        brand: { type: string, maxLength: 40 }
+        model: { type: [string, 'null'] }
+        year: { type: integer, minimum: 1950 }
+        km: { type: [integer, 'null'] }
+        price: { type: [number, 'null'], description: AED; null shows "Price on request" }
+        engine: { type: [string, 'null'] }
+        hp: { type: [string, 'null'] }
+        cylinders: { type: [integer, 'null'] }
+        transmission: { type: [string, 'null'] }
+        body: { type: [string, 'null'] }
+        exterior: { type: [string, 'null'] }
+        interior: { type: [string, 'null'] }
+        doors: { type: [integer, 'null'] }
+        region: { type: [string, 'null'] }
+        warranty: { type: [string, 'null'] }
+        subtitle: { type: [string, 'null'] }
+        description: { type: [string, 'null'] }
+        newArrival: { type: boolean }
+        featured: { type: boolean }
+        sold: { type: boolean }
+        hidden: { type: boolean }
+        cover: { type: [string, 'null'], description: https link or /api/v1/media/… }
+        gallery: { type: array, items: { type: string }, maxItems: 40 }
+        video: { type: [string, 'null'] }
+        url: { type: [string, 'null'] }
+    Car:
+      allOf:
+        - { $ref: '#/components/schemas/CarInput' }
+        - type: object
+          properties:
+            id: { type: integer }
+            listedAt: { type: string, format: date-time }
+            updatedAt: { type: string, format: date-time }
+            customCover: { type: boolean, description: The cover was changed in the CRM }
+    PublicCar:
+      allOf:
+        - { $ref: '#/components/schemas/Car' }
+        - type: object
+          properties:
+            thumb: { type: string, description: Present when the site should show the CRM's cover instead of its built-in copy }
+    ProductInput:
+      type: object
+      properties:
+        title: { type: string }
+        vendor: { type: string }
+        category: { type: string, enum: [wheel, kit] }
+        subtype: { type: [string, 'null'], description: Kit part, e.g. front-lip, rear-wing }
+        sku: { type: [string, 'null'] }
+        url: { type: [string, 'null'] }
+        priceAED: { type: [number, 'null'] }
+        available: { type: boolean }
+        material: { type: [string, 'null'] }
+        images: { type: array, items: { type: string } }
+        fitment: { type: [string, 'null'], description: Supplier fitment text }
+        fits: { type: array, items: { type: string }, description: Catalogue vehicle ids; once set, the configurator offers the product on exactly these cars }
+        design: { type: [string, 'null'] }
+        construction: { type: [string, 'null'] }
+        centerLock: { type: [boolean, 'null'] }
+        finish: { type: [object, 'null'], properties: { name: { type: string }, color: { type: string, pattern: '^#[0-9a-fA-F]{6}$' }, metalness: { type: number }, roughness: { type: number } } }
+        spec: { type: [object, 'null'], properties: { diameter: { type: number }, diameterRear: { type: number }, width: { type: number }, widthRear: { type: number }, et: { type: number }, pcd: { type: string }, cb: { type: number }, set: { type: boolean } } }
+    Product:
+      allOf:
+        - { $ref: '#/components/schemas/ProductInput' }
+        - type: object
+          properties:
+            id: { type: string, example: 'crm:vossen-evo-5r-3f2a' }
+            source: { type: string, description: Supplier host, or "crm" }
+            updatedAt: { type: string, format: date-time }
+    LeadStatus: { type: string, enum: [new, contacted, qualified, negotiating, won, lost] }
+    AppointmentStatus: { type: string, enum: [requested, confirmed, completed, cancelled, no-show] }
+    LeadCreate:
+      type: object
+      required: [name, phone]
+      properties:
+        ref: { type: string, pattern: '^[A-Z]{2}-[A-Z0-9]{4,10}$', description: Client reference for safe retries }
+        type: { type: string, enum: [configuration, viewing, general], default: general }
+        name: { type: string, minLength: 2, maxLength: 80 }
+        phone: { type: string, description: At least 7 digits }
+        email: { type: [string, 'null'], format: email }
+        message: { type: [string, 'null'], maxLength: 2000 }
+        car: { type: [object, 'null'], properties: { id: { type: [integer, string] }, title: { type: string } } }
+        configuration:
+          type: [object, 'null']
+          properties:
+            paint: { type: string }
+            wheels: { type: array, items: { type: object, properties: { id: { type: string }, title: { type: string }, qty: { type: integer }, price: { type: [number, 'null'] } } } }
+            kits: { type: array, items: { type: object, properties: { id: { type: string }, title: { type: string }, price: { type: [number, 'null'] } } } }
+            total: { type: [number, 'null'] }
+            url: { type: string, description: Link that reopens the build }
+        source: { type: [string, 'null'] }
+        website: { type: string, maxLength: 0, description: Honeypot - leave empty }
+    Lead:
+      allOf:
+        - { $ref: '#/components/schemas/LeadCreate' }
+        - type: object
+          properties:
+            id: { type: string }
+            status: { $ref: '#/components/schemas/LeadStatus' }
+            value: { type: [number, 'null'] }
+            customerId: { type: [string, 'null'] }
+            notes: { type: array, items: { $ref: '#/components/schemas/StoredNote' } }
+            history: { type: array, items: { type: object, properties: { at: { type: string }, status: { type: string }, by: { type: string } } } }
+            createdAt: { type: string, format: date-time }
+            updatedAt: { type: string, format: date-time }
+    AppointmentCreate:
+      type: object
+      required: [service, date, slot, name, phone]
+      properties:
+        ref: { type: string, pattern: '^[A-Z]{2}-[A-Z0-9]{4,10}$' }
+        service: { type: string }
+        car: { type: [string, 'null'] }
+        date: { type: string, format: date }
+        slot: { type: string, example: '10:30' }
+        name: { type: string }
+        phone: { type: string }
+        email: { type: [string, 'null'] }
+        notes: { type: [string, 'null'] }
+        website: { type: string, maxLength: 0 }
+    Appointment:
+      allOf:
+        - { $ref: '#/components/schemas/AppointmentCreate' }
+        - type: object
+          properties:
+            id: { type: string }
+            status: { $ref: '#/components/schemas/AppointmentStatus' }
+            staffNotes: { type: array, items: { $ref: '#/components/schemas/StoredNote' } }
+            createdAt: { type: string, format: date-time }
+    Note: { type: object, required: [text], properties: { text: { type: string, minLength: 1, maxLength: 2000 } } }
+    StoredNote: { type: object, properties: { at: { type: string }, by: { type: string }, text: { type: string } } }
