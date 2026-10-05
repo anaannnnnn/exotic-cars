@@ -5,18 +5,29 @@
    edges, focus rings. Values follow better-ui: press 0.96, named transition properties, 1px image outlines.
    ========================================================================== */
 :root {
-  --acc-deep: #b98c3f;
-  --sel-ink: #1c1408;                     /* text and icons sitting on champagne gold (contrast about 16:1) */
+  --acc-deep: #a98148;
+  --sel-ink: #2a1d0a;                     /* text and icons on champagne gold (about 10:1) */
+  /* polished champagne: a specular band over the top half, cream -> champagne -> brass, a brighter lip at the base */
   --sel-fill:
-    radial-gradient(120% 160% at 26% -10%, rgba(255, 255, 255, 0.8) 0%, rgba(255, 255, 255, 0) 42%),
-    linear-gradient(180deg, #f6e6bd 0%, #e3bf72 46%, #d6ad5c 78%, #b98c3f 100%);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.62) 0%, rgba(255, 255, 255, 0.18) 44%, rgba(255, 255, 255, 0) 50%),
+    linear-gradient(180deg, #f7ebcd 0%, #e6cc97 22%, #d4b26f 52%, #b88f52 86%, #c9a35f 100%);
+  /* on light paper the glow is a warm halo, never a smudge */
   --glow:
-    inset 0 1px 0.5px rgba(255, 255, 255, 0.9), inset 0 -3px 7px rgba(92, 62, 14, 0.3),
-    0 0 0 1px rgba(227, 191, 114, 0.68), 0 0 12px rgba(227, 191, 114, 0.5), 0 0 28px rgba(227, 191, 114, 0.26), 0 8px 18px -6px rgba(196, 150, 70, 0.7);
+    inset 0 1px 0 rgba(255, 255, 255, 0.95), inset 0 -2px 4px rgba(96, 66, 24, 0.22),
+    0 0 0 1px rgba(150, 113, 58, 0.55), 0 1px 2px rgba(80, 56, 20, 0.22), 0 8px 18px -8px rgba(150, 110, 50, 0.6), 0 0 20px rgba(217, 182, 115, 0.32);
   --glow-sm:
-    inset 0 1px 0.5px rgba(255, 255, 255, 0.85),
-    0 0 0 1px rgba(227, 191, 114, 0.62), 0 0 10px rgba(227, 191, 114, 0.42), 0 5px 12px -5px rgba(196, 150, 70, 0.65);
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 0 0 1px rgba(150, 113, 58, 0.5), 0 4px 10px -5px rgba(150, 110, 50, 0.55), 0 0 12px rgba(217, 182, 115, 0.28);
   --recede: 0.62;                          /* how far unselected siblings step back */
+}
+/* at night the same metal blooms: a close halo and a wide one */
+:root[data-theme='dark'] {
+  --glow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9), inset 0 -2px 5px rgba(96, 66, 24, 0.3),
+    0 0 0 1px rgba(217, 182, 115, 0.6), 0 0 12px rgba(217, 182, 115, 0.45), 0 0 30px rgba(217, 182, 115, 0.22), 0 8px 18px -6px rgba(0, 0, 0, 0.6);
+  --glow-sm:
+    inset 0 1px 0 rgba(255, 255, 255, 0.85),
+    0 0 0 1px rgba(217, 182, 115, 0.55), 0 0 10px rgba(217, 182, 115, 0.38), 0 5px 12px -5px rgba(0, 0, 0, 0.6);
 }
 
 /* ---------- type: crisp rendering, confident headings, steady numerals ---------- */
@@ -33,7 +44,7 @@ h1, h2, h3, .sect-head h2, .shop__title, .spot__head h2, .bb__txt h2, .slide__ti
 :root[data-theme='dark'] :is(.scard__img img, .ncard__img img, .slide__img, .body-t img, .vrc__img img, .gal__slide img) { outline-color: rgba(255, 255, 255, 0.1); }
 
 /* ---------- focus: one visible ring for keyboards, never for taps ---------- */
-:where(a, button, input, select, textarea, [role='tab'], [role='radio'], [tabindex]):focus-visible { outline: 2px solid #0a0a0b; outline-offset: 3px; box-shadow: 0 0 0 6px rgba(227, 191, 114, 0.32), 0 0 18px rgba(227, 191, 114, 0.35); }
+:where(a, button, input, select, textarea, [role='tab'], [role='radio'], [tabindex]):focus-visible { outline: 2px solid #0a0a0b; outline-offset: 3px; box-shadow: 0 0 0 6px rgba(217, 182, 115, 0.32), 0 0 18px rgba(217, 182, 115, 0.35); }
 :root[data-theme='dark'] :where(a, button, input, select, textarea, [role='tab'], [role='radio'], [tabindex]):focus-visible { outline-color: #fff; }
 
 /* ---------- selected = champagne gold with a contained glow, everywhere ---------- */
@@ -58,7 +69,7 @@ h1, h2, h3, .sect-head h2, .shop__title, .spot__head h2, .bb__txt h2, .slide__ti
 /* chips, slots, switches */
 .chip2[aria-pressed='true'] { background: var(--sel-fill); color: var(--sel-ink); box-shadow: var(--glow-sm); font-weight: 650; }
 .slot[aria-checked='true'] { background: var(--sel-fill); color: var(--sel-ink); box-shadow: var(--glow-sm); }
-.trow input:checked + i { background: #0a0a0b; box-shadow: 0 0 0 1px rgba(227, 191, 114, 0.45), 0 4px 12px -4px rgba(196, 150, 70, 0.6); }
+.trow input:checked + i { background: #0a0a0b; box-shadow: 0 0 0 1px rgba(217, 182, 115, 0.45), 0 4px 12px -4px rgba(169, 129, 72, 0.6); }
 /* slideshow progress fills in gold */
 .show__dot[aria-selected='true']::after { background: linear-gradient(90deg, #0a0a0b, #0a0a0b 60%, var(--acc)); }
 /* primary actions glow when focused or pressed */

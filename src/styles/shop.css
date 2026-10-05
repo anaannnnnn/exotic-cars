@@ -23,7 +23,7 @@
 .lq::-webkit-scrollbar { display: none; }
 .lq__thumb {
   position: absolute; left: 0; top: 4px; bottom: 4px; width: 0; border-radius: var(--pill); pointer-events: none;
-  background: #0a0a0b; box-shadow: inset 0 0 0 1.5px rgba(227, 191, 114, 0.6), 0 6px 16px -8px rgba(10, 10, 11, 0.5);
+  background: #0a0a0b; box-shadow: inset 0 0 0 1.5px rgba(217, 182, 115, 0.6), 0 6px 16px -8px rgba(10, 10, 11, 0.5);
   transition: transform 520ms var(--spring), width 520ms var(--spring), scale 300ms var(--spring), background 400ms var(--ease-out), box-shadow 400ms var(--ease-out);
 }
 /* stretching across: quick, and squeezed thin like a drop being pulled */
@@ -49,7 +49,7 @@
 
 /* ---------- top bar (shop + car): round back, wordmark, round action; frosted oval once scrolled ---------- */
 .tb {
-  position: sticky; top: 0; z-index: 40; display: grid; grid-template-columns: 44px 1fr 44px; align-items: center; gap: 8px;
+  position: sticky; top: 0; z-index: 40; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 8px;
   padding: calc(env(safe-area-inset-top) + 10px) 14px 10px; max-width: 1320px; margin: 0 auto; isolation: isolate;
 }
 .tb::before {
@@ -68,11 +68,17 @@
 .tb.is-stuck .tb__btn { box-shadow: none; background: rgba(10, 10, 11, 0.05); }
 .tb__btn--signal, .tb.is-stuck .tb__btn--signal { background: #0a0a0b; color: var(--acc); }
 .tb__btn--ghost { visibility: hidden; }
-@media (hover: hover) and (pointer: fine) { .tb__btn:hover { box-shadow: var(--shadow-2); } .tb__btn--signal:hover { box-shadow: 0 0 0 4px rgba(227, 191, 114, 0.22); } }
+.tb > .tb__btn:first-child { justify-self: start; }
+.tb__tools { justify-self: end; display: flex; align-items: center; gap: 8px; }
+.tb__tools > * { flex: none; }
+/* the wordmark gives way before any button does: "Exotic" alone under 420px, the dot alone under 340px */
+@media (max-width: 419px) { .tb__cars { display: none; } .tb__brand { padding: 0 8px; } }
+@media (max-width: 339px) { .tb__word { display: none; } }
+@media (hover: hover) and (pointer: fine) { .tb__btn:hover { box-shadow: var(--shadow-2); } .tb__btn--signal:hover { box-shadow: 0 0 0 4px rgba(217, 182, 115, 0.22); } }
 .tb__brand { justify-self: center; display: inline-flex; align-items: center; gap: 9px; height: 36px; padding: 0 14px; border-radius: var(--pill); transition: scale 160ms var(--ease-out); }
 .tb__brand:active { scale: 0.96; }
 .tb__word { font-family: 'Michroma', var(--font); font-size: 11px; letter-spacing: 0.3em; padding-left: 0.3em; text-transform: uppercase; color: var(--ink); white-space: nowrap; }
-.tb__dot { position: relative; width: 8px; height: 8px; border-radius: 50%; background: var(--acc); box-shadow: 0 0 0 3px rgba(227, 191, 114, 0.18); }
+.tb__dot { position: relative; width: 8px; height: 8px; border-radius: 50%; background: var(--sel-fill); box-shadow: 0 0 0 3px rgba(217, 182, 115, 0.18); }
 .tb__dot::after { content: ''; position: absolute; inset: -3px; border-radius: 50%; border: 1.5px solid var(--acc); animation: tb-ping 2.4s var(--ease-out) infinite; }
 @keyframes tb-ping { 0% { opacity: 0.9; scale: 0.6; } 70%, 100% { opacity: 0; scale: 2.2; } }
 body[data-page='shop'] .bar, body[data-page='shopcar'] .bar { display: none; }
@@ -97,7 +103,7 @@ body[data-page='shop'] { --page-pad: 16px; }
 .fchip:active { scale: 0.95; }
 .fchip[aria-expanded='true'] { background: #0a0a0b; color: #fff; }
 .fchip[aria-expanded='true'] svg { rotate: 180deg; color: var(--acc); }
-.fchip__n { display: grid; place-items: center; min-width: 20px; height: 20px; padding: 0 5px; border-radius: var(--pill); background: var(--acc); color: var(--acc-ink); font-size: 11px; font-style: normal; font-weight: 700; }
+.fchip__n { display: grid; place-items: center; min-width: 20px; height: 20px; padding: 0 5px; border-radius: var(--pill); background: var(--sel-fill); color: var(--acc-ink); font-size: 11px; font-style: normal; font-weight: 700; }
 .fchip__n[hidden] { display: none; }
 .fwrap { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 380ms var(--ease-out); }
 .fwrap > .filters { min-height: 0; overflow: hidden; padding: 0; opacity: 0; transition: opacity 260ms var(--ease-out), padding 380ms var(--ease-out); animation: none; }
@@ -142,12 +148,12 @@ body[data-page='shop'] { --page-pad: 16px; }
 .shop .scard__title { font-size: 14px; font-weight: 600; line-height: 1.25; letter-spacing: -0.01em; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .shop .scard__meta { margin-top: 2px; }
 .scard__foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; }
-.shop .scard__price { margin: 0; font-size: 14px; font-weight: 700; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+.shop .scard__price { margin: 0; min-width: 0; font-size: 14px; font-weight: 700; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .scard__go { flex: none; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: var(--paper); color: var(--ink); transition: background-color 240ms var(--ease-out), color 240ms, translate 300ms var(--spring); }
 .scard__go svg { width: 15px; height: 15px; }
 .scard:hover .scard__go, .scard:focus-visible .scard__go { background: #0a0a0b; color: var(--acc); translate: 2px 0; }
 .shop .badge { top: 10px; right: 10px; padding: 5px 10px; border-radius: var(--pill); font-size: 10.5px; letter-spacing: 0.06em; background: rgba(10, 10, 11, 0.62); color: #fff; -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
-.shop .badge--new { background: var(--acc); color: var(--acc-ink); }
+.shop .badge--new { background: var(--sel-fill); color: var(--acc-ink); }
 .shop .badge--sold { background: rgba(255, 255, 255, 0.86); color: #0a0a0b; }
 /* with a make chosen, the cards take its colour on the make line and the price */
 .sgrid.is-branded .scard__make { color: var(--b-bg); }
@@ -176,7 +182,7 @@ body[data-page='shopcar'] .scar { padding-top: 0; }
 .ncard__img { position: relative; aspect-ratio: 4 / 3; margin: 6px 6px 0; border-radius: 18px; overflow: hidden; background: #0b0b0d; }
 .ncard__img img { width: 100%; height: 100%; object-fit: cover; transition: scale 800ms var(--ease-out); }
 .ncard:hover .ncard__img img { scale: 1.06; }
-.ncard__3d { position: absolute; top: 8px; right: 8px; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: var(--acc); color: var(--acc-ink); box-shadow: 0 4px 10px -4px rgba(0, 0, 0, 0.5); }
+.ncard__3d { position: absolute; top: 8px; right: 8px; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: var(--sel-fill); color: var(--acc-ink); box-shadow: 0 4px 10px -4px rgba(0, 0, 0, 0.5); }
 .ncard__3d svg { width: 15px; height: 15px; }
 .ncard__sold { position: absolute; top: 8px; left: 8px; height: 24px; padding: 0 10px; display: inline-flex; align-items: center; border-radius: var(--pill); background: rgba(255, 255, 255, 0.88); color: #0a0a0b; font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em; }
 .ncard.is-sold img { filter: grayscale(0.9) brightness(0.92); }
@@ -281,7 +287,7 @@ body[data-page='shopcar'] .scar { padding-top: 0; }
 .body-t__txt { display: grid; gap: 2px; padding: 14px; }
 .body-t__txt b { font-size: 17px; font-weight: 600; letter-spacing: -0.015em; }
 .body-t__txt small { font-size: 11.5px; opacity: 0.78; }
-.body-t__txt b::after { content: ''; display: inline-block; width: 6px; height: 6px; margin-left: 7px; border-radius: 50%; background: var(--acc); vertical-align: middle; }
+.body-t__txt b::after { content: ''; display: inline-block; width: 6px; height: 6px; margin-left: 7px; border-radius: 50%; background: var(--sel-fill); vertical-align: middle; }
 
 .hub__foot { padding: 30px 18px 0; text-align: center; font-size: 11.5px; color: var(--muted); }
 .quick { padding-top: 30px; }

@@ -98,4 +98,3 @@ img { -webkit-user-drag: none; }
 :root[data-theme='dark'] :is(.tb, .hub__top, .phead)::before { background: rgba(23, 23, 26, 0.78); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 10px 28px -14px rgba(0, 0, 0, 0.8); }
 :root[data-theme='dark'] .tb.is-stuck .tb__btn { background: rgba(255, 255, 255, 0.08); }
 :root[data-theme='dark'] .shop .scard, :root[data-theme='dark'] .ncard:not(.ncard--dark) { background: var(--card); }
-:root[data-theme='dark'] .lq__item[aria-selected='true'] { color: #fff; }

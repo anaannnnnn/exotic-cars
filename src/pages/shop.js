@@ -25,7 +25,7 @@ export function shopWithBrand(brand) {
 export function topBar({ back, backLabel, action }) {
   const bar = h('header', { class: 'tb' }, [
     h('a', { class: 'tb__btn', href: back, 'aria-label': backLabel, 'data-tip': backLabel }, icon('back')),
-    h('a', { class: 'tb__brand', href: '#/home', 'aria-label': 'Exotic Cars home' }, [h('span', { class: 'tb__dot', 'aria-hidden': 'true' }), h('span', { class: 'tb__word', text: 'Exotic Cars' })]),
+    h('a', { class: 'tb__brand', href: '#/home', 'aria-label': 'Exotic Cars home' }, [h('span', { class: 'tb__dot', 'aria-hidden': 'true' }), h('span', { class: 'tb__word' }, ['Exotic', h('span', { class: 'tb__cars', text: ' Cars' })])]),
     h('div', { class: 'tb__tools' }, [themeToggle('tb__btn'), action].filter(Boolean))
   ]);
   return { el: bar, destroy() {} };   /* scroll states (frosted, away) are set page-wide by fx.js */
@@ -46,7 +46,7 @@ function card(c, canConfigure, i = 0) {
   }, [img, h('span', { class: 'scard__body' }, [
     h('span', { class: 'scard__make', text: makeLabel(c.brand) }),
     h('span', { class: 'scard__title', text: c.title }), meta(c),
-    h('span', { class: 'scard__foot' }, [h('span', { class: 'scard__price', text: stock.priceLabel(c) }), h('span', { class: 'scard__go', 'aria-hidden': 'true' }, icon('right'))])
+    h('span', { class: 'scard__foot' }, [h('span', { class: 'scard__price', text: c.price ? stock.priceLabel(c) : 'On request', 'aria-label': stock.priceLabel(c) }), h('span', { class: 'scard__go', 'aria-hidden': 'true' }, icon('right'))])
   ])]);
   const wrap = h('div', { class: 'scw rv tilt', style: `--i:${i % 6}` });
   if (!canConfigure) { wrap.append(a); return wrap; }

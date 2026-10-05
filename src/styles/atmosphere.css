@@ -1,64 +1,86 @@
 /* ==========================================================================
    Atmosphere - the ground every page stands on, the light/dark toggle, and how pages hand over to each other.
-   The backdrop is a photographer's cyclorama: a paler sky at the top, one wide softbox overhead, two slow drifts of
-   light (champagne gold from the top right, cool platinum from the bottom left), a faint floor and a whisper of
-   grain. At night it becomes a graphite showroom with the same lights turned low. It is one fixed layer in
-   index.html, so it is painted before any script runs and never scrolls.
+   The backdrop is Dubai at the edge of the desert. By day: warm pearl paper under a wide softbox, three slow drifts
+   of light (champagne from the top right, blush from the right, platinum from the bottom left) and the contour lines
+   of a dune field rising from the foot of the screen in fine gold. By night: a midnight showroom - graphite, a gold
+   glow, deep plum and night-blue light, the same dunes catching a little gold. One fixed layer in index.html, painted
+   before any script runs; it never scrolls and only its lights and sand move, slowly.
    ========================================================================== */
 :root {
-  --bd-base: #f2f1ed;
-  --bd-top: #fbfaf7;
-  --bd-soft: rgba(255, 255, 255, 0.95);
-  --bd-a: rgba(227, 191, 114, 0.17);
-  --bd-b: rgba(172, 182, 198, 0.24);                /* cool platinum, to balance the gold */
-  --bd-floor: rgba(48, 38, 22, 0.06);
+  --bd-base: #f4f1ea;
+  --bd-top: #fcfbf8;
+  --bd-soft: rgba(255, 255, 255, 0.96);
+  --bd-a: rgba(226, 192, 130, 0.34);             /* champagne */
+  --bd-b: rgba(166, 182, 206, 0.30);             /* platinum */
+  --bd-c: rgba(234, 186, 164, 0.24);             /* blush */
+  --bd-dunes: 0.16;
+  --bd-vignette: rgba(70, 52, 24, 0.08);
   --bd-grain: 0.05;
   --bd-blend: multiply;
   /* every page's ground and every fade to it use the same colour */
   --bg: var(--bd-base);
   --dk-fade: var(--bd-base);
+  --dk-spill-o: 0.55;
 }
 :root[data-theme='dark'] {
-  --bd-base: #09090b;
-  --bd-top: #141417;
-  --bd-soft: rgba(255, 255, 255, 0.07);
-  --bd-a: rgba(227, 191, 114, 0.11);
-  --bd-b: rgba(150, 162, 186, 0.07);
-  --bd-floor: rgba(255, 255, 255, 0.035);
-  --bd-grain: 0.035;
+  --bd-base: #09090c;
+  --bd-top: #121218;
+  --bd-soft: rgba(255, 255, 255, 0.06);
+  --bd-a: rgba(201, 158, 88, 0.20);              /* gold */
+  --bd-b: rgba(46, 70, 132, 0.30);               /* night blue */
+  --bd-c: rgba(120, 58, 98, 0.20);               /* plum */
+  --bd-dunes: 0.2;
+  --bd-vignette: rgba(0, 0, 0, 0.5);
+  --bd-grain: 0.04;
   --bd-blend: screen;
   --bg: var(--bd-base);
   --dk-fade: var(--bd-base);
+  --dk-spill-o: 1;
 }
 
-/* the backdrop replaces the old per-page ambient gradient (pages.css) and the gold corner glow */
+/* the backdrop replaces the old per-page ambient gradient (pages.css) and the old corner glow */
 :root body[data-page]:not([data-page='home']) { background: var(--bd-base); }
 .hub__glow { display: none; }
 
 .backdrop {
   position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none;
-  background: linear-gradient(180deg, var(--bd-top) 0%, var(--bd-base) 52%, var(--bd-base) 100%);
+  background: linear-gradient(180deg, var(--bd-top) 0%, var(--bd-base) 46%, var(--bd-base) 100%);
 }
 .backdrop i { position: absolute; display: block; }
-.backdrop__soft, .backdrop__a, .backdrop__b { border-radius: 50%; }
+.backdrop__soft, .backdrop__a, .backdrop__b, .backdrop__c { border-radius: 50%; }
 .backdrop__soft { left: -25%; right: -25%; top: -30vh; height: 64vh; background: radial-gradient(closest-side, var(--bd-soft), transparent); }
 .backdrop__a {
-  width: 92vmax; height: 92vmax; right: -46vmax; top: -44vmax; will-change: transform;
+  width: 96vmax; height: 96vmax; right: -48vmax; top: -46vmax; will-change: transform;
   background: radial-gradient(closest-side, var(--bd-a), transparent 72%);
   animation: bd-drift-a 34s ease-in-out infinite alternate;
 }
 .backdrop__b {
-  width: 86vmax; height: 86vmax; left: -44vmax; bottom: -46vmax; will-change: transform;
+  width: 90vmax; height: 90vmax; left: -46vmax; bottom: -44vmax; will-change: transform;
   background: radial-gradient(closest-side, var(--bd-b), transparent 72%);
   animation: bd-drift-b 42s ease-in-out infinite alternate;
 }
-.backdrop__floor { left: 0; right: 0; bottom: 0; height: 40vh; background: linear-gradient(to top, var(--bd-floor), transparent); }
+.backdrop__c {
+  width: 70vmax; height: 70vmax; right: -34vmax; top: 34vh; will-change: transform;
+  background: radial-gradient(closest-side, var(--bd-c), transparent 72%);
+  animation: bd-drift-c 38s ease-in-out infinite alternate;
+}
+/* the dune field: fine gold contour lines, densest at the horizon, fading out above the middle of the screen */
+.backdrop__dunes {
+  left: -6%; right: -6%; bottom: 0; height: 64vh; opacity: var(--bd-dunes); will-change: transform;
+  background: url('../assets/dunes.svg') center bottom / cover no-repeat;
+  -webkit-mask-image: linear-gradient(to top, #000 0%, rgba(0, 0, 0, 0.85) 45%, transparent 100%);
+  mask-image: linear-gradient(to top, #000 0%, rgba(0, 0, 0, 0.85) 45%, transparent 100%);
+  animation: bd-sand 60s ease-in-out infinite alternate;
+}
+.backdrop__floor { left: 0; right: 0; bottom: 0; height: 100%; background: radial-gradient(130% 90% at 50% 40%, transparent 55%, var(--bd-vignette) 100%); }
 .backdrop::after {
   content: ''; position: absolute; inset: 0; opacity: var(--bd-grain); mix-blend-mode: var(--bd-blend);
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .9 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 @keyframes bd-drift-a { to { transform: translate3d(-10vmax, 8vmax, 0) scale(1.08); } }
 @keyframes bd-drift-b { to { transform: translate3d(12vmax, -6vmax, 0) scale(0.94); } }
+@keyframes bd-drift-c { to { transform: translate3d(-8vmax, -10vmax, 0) scale(1.1); } }
+@keyframes bd-sand { to { transform: translate3d(4%, 0, 0); } }
 /* the landing and the configurator paint their own stage */
 body[data-page='home'] .backdrop, body[data-page='car'] .backdrop { display: none; }
 
@@ -80,7 +102,6 @@ body[data-page='home'] .backdrop, body[data-page='car'] .backdrop { display: non
 .theme-tg--line .theme-tg__ic svg { width: 16px; height: 16px; }
 @media (hover: hover) and (pointer: fine) { .theme-tg--line:hover { background: var(--xh-glass, var(--surface)); box-shadow: none; color: var(--xh-ink, var(--ink)); } }
 /* the shop's top bar buttons */
-.tb__tools { display: flex; align-items: center; gap: 8px; }
 .tb .theme-tg { width: 44px; height: 44px; }
 
 /* ---------- theme switch: the new theme opens as a circle from the toggle ---------- */
@@ -101,10 +122,10 @@ html.theme-vt::view-transition-group(dock) { animation-duration: 640ms; }
 ::view-transition-group(dock) { z-index: 10; }
 
 @media (prefers-reduced-motion: reduce) {
-  .backdrop__a, .backdrop__b { animation: none; }
+  .backdrop__a, .backdrop__b, .backdrop__c, .backdrop__dunes { animation: none; }
   .theme-tg__ic { transition: none; }
 }
-:root[data-motion='reduce'] :is(.backdrop__a, .backdrop__b) { animation: none; }
+:root[data-motion='reduce'] :is(.backdrop__a, .backdrop__b, .backdrop__c, .backdrop__dunes) { animation: none; }
 @media (forced-colors: active) { .backdrop { display: none; } }
 
 /* ---------- dark-theme surfaces the older layers left light ---------- */
