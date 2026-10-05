@@ -1,6 +1,6 @@
 # Deploying Exotic Cars with the backend and CRM
 
-The site has two parts that ship together on Netlify:
+The site has four parts that ship together on Netlify:
 
 | Part | What it is | Where |
 | --- | --- | --- |
@@ -9,16 +9,30 @@ The site has two parts that ship together on Netlify:
 | CRM | The staff back office at `/admin/` | `admin/index.html` + `src/admin/*` (part of the build) |
 | Database | Netlify Blobs: stock, catalogue, leads, bookings, customers, photos | created automatically, nothing to set up |
 
-## 1. Deploy from Git (recommended)
+## 1. Deploy
 
-Netlify must **build** the site so the function is bundled. A drag-and-drop upload of a zip or `dist/` folder publishes only the
-static website: the showroom still works from its built-in data, but the CRM and live data need the function.
+Netlify has to **build** the project so the API function is bundled with the website and CRM. Any of these does that.
+
+### A. One zip on Netlify Drop
+
+1. Sign in at [app.netlify.com](https://app.netlify.com) first. Drop only builds projects for signed-in users; signed out it
+   would publish the raw source files.
+2. Open **Netlify Drop** (app.netlify.com/drop) and drop `exotic-cars-netlify.zip` (the project zip: `package.json`,
+   `netlify.toml`, `netlify/functions/`, `server/`, `src/`, `admin/`, `public/` at its root). Netlify runs `npm install` and
+   `npm run build`, publishes `dist/` and deploys the API.
+3. In the new site: **Site configuration → Environment variables**, add the variables below.
+4. Drop the same zip again (**Deploys →** drag it onto the page) so the function starts with the new variables.
+
+Later updates: drop a newer project zip the same way. Make it from a checkout with
+`git archive --format=zip -o exotic-cars-netlify.zip HEAD` (files at the root, no wrapping folder).
+
+### B. From Git (updates deploy on every push)
 
 1. In Netlify: **Add new site → Import an existing project → GitHub →** `anaannnnnn/exotic-cars`.
-2. Build settings come from `netlify.toml` (`npm run build`, publish `dist`, functions `netlify/functions`). Leave them as they are.
+2. Build settings come from `netlify.toml` (`npm run build`, publish `dist`, functions `netlify/functions`, Node 22). Leave them as they are.
 3. Add the environment variables below (**Site configuration → Environment variables**), then **Deploy**.
 
-Or from a terminal, with the Netlify CLI:
+### C. From a terminal, with the Netlify CLI
 
 ```
 npm install
@@ -29,6 +43,9 @@ npx netlify env:set ADMIN_PASSWORD_HASH "$(npm run -s admin:hash -- 'a long staf
 npx netlify env:set SESSION_SECRET "$(openssl rand -hex 32)"
 npx netlify deploy --build --prod
 ```
+
+Uploading only a built `dist/` folder publishes the static showroom: it works from its built-in data, but the CRM and the
+live data need the function.
 
 ## 2. Environment variables
 

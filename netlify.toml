@@ -1,9 +1,14 @@
-# Deploy from Git (or `netlify deploy --build`) so the API function is built and published with the site.
-# A drag-and-drop upload of dist/ only publishes the static showroom; the CRM and the live data need the function.
+# Netlify builds this project (website, CRM and the API function) when it is deployed from Git, with
+# `netlify deploy --build`, or as the project zip dropped on Netlify Drop while signed in (docs/DEPLOY.md).
+# Uploading only the built dist/ folder publishes the static showroom; the CRM and the live data need the function.
 
 [build]
   command = "npm run build"
   publish = "dist"
+
+# Vite 8 needs Node 20.19+ or 22.12+
+[build.environment]
+  NODE_VERSION = "22"
 
 [functions]
   directory = "netlify/functions"

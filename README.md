@@ -21,8 +21,8 @@ customer accounts, CSV exports and an activity log. Changes reach the website wi
 * **Database:** Netlify Blobs (stock, catalogue, leads, bookings, customers, photos). Nothing to provision.
 * **Website:** reads live stock and products from the API and falls back to `public/data/*.json`; enquiries and bookings
   go to the API, or wait in an on-device outbox when offline.
-* **Deploy:** from Git or the Netlify CLI with `ADMIN_EMAIL`, `ADMIN_PASSWORD_HASH` (`npm run admin:hash`) and
-  `SESSION_SECRET`. Step by step: **`docs/DEPLOY.md`**. Design and security review: `specs/crm-backend_design.md`.
+* **Deploy:** drop the project zip on Netlify Drop while signed in, or deploy from Git or the Netlify CLI, with
+  `ADMIN_EMAIL`, `ADMIN_PASSWORD_HASH` (`npm run admin:hash`) and `SESSION_SECRET`. Step by step: **`docs/DEPLOY.md`**. Design and security review: `specs/crm-backend_design.md`.
 
 ## What the customer sees
 
