@@ -18,14 +18,19 @@ export async function mountDashboard(view, _params, ctx) {
   const body = h('div', { class: 'dash' }, skeleton(8));
   view.append(head, body);
 
+  let account = null;
   async function load() {
     let s;
-    try { s = await get('admin/stats'); } catch (e) { body.replaceChildren(errorState(e, load)); return; }
+    try { [s, account] = await Promise.all([get('admin/stats'), get('admin/account').catch(() => null)]); } catch (e) { body.replaceChildren(errorState(e, load)); return; }
     body.replaceChildren(...render(s));
   }
 
   function render(s) {
     const out = [];
+    if (account?.defaultPassword) {
+      out.push(h('div', { class: 'banner banner--danger' }, [icon('alert'), h('div', {}, [h('b', { text: 'Change the default password' }), h('p', { text: 'The CRM still opens with admin / admin123, which anyone could guess.' })]),
+        h('a', { class: 'btn btn--primary', href: '#/settings' }, [icon('lock'), 'Change it now'])]));
+    }
     if (!s.imported.cars || !s.imported.products) {
       out.push(h('div', { class: 'banner' }, [
         icon('db'), h('div', {}, [h('b', { text: 'Bring in the site’s stock and catalogue' }), h('p', { text: 'The database is empty. Import the cars, wheels and kits the website already shows, then edit them here.' })]),

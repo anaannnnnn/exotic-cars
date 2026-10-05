@@ -229,7 +229,7 @@ on('POST', '/admin/session', async ({ req, ip, origin }) => {
 });
 
 /* first visit to /admin/ on a new site: is there a staff login yet? */
-on('GET', '/admin/setup', async () => ({ needed: (await auth.staffMode()) === 'setup' }));
+on('GET', '/admin/setup', async () => ({ needed: false, defaultLogin: (await auth.staffMode()) === 'default' }));
 
 on('POST', '/admin/setup', async ({ req, ip, origin }) => {
   await rateLimit('staff-login', ip, LIMITS.staffLogin);
@@ -242,7 +242,7 @@ on('POST', '/admin/setup', async ({ req, ip, origin }) => {
 on('GET', '/admin/account', async ({ staff }) => {
   const mode = await auth.staffMode();
   const acct = mode === 'stored' ? await auth.storedStaff() : null;
-  return { email: staff.sub, managedBy: mode === 'env' ? 'environment' : 'crm', createdAt: acct?.createdAt || null, passwordChangedAt: acct?.passwordChangedAt || null };
+  return { email: staff.sub, managedBy: mode === 'env' ? 'environment' : mode === 'default' ? 'default' : 'crm', defaultPassword: mode === 'default', createdAt: acct?.createdAt || null, passwordChangedAt: acct?.passwordChangedAt || null };
 }, { staff: true });
 
 on('POST', '/admin/password', async ({ req, ip, staff }) => {

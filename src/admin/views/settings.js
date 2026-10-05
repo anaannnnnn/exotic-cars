@@ -101,6 +101,8 @@ export function mountSettings(view, _p, ctx) {
         paintAudit();
       } catch (err) { showFieldErrors(form, err.fields); if (!err.fields) failed(err); } finally { b.disabled = false; }
     });
+    const warn = acct.defaultPassword ? h('div', { class: 'banner banner--danger' }, [icon('alert'), h('div', {}, [h('b', { text: 'Still on the default password (admin123)' }), h('p', { text: 'Anyone who guesses it can open the CRM. Set your own below: the default stops working once you do.' })])]) : null;
+    if (acct.defaultPassword) { loginCard.replaceChildren(head, warn, form); return; }
     loginCard.replaceChildren(head, h('p', { class: 'muted small', text: `Created ${ago(acct.createdAt)}${acct.passwordChangedAt ? ` · password changed ${ago(acct.passwordChangedAt)}` : ''}` }), form);
   }
 

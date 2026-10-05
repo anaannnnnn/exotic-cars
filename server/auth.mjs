@@ -103,15 +103,19 @@ const envStaff = () => Boolean(process.env.ADMIN_EMAIL && (process.env.ADMIN_PAS
 const sameText = (a, b) => timingSafeEqual(createHash('sha256').update(String(a)).digest(), createHash('sha256').update(String(b)).digest());
 export const storedStaff = () => store('system').get(STAFF_KEY, { type: 'json' });
 
-/** 'env' (environment variables), 'stored' (created in the CRM) or 'setup' (nobody yet: the CRM offers to create it). */
+/* The built-in login shipped with the project zip. It works only until a password is set in the CRM (Settings →
+   Your login), which replaces it for good; ADMIN_EMAIL + ADMIN_PASSWORD(_HASH) override both. */
+export const DEFAULT_ADMIN = { username: 'admin', password: 'admin123' };
+
+/** 'env' (environment variables), 'stored' (set in the CRM) or 'default' (the built-in admin / admin123). */
 export async function staffMode() {
   if (envStaff()) return 'env';
-  return (await storedStaff()) ? 'stored' : 'setup';
+  return (await storedStaff()) ? 'stored' : 'default';
 }
 export const staffConfigured = async () => (await staffMode()) !== 'setup';
 
 /* which version of the login a session was issued for: changing the password ends every other session */
-const loginVersion = (mode, acct) => (mode === 'env' ? 'env' : acct.passwordChangedAt || acct.createdAt);
+const loginVersion = (mode, acct) => (mode === 'env' || mode === 'default' ? mode : acct.passwordChangedAt || acct.createdAt);
 
 /** Check a sign-in. Returns { email, v } for a session, or null. */
 export async function checkStaffCredentials(email, password) {
@@ -123,14 +127,18 @@ export async function checkStaffCredentials(email, password) {
     const ok = hash ? await verifyPassword(password, hash) : sameText(password, process.env.ADMIN_PASSWORD) && Boolean(process.env.ADMIN_PASSWORD);
     return ok && sameText(got, want) ? { email: want, v: 'env' } : null;
   }
-  const acct = mode === 'stored' ? await storedStaff() : null;
+  if (mode === 'default') {
+    await verifyPassword(password, DUMMY_HASH);   /* same work as a real check */
+    return sameText(got, DEFAULT_ADMIN.username) && sameText(password, DEFAULT_ADMIN.password) ? { email: DEFAULT_ADMIN.username, v: 'default' } : null;
+  }
+  const acct = await storedStaff();
   const ok = await verifyPassword(password, acct?.passwordHash || DUMMY_HASH);
   return acct && ok && sameText(got, acct.email) ? { email: acct.email, v: loginVersion('stored', acct) } : null;
 }
 
 /** First visit to a new site: create the staff login. Only possible while there is none (an atomic create). */
 export async function createStaffAccount(email, password) {
-  if (envStaff()) throw new HttpError(409, 'Already set up', 'This site’s staff login is set by its environment variables. Sign in instead.');
+  if ((await staffMode()) !== 'setup') throw new HttpError(409, 'Already set up', 'This CRM already has a staff login. Sign in instead.');
   const at = new Date().toISOString();
   const acct = { email: String(email).trim().toLowerCase(), passwordHash: await hashPassword(password), createdAt: at };
   const res = await store('system').setJSON(STAFF_KEY, acct, { onlyIfNew: true });
@@ -143,8 +151,17 @@ export async function createStaffAccount(email, password) {
 export async function changeStaffPassword(current, next) {
   if (envStaff()) throw new HttpError(409, 'Managed elsewhere', 'This login is set by the site’s environment variables (ADMIN_PASSWORD_HASH). Change it there.');
   const acct = await storedStaff();
-  if (!acct) throw new HttpError(409, 'Not set up', 'There is no staff login yet.');
-  if (!(await verifyPassword(current, acct.passwordHash))) throw new HttpError(400, 'Invalid request', 'Some fields are missing or not valid.', { fields: { current: 'That is not the current password' } });
+  const wrong = () => new HttpError(400, 'Invalid request', 'Some fields are missing or not valid.', { fields: { current: 'That is not the current password' } });
+  if (!acct) {
+    /* still on the built-in login: setting a password turns it into a stored one and switches the default off */
+    if (!sameText(current, DEFAULT_ADMIN.password)) throw wrong();
+    const at = new Date().toISOString();
+    const made = { email: DEFAULT_ADMIN.username, passwordHash: await hashPassword(next), createdAt: at, passwordChangedAt: at };
+    const res = await store('system').setJSON(STAFF_KEY, made, { onlyIfNew: true });
+    if (res?.modified === false) throw new HttpError(409, 'Edit conflict', 'The password was just changed elsewhere. Sign in again.');
+    return { email: made.email, v: loginVersion('stored', made) };
+  }
+  if (!(await verifyPassword(current, acct.passwordHash))) throw wrong();
   const updated = { ...acct, passwordHash: await hashPassword(next), passwordChangedAt: new Date().toISOString() };
   await store('system').setJSON(STAFF_KEY, updated);
   return { email: updated.email, v: loginVersion('stored', updated) };
@@ -162,6 +179,8 @@ export async function requireStaff(req) {
   const mode = await staffMode();
   if (mode === 'env') {
     if (data.v !== 'env' || !sameText(data.sub, String(process.env.ADMIN_EMAIL).trim().toLowerCase())) throw deny();
+  } else if (mode === 'default') {
+    if (data.v !== 'default' || data.sub !== DEFAULT_ADMIN.username) throw deny();
   } else {
     const acct = mode === 'stored' ? await storedStaff() : null;
     if (!acct || data.v !== loginVersion('stored', acct) || data.sub !== acct.email) throw deny();

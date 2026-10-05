@@ -8,7 +8,7 @@ import { api, get, SITE } from '../api.js';
 const HERO = ['6569', '6492', '6516'];
 
 export function mountLogin(root, { notice, onSignedIn }) {
-  const email = h('input', { class: 'inp', type: 'email', name: 'email', autocomplete: 'username', required: true, placeholder: 'you@exoticcars.ae' });
+  const email = h('input', { class: 'inp', type: 'text', name: 'email', autocomplete: 'username', autocapitalize: 'none', spellcheck: 'false', required: true, placeholder: 'admin' });
   const password = h('input', { class: 'inp', type: 'password', name: 'password', autocomplete: 'current-password', required: true, placeholder: '••••••••••' });
   const confirm = h('input', { class: 'inp', type: 'password', name: 'confirm', autocomplete: 'new-password', placeholder: 'Type it again' });
   const reveal = h('button', { class: 'iconbtn iconbtn--in', type: 'button', 'aria-label': 'Show password', onclick: () => {
@@ -55,7 +55,7 @@ export function mountLogin(root, { notice, onSignedIn }) {
     e.preventDefault();
     say();
     const em = email.value.trim();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em) || !password.value) { say('error', 'Enter your email and password.'); shake(); return; }
+    if (!em || !password.value) { say('error', 'Enter your username and password.'); shake(); return; }
     if (mode === 'setup') {
       if (password.value.length < 10) { say('error', 'Use at least 10 characters for the password.'); password.focus(); shake(); return; }
       if (password.value !== confirm.value) { say('error', 'The two passwords do not match.'); confirm.focus(); shake(); return; }
@@ -77,7 +77,7 @@ export function mountLogin(root, { notice, onSignedIn }) {
       form.classList.remove('is-busy');
     }
   } }, [
-    h('label', { class: 'fld' }, [h('span', { class: 'fld__label', text: 'Email' }), email]),
+    h('label', { class: 'fld' }, [h('span', { class: 'fld__label', text: 'Username or email' }), email]),
     h('label', { class: 'fld' }, [h('span', { class: 'fld__label', text: 'Password' }), h('span', { class: 'inp-wrap' }, [password, reveal]), hint]),
     confirmField,
     msg, btn

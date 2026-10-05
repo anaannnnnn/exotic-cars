@@ -19,9 +19,9 @@ Make the zip from a checkout with `git archive --format=zip -o exotic-cars.zip H
 2. **Connect the database.** In the project: **Storage → Create Database → Neon (Postgres) → Continue**, keep the free plan,
    **Connect** it to the project, then **Deployments → ⋯ → Redeploy** so the API sees it. Vercel adds `DATABASE_URL` itself;
    the table is created on first use.
-3. **Create your login.** Open `https://<your-project>.vercel.app/admin/`. The first visit asks for the staff email and
-   password (10+ characters) and opens the CRM. Do this straight after the deploy: until a login exists, whoever opens
-   `/admin/` first can create it. The first login also copies the 478 cars and 3,401 wheels and kits into the database.
+3. **Sign in.** Open `https://<your-project>.vercel.app/admin/` and sign in with **admin** / **admin123**. The first sign-in
+   copies the 478 cars and 3,401 wheels and kits into the database. Then go to **Settings → Your login** and set your own
+   password straight away: until you do, anyone who guesses the default can open the CRM. Once set, admin123 stops working.
 
 Later updates: drop a newer zip onto the project in the Vercel dashboard (or connect the GitHub repository for automatic
 deploys).
@@ -31,7 +31,7 @@ deploys).
 1. Sign in at [app.netlify.com](https://app.netlify.com) **first** (signed out, Drop publishes the raw source instead of
    building it), then drop the zip on [app.netlify.com/drop](https://app.netlify.com/drop). Netlify reads `netlify.toml`, builds
    the site and deploys the API function. Storage is Netlify Blobs: nothing to connect.
-2. Open `https://<your-site>.netlify.app/admin/` and create your login (as above).
+2. Open `https://<your-site>.netlify.app/admin/`, sign in with **admin** / **admin123** and change the password (as above).
 
 Other ways: import the GitHub repository (**Add new site → Import an existing project**), or `npx netlify deploy --build --prod`.
 
@@ -42,7 +42,7 @@ Netlify: **Site configuration → Environment variables**; redeploy after changi
 
 | Name | What it does |
 | --- | --- |
-| `ADMIN_EMAIL` + `ADMIN_PASSWORD_HASH` | Use this staff login instead of the one created in the CRM. Also the way back in if the CRM password is forgotten. Make the hash with `npm run admin:hash -- "your password"`. (`ADMIN_PASSWORD` in plain text works for a quick trial.) |
+| `ADMIN_EMAIL` + `ADMIN_PASSWORD_HASH` | Use this staff login instead of admin / the password set in the CRM. Also the way back in if the CRM password is forgotten. Make the hash with `npm run admin:hash -- "your password"`. (`ADMIN_PASSWORD` in plain text works for a quick trial.) |
 | `SESSION_SECRET` | 32+ random characters to sign sign-in cookies. Without it the site generates one and keeps it in its database. |
 | `DATABASE_URL` | Any Postgres database (set automatically by Neon on Vercel). When set, it is used on Netlify too. |
 | `ALLOWED_ORIGINS` | Extra origins allowed to send forms, comma-separated (e.g. a custom domain during a move). |
@@ -71,14 +71,14 @@ npm run dev:api     # API + local Blobs store on :8787 (data in .netlify/dev-blo
 npm run dev         # website on http://127.0.0.1:5173, CRM on http://127.0.0.1:5173/admin/
 ```
 
-The first visit to `/admin/` creates the local staff login. Set `DATABASE_URL` before `npm run dev:api` to use a Postgres
+Sign in to the local CRM with admin / admin123. Set `DATABASE_URL` before `npm run dev:api` to use a Postgres
 database instead. `npm test` runs the unit tests and the API integration suite twice: on a local Blobs server and on
 Postgres (PGlite).
 
 ## 7. Security in short
 
 - Staff and customer sessions are HMAC-signed, `HttpOnly; Secure; SameSite=Strict` cookies (12 hours for staff, 30 days for customers). Changing the staff password ends every other staff session.
-- The staff login can only be created while none exists (an atomic create); after that the setup screen is gone.
+- The project ships with the login admin / admin123 and the CRM shows a warning until it is changed; setting a password in Settings replaces it for good.
 - Every state-changing request must come from the site's own origin (CSRF check), on top of `SameSite=Strict`.
 - Rate limits per client address (an IPv6 client counts by its /64): staff sign-in and setup 8 per 15 minutes, customer sign-in and sign-up 10 per 15 minutes, forms 20 per hour.
 - A customer sees only bookings made while signed in to their account, never ones matched by email.
