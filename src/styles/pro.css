@@ -1,6 +1,6 @@
 /* ==========================================================================
    Exotic Cars UI - compact, precise, calm. Our own system (not a third-party kit):
-   white and black surfaces, one signal colour (#00FFF2) used only as a fill with black text, a focus ring, or a
+   white and black surfaces, one accent colour, champagne gold (#E3BF72) used only as a fill with black text, a focus ring, or a
    selection mark - never as text on white, where it has no contrast. 4px corners, 32-40px controls, Inter Tight.
    Loaded last, so it restyles the shop, panels, home and configurator together.
    ========================================================================== */
@@ -15,9 +15,9 @@
   --line: #e3e3e5;
   --line-2: #c9c9ce;         /* control borders */
   --on-ink: #ffffff;
-  --acc: #00fff2;            /* signal */
-  --acc-ink: #000000;        /* text on the signal colour */
-  --acc-soft: rgba(0, 255, 242, 0.16);
+  --acc: #e3bf72;            /* signal */
+  --acc-ink: #1c1408;        /* text on the champagne accent */
+  --acc-soft: rgba(227, 191, 114, 0.16);
   --radius: 4px;
   --r-sm: 2px;
   --h-sm: 32px; --h-md: 40px; --h-lg: 48px;
@@ -56,7 +56,7 @@ select, textarea, input { font: inherit; color: inherit; }
 .cta svg, .ghost svg { width: 18px; height: 18px; }
 /* the one action per page that matters most wears the signal colour */
 .cta--signal, .scar__actions .cta:first-child { background: var(--acc); color: var(--acc-ink); border-color: var(--acc); }
-.cta--signal:hover, .scar__actions .cta:first-child:hover { background: #5cfff6; border-color: #5cfff6; }
+.cta--signal:hover, .scar__actions .cta:first-child:hover { background: #ecd296; border-color: #ecd296; }
 .ghost {
   height: var(--h-md); padding: 0 16px; gap: 8px; border-radius: var(--radius); border: 1px solid var(--line-2);
   background: transparent; color: var(--ink); font-size: 14px; font-weight: 500; box-shadow: none;

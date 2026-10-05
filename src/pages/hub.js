@@ -8,6 +8,7 @@ import { createLiquidDock } from '../ui/liquid-dock.js';
 import { brandTheme, brandVars } from '../ui/brand-theme.js';
 import { shopWithBrand } from './shop.js';
 import { liquidTabs } from '../ui/liquid-tabs.js';
+import { themeToggle } from '../ui/theme-toggle.js';
 
 /*
  * Home (after the lock screen): greeting, the day in big numerals, a concierge prompt, make filters, a slideshow of
@@ -17,22 +18,46 @@ const AUTO_MS = 6000;
 const MAKE_LABEL = { 'Rolls Royce': 'Rolls-Royce', 'Mercedes Benz': 'Mercedes-Benz' };
 const label = (b) => MAKE_LABEL[b] || b;
 
-/** The dock shared by Home and the concierge: home, booking, concierge, VR - and the account circle on the right. */
-export function mainDock(current, { autoHide = true } = {}) {
+/*
+ * The dock shared by Home, Service, the concierge, VR and the account: one dock for the whole visit, created the first
+ * time a page asks for it and kept on <body>, so changing page never re-mounts it - the page only says which item is
+ * its own and the lens flows there. Pages without a dock leave it unclaimed, and the router tucks it off screen
+ * (settleDock, called by app.js after each page mounts).
+ */
+let shared = null, claimed = false;
+const accountItem = () => {
   const user = getUser();
-  return createLiquidDock({
-    current, autoHide,
-    items: [
-      { id: 'home', icon: 'home', label: 'Home', desc: 'Featured cars', href: '#/home' },
-      { id: 'service', icon: 'calendar', label: 'Service', desc: 'Bookings, repairs and quotes', href: '#/service' },
-      { id: 'concierge', icon: 'spark', label: 'AI concierge', short: 'Concierge', desc: 'Ask for any car in plain words', href: '#/concierge' },
-      { id: 'vr', icon: 'vr', label: 'VR showroom', short: 'VR', desc: 'Walk around a car in VR or AR', href: '#/vr' }
-    ],
-    end: {
-      id: 'account', label: user ? 'Your account' : 'Sign in', short: user ? 'Account' : 'Sign in', desc: user ? user.email : 'Sign in or create an account', href: '#/account',
-      render: () => (user ? h('span', { class: 'dk__avatar', text: (user.name || user.email || '?').trim()[0].toUpperCase() }) : icon('account'))
-    }
-  });
+  return {
+    id: 'account', label: user ? 'Your account' : 'Sign in', short: user ? 'Account' : 'Sign in', desc: user ? user.email : 'Sign in or create an account', href: '#/account',
+    render: () => (user ? h('span', { class: 'dk__avatar', text: (user.name || user.email || '?').trim()[0].toUpperCase() }) : icon('account'))
+  };
+};
+export function mainDock(current, { autoHide = true } = {}) {
+  claimed = true;
+  if (!shared) {
+    shared = createLiquidDock({
+      current, autoHide,
+      items: [
+        { id: 'home', icon: 'home', label: 'Home', desc: 'Featured cars', href: '#/home' },
+        { id: 'service', icon: 'calendar', label: 'Service', desc: 'Bookings, repairs and quotes', href: '#/service' },
+        { id: 'concierge', icon: 'spark', label: 'AI concierge', short: 'Concierge', desc: 'Ask for any car in plain words', href: '#/concierge' },
+        { id: 'vr', icon: 'vr', label: 'VR showroom', short: 'VR', desc: 'Walk around a car in VR or AR', href: '#/vr' }
+      ],
+      end: accountItem()
+    });
+    document.body.append(h('div', { class: 'dockbar' }, shared.el));
+  } else {
+    shared.setItem(4, accountItem());
+    shared.setAutoHide(autoHide);
+    shared.select(current);
+    shared.show();
+  }
+  return { destroy() { /* the dock outlives the page; the next route decides whether it stays (settleDock) */ } };
+}
+/** After a page mounts: a page that did not ask for the dock gets it tucked off screen. */
+export function settleDock() {
+  if (!claimed) shared?.hide();
+  claimed = false;
 }
 
 function greeting() {
@@ -58,7 +83,10 @@ export function mountHub(root) {
       h('span', { class: 'hub__avatar' }, user ? (user.name || user.email || '?').trim()[0].toUpperCase() : icon('account')),
       h('span', { class: 'hub__hello' }, [h('small', { text: greeting() }), h('b', { text: user?.name ? user.name.split(' ')[0] : 'Welcome' })])
     ]),
-    h('a', { class: 'hub__icon', href: '#/shop', 'aria-label': 'Search the shop', 'data-tip': 'Search', 'data-tip-desc': `All ${sale.length} cars` }, icon('search'))
+    h('div', { class: 'hub__tools' }, [
+      themeToggle(),
+      h('a', { class: 'hub__icon', href: '#/shop', 'aria-label': 'Search the shop', 'data-tip': 'Search', 'data-tip-desc': `All ${sale.length} cars` }, icon('search'))
+    ])
   ]);
   const hero = h('section', { class: 'hub__hero' }, [
     h('p', { class: 'hub__date' }, [h('span', { text: `${dd}.${mm}` }), now.toLocaleDateString('en-GB', { weekday: 'long' })]),
@@ -197,20 +225,62 @@ export function mountHub(root) {
   ]);
   const rail = (cards) => h('div', { class: 'rail2' }, cards);
 
-  /* ---------- shop by make: each make in its own colours */
+  /* ---------- the marques: an index of every make in stock, most cars first. Each row carries the make's mark on a
+     medallion in its own colours, the models it is best stocked in, the span of model years, how many can be built
+     in 3D and how many are new arrivals, and a bar for its share against the best-stocked make. Six show; the rest
+     open below. */
   const byMake = stock.stockBrands('sale');
   const goMake = (m) => (e) => { e.preventDefault(); shopWithBrand(m); };
-  const makesEl = h('section', { class: 'makes', 'aria-label': 'Shop by make' }, [
-    h('div', { class: 'sect-head' }, [h('h2', { text: 'Shop by make' }), h('a', { class: 'sect-head__link', href: '#/shop' }, [`${byMake.length} makes`, icon('right')])]),
-    h('div', { class: 'btiles' }, byMake.slice(0, 8).map(([m, n], i) => {
-      const t = brandTheme(m);
-      return h('a', { class: 'btile tilt rv', href: '#/shop', style: `${brandVars(m)};--i:${i}`, onclick: goMake(m), 'data-tip': `${label(m)} - ${n} cars`, 'data-tip-desc': t.name }, [
-        h('span', { class: 'btile__mark', 'aria-hidden': 'true' }, brandMark(label(m)) || h('span', { text: label(m)[0] })),
-        h('span', { class: 'btile__stripe', 'aria-hidden': 'true' }),
-        h('b', { text: label(m) }),
-        h('span', { class: 'btile__n', text: `${n} ${n === 1 ? 'car' : 'cars'}` })
-      ]);
-    }))
+  const lead = byMake[0]?.[1] || 1;
+  const topModels = (list, k) => {
+    const n = new Map();
+    list.forEach((c) => { const m = (c.model || '').trim(); if (m) n.set(m, (n.get(m) || 0) + 1); });
+    return [...n.entries()].sort((x, y) => y[1] - x[1] || x[0].localeCompare(y[0])).slice(0, k).map(([m]) => m);
+  };
+  const marque = ([m, count], i) => {
+    const cars = sale.filter((c) => c.brand === m);
+    const years = cars.map((c) => c.year).filter(Boolean);
+    const lo = Math.min(...years), hi = Math.max(...years);
+    const n3d = cars.filter((c) => stock.configuratorMatch(c)).length;
+    const fresh = cars.filter((c) => c.newArrival).length;
+    const models = topModels(cars, 3);
+    return h('a', {
+      class: 'mq rv', href: '#/shop', style: `${brandVars(m)};--i:${i % 6};--share:${(count / lead).toFixed(4)}`, onclick: goMake(m),
+      'aria-label': `${label(m)}: ${count} ${count === 1 ? 'car' : 'cars'} in stock`
+    }, [
+      h('span', { class: 'mq__medal', 'aria-hidden': 'true' }, brandMark(label(m)) || h('span', { class: 'mq__ini', text: label(m)[0] })),
+      h('span', { class: 'mq__txt' }, [
+        h('b', { class: 'mq__name', text: label(m) }),
+        models.length ? h('span', { class: 'mq__models', text: models.join(' · ') }) : null,
+        h('span', { class: 'mq__chips' }, [
+          years.length ? h('span', { class: 'mq__chip', 'aria-label': lo === hi ? `Model year ${lo}` : `Model years ${lo} to ${hi}`, text: lo === hi ? String(lo) : `’${String(lo).slice(-2)}–’${String(hi).slice(-2)}` }) : null,
+          n3d ? h('span', { class: 'mq__chip mq__chip--3d' }, [icon('model'), `${n3d} in 3D`]) : null,
+          fresh ? h('span', { class: 'mq__chip mq__chip--new', text: `${fresh} new` }) : null
+        ])
+      ]),
+      h('span', { class: 'mq__n' }, [h('b', { text: String(count) }), h('small', { text: count === 1 ? 'car' : 'cars' })]),
+      h('span', { class: 'mq__bar', 'aria-hidden': 'true' }, h('i'))
+    ]);
+  };
+  const SHOW = 6;
+  const more = byMake.length > SHOW ? h('div', { class: 'mq-more', id: 'mq-more', inert: '' }, h('div', { class: 'mq-more__in' }, h('div', { class: 'mq-list' }, byMake.slice(SHOW).map((x, i) => marque(x, i))))) : null;
+  const moreBtn = more ? h('button', {
+    class: 'mq-toggle', type: 'button', 'aria-expanded': 'false', 'aria-controls': 'mq-more',
+    onclick: (e) => {
+      const open = more.classList.toggle('is-open');
+      more.inert = !open;
+      e.currentTarget.setAttribute('aria-expanded', String(open));
+      e.currentTarget.firstChild.textContent = open ? 'Show fewer makes' : `Show all ${byMake.length} makes`;
+      if (open) more.querySelectorAll('.rv:not(.is-in)').forEach((el) => el.classList.add('is-in'));
+    }
+  }, [h('span', { text: `Show all ${byMake.length} makes` }), icon('chevron')]) : null;
+  const makesEl = h('section', { class: 'makes marques', 'aria-label': 'The marques' }, [
+    h('div', { class: 'sect-head' }, [
+      h('div', {}, [h('p', { class: 'eyebrow', text: 'The marques' }), h('h2', { text: `${byMake.length} houses, one showroom` })]),
+      h('a', { class: 'sect-head__link', href: '#/shop' }, ['All cars', icon('right')])
+    ]),
+    h('div', { class: 'mq-list' }, byMake.slice(0, SHOW).map((x, i) => marque(x, i))),
+    more, moreBtn
   ]);
 
   /* ---------- make spotlight: the band takes the chosen make's colours; the chip's liquid thumb takes them too */
@@ -279,12 +349,11 @@ export function mountHub(root) {
     tile({ ic: 'shop', title: `${sale.length} cars`, sub: 'Browse the full stock', href: '#/shop' })
   ]);
 
-  const dock = mainDock('home');
+  mainDock('home');
   const main = h('main', { class: 'hub' }, [
     h('div', { class: 'hub__glow', 'aria-hidden': 'true' }),
     top, hero, h('div', { class: 'hub__ask' }, [ask, prompts]), show, makesEl, spotEl, freshEl, bodiesEl, quick, soldEl,
-    h('p', { class: 'hub__foot', text: 'Exotic Cars · Dubai · prices in AED, availability updated daily' }),
-    h('div', { class: 'dockbar' }, dock.el)
+    h('p', { class: 'hub__foot', text: 'Exotic Cars · Dubai · prices in AED, availability updated daily' })
   ]);
   root.append(main);
   renderSpot(false);
@@ -296,5 +365,5 @@ export function mountHub(root) {
   const onResize = () => moveThumb();
   window.addEventListener('resize', onResize);
 
-  return { kind: 'hub', destroy() { alive = false; clearInterval(timer); dock.destroy(); spotTabs.destroy(); window.removeEventListener('resize', onResize); closePanel(); } };
+  return { kind: 'hub', destroy() { alive = false; clearInterval(timer); spotTabs.destroy(); window.removeEventListener('resize', onResize); closePanel(); } };
 }

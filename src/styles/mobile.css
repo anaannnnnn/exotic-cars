@@ -60,7 +60,6 @@ img { -webkit-user-drag: none; }
 @media (max-width: 350px) { .slots { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 /* long make names in the shop make rail and make tiles never break the chip */
 .lq__item { max-width: 72vw; }
-.btile b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ---------- iPhone scale: a touch more compact on small phones (SE / mini), the hero numerals stay in proportion ---------- */
 @media (max-width: 389px) {

@@ -1,0 +1,19 @@
+{
+  "name": "Exotic Cars Dubai",
+  "short_name": "Exotic Cars",
+  "description": "Luxury and exotic cars for sale in Dubai. Explore each car in photos, then configure it in 3D.",
+  "id": "./",
+  "start_url": "./#/",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f2f1ed",
+  "theme_color": "#f2f1ed",
+  "categories": ["shopping", "lifestyle"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

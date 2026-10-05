@@ -21,7 +21,7 @@ const T = {
   'Alfa Romeo':     { bg: '#8f0d1e', bg2: '#3f040c', ink: '#ffffff', acc: '#1d6b3a', on: '#ffffff', name: 'Rosso Alfa' },
   Infiniti:         { bg: '#2a2d33', bg2: '#0d0e10', ink: '#ffffff', acc: '#c9ccd2', on: '#0d0e10', name: 'Graphite' }
 };
-const FALLBACK = { bg: '#1a1a1c', bg2: '#050505', ink: '#ffffff', acc: '#00fff2', on: '#000000', name: 'Exotic' };
+const FALLBACK = { bg: '#1a1a1c', bg2: '#050505', ink: '#ffffff', acc: '#e3bf72', on: '#000000', name: 'Exotic' };
 
 export const brandTheme = (make) => T[make] || FALLBACK;
 

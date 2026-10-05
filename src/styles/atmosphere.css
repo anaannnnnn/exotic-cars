@@ -1,0 +1,112 @@
+/* ==========================================================================
+   Atmosphere - the ground every page stands on, the light/dark toggle, and how pages hand over to each other.
+   The backdrop is a photographer's cyclorama: a paler sky at the top, one wide softbox overhead, two slow drifts of
+   light (champagne gold from the top right, cool platinum from the bottom left), a faint floor and a whisper of
+   grain. At night it becomes a graphite showroom with the same lights turned low. It is one fixed layer in
+   index.html, so it is painted before any script runs and never scrolls.
+   ========================================================================== */
+:root {
+  --bd-base: #f2f1ed;
+  --bd-top: #fbfaf7;
+  --bd-soft: rgba(255, 255, 255, 0.95);
+  --bd-a: rgba(227, 191, 114, 0.17);
+  --bd-b: rgba(172, 182, 198, 0.24);                /* cool platinum, to balance the gold */
+  --bd-floor: rgba(48, 38, 22, 0.06);
+  --bd-grain: 0.05;
+  --bd-blend: multiply;
+  /* every page's ground and every fade to it use the same colour */
+  --bg: var(--bd-base);
+  --dk-fade: var(--bd-base);
+}
+:root[data-theme='dark'] {
+  --bd-base: #09090b;
+  --bd-top: #141417;
+  --bd-soft: rgba(255, 255, 255, 0.07);
+  --bd-a: rgba(227, 191, 114, 0.11);
+  --bd-b: rgba(150, 162, 186, 0.07);
+  --bd-floor: rgba(255, 255, 255, 0.035);
+  --bd-grain: 0.035;
+  --bd-blend: screen;
+  --bg: var(--bd-base);
+  --dk-fade: var(--bd-base);
+}
+
+/* the backdrop replaces the old per-page ambient gradient (pages.css) and the gold corner glow */
+:root body[data-page]:not([data-page='home']) { background: var(--bd-base); }
+.hub__glow { display: none; }
+
+.backdrop {
+  position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none;
+  background: linear-gradient(180deg, var(--bd-top) 0%, var(--bd-base) 52%, var(--bd-base) 100%);
+}
+.backdrop i { position: absolute; display: block; }
+.backdrop__soft, .backdrop__a, .backdrop__b { border-radius: 50%; }
+.backdrop__soft { left: -25%; right: -25%; top: -30vh; height: 64vh; background: radial-gradient(closest-side, var(--bd-soft), transparent); }
+.backdrop__a {
+  width: 92vmax; height: 92vmax; right: -46vmax; top: -44vmax; will-change: transform;
+  background: radial-gradient(closest-side, var(--bd-a), transparent 72%);
+  animation: bd-drift-a 34s ease-in-out infinite alternate;
+}
+.backdrop__b {
+  width: 86vmax; height: 86vmax; left: -44vmax; bottom: -46vmax; will-change: transform;
+  background: radial-gradient(closest-side, var(--bd-b), transparent 72%);
+  animation: bd-drift-b 42s ease-in-out infinite alternate;
+}
+.backdrop__floor { left: 0; right: 0; bottom: 0; height: 40vh; background: linear-gradient(to top, var(--bd-floor), transparent); }
+.backdrop::after {
+  content: ''; position: absolute; inset: 0; opacity: var(--bd-grain); mix-blend-mode: var(--bd-blend);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .9 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+@keyframes bd-drift-a { to { transform: translate3d(-10vmax, 8vmax, 0) scale(1.08); } }
+@keyframes bd-drift-b { to { transform: translate3d(12vmax, -6vmax, 0) scale(0.94); } }
+/* the landing and the configurator paint their own stage */
+body[data-page='home'] .backdrop, body[data-page='car'] .backdrop { display: none; }
+
+/* ---------- light / dark toggle: a sun and a moon cross-fading in one round button ---------- */
+.theme-tg {
+  position: relative; flex: none; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center;
+  color: var(--ink); background: var(--surface); box-shadow: var(--shadow-1);
+  transition-property: scale, box-shadow, background-color; transition-duration: 160ms; transition-timing-function: cubic-bezier(0.33, 1, 0.68, 1);
+}
+.theme-tg:active { scale: 0.96; }
+@media (hover: hover) and (pointer: fine) { .theme-tg:hover { box-shadow: var(--shadow-2); } }
+.theme-tg__ic { position: absolute; display: grid; place-items: center; transition-property: opacity, scale, filter, rotate; transition-duration: 300ms; transition-timing-function: cubic-bezier(0.2, 0, 0, 1); }
+.theme-tg__ic svg { width: 20px; height: 20px; stroke-width: 1.7; }
+.theme-tg__moon { opacity: 0; scale: 0.25; filter: blur(4px); rotate: -40deg; }
+.theme-tg[aria-pressed='true'] .theme-tg__sun { opacity: 0; scale: 0.25; filter: blur(4px); rotate: 40deg; }
+.theme-tg[aria-pressed='true'] .theme-tg__moon { opacity: 1; scale: 1; filter: blur(0); rotate: 0deg; }
+/* a quieter, smaller version for the landing's top line */
+.theme-tg--line { width: 36px; height: 36px; margin: -10px 0; background: transparent; box-shadow: none; color: var(--xh-ink-2, var(--ink)); }
+.theme-tg--line .theme-tg__ic svg { width: 16px; height: 16px; }
+@media (hover: hover) and (pointer: fine) { .theme-tg--line:hover { background: var(--xh-glass, var(--surface)); box-shadow: none; color: var(--xh-ink, var(--ink)); } }
+/* the shop's top bar buttons */
+.tb__tools { display: flex; align-items: center; gap: 8px; }
+.tb .theme-tg { width: 44px; height: 44px; }
+
+/* ---------- theme switch: the new theme opens as a circle from the toggle ---------- */
+html.theme-vt::view-transition-old(root) { animation: none; }
+html.theme-vt::view-transition-new(root) { animation: theme-reveal 640ms cubic-bezier(0.33, 1, 0.68, 1) both; }
+html.theme-vt::view-transition-group(dock) { animation-duration: 640ms; }
+@keyframes theme-reveal { from { clip-path: circle(0 at var(--tx, 50%) var(--ty, 0)); } to { clip-path: circle(150vmax at var(--tx, 50%) var(--ty, 0)); } }
+
+/* ---------- page changes from the dock slide the way the lens travelled; the dock itself stays put ---------- */
+:root[data-navdir]::view-transition-old(root) { animation: 240ms cubic-bezier(0.4, 0, 1, 1) both vt-out-l; }
+:root[data-navdir]::view-transition-new(root) { animation: 420ms cubic-bezier(0.33, 1, 0.68, 1) 40ms both vt-in-r; }
+:root[data-navdir='back']::view-transition-old(root) { animation-name: vt-out-r; }
+:root[data-navdir='back']::view-transition-new(root) { animation-name: vt-in-l; }
+@keyframes vt-out-l { to { opacity: 0; transform: translateX(-28px); } }
+@keyframes vt-out-r { to { opacity: 0; transform: translateX(28px); } }
+@keyframes vt-in-r { from { opacity: 0; transform: translateX(36px); } }
+@keyframes vt-in-l { from { opacity: 0; transform: translateX(-36px); } }
+::view-transition-group(dock) { z-index: 10; }
+
+@media (prefers-reduced-motion: reduce) {
+  .backdrop__a, .backdrop__b { animation: none; }
+  .theme-tg__ic { transition: none; }
+}
+:root[data-motion='reduce'] :is(.backdrop__a, .backdrop__b) { animation: none; }
+@media (forced-colors: active) { .backdrop { display: none; } }
+
+/* ---------- dark-theme surfaces the older layers left light ---------- */
+:root[data-theme='dark'] .prompt { background: rgba(255, 255, 255, 0.07); color: var(--ink-2); }
+@media (hover: hover) and (pointer: fine) { :root[data-theme='dark'] .prompt:hover { background: rgba(255, 255, 255, 0.12); } }

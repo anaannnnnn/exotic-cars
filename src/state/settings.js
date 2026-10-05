@@ -10,8 +10,12 @@ const listeners = new Set();
 const read = (k, fallback) => { try { const v = JSON.parse(localStorage.getItem(k) || 'null'); return v ?? fallback; } catch { return fallback; } };
 const write = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* storage unavailable */ } };
 
+/* until the visitor picks a theme, the device's own light/dark setting decides */
+const systemDark = () => { try { return matchMedia('(prefers-color-scheme: dark)').matches; } catch { return false; } };
+
 export function initSettings() {
-  settings = { ...defaults, ...read(KEY, {}) };
+  const saved = read(KEY, {});
+  settings = { ...defaults, dark: systemDark(), ...saved };
   applySettings();
 }
 
@@ -30,7 +34,7 @@ function applySettings() {
   root.dataset.theme = settings.dark ? 'dark' : 'light';
   root.dataset.motion = settings.reduceMotion ? 'reduce' : 'full';
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute('content', settings.dark ? '#0e0e12' : '#ffffff');
+  if (meta) meta.setAttribute('content', settings.dark ? '#09090b' : '#f2f1ed');
 }
 
 /* visitor (name + email only, kept on this device) */
@@ -50,7 +54,7 @@ export function saveAppointment(a) {
 
 export function resetLocalData() {
   [KEY, USER, APPTS, 'apex-atelier-v4'].forEach((k) => { try { localStorage.removeItem(k); } catch { /* ignore */ } });
-  settings = { ...defaults };
+  settings = { ...defaults, dark: systemDark() };
   applySettings();
   listeners.forEach((fn) => fn(settings));
 }

@@ -3,16 +3,19 @@ import { haptic } from './haptics.js';
 
 /*
  * The dock: a graphite glass capsule of round buttons. The selected item opens into a pill that carries its name,
- * filled with signal cyan and lit from within - a lens of light whose bloom spills onto the page around the dock.
+ * filled with champagne gold and lit from within - a lens of light whose bloom spills onto the page around the dock.
  *
  * Everything moves on springs, so any tap mid-flight is picked up from wherever things are:
  *  - the lens's two edges travel separately - the leading edge is thrown, the trailing edge follows - so it stretches
  *    like a drop between items, squashes with its speed and beads up on landing (a sheen crosses it as it lands);
  *  - each item's name opens and closes on its own spring, and the lens aims at where the target will settle.
- * With a mouse the icons swell toward the pointer (dock magnification). With a thumb, press and slide along the dock:
- * the lens follows the finger with a light tick at each item, and letting go opens the item under it.
- * Scrolling down tucks the dock behind a small handle; scrolling up, reaching the end or tapping the handle brings it
- * back. On a screen too narrow for a name, the lens stays round and the names live in the tooltips.
+ * With a mouse the icons swell toward the pointer (dock magnification). With a thumb, swipe along the dock: the lens
+ * follows the finger with a light tick at each item and keeps the swipe's momentum when you let go, landing on the item
+ * the flick carries it to. Swipe down on the dock to tuck it away; scrolling down does the same, and scrolling up,
+ * reaching the end, or tapping or swiping up on the handle brings it back. On a screen too narrow for a name, the lens
+ * stays round and the names live in the tooltips.
+ * One dock lives for the whole visit (see mainDock in pages/hub.js): pages ask it to show, hide or light an item, so it
+ * never re-mounts and its motion carries straight across page changes.
  */
 const spring = (response, damping) => { const k = (2 * Math.PI / response) ** 2; return { k, c: 2 * Math.sqrt(k) * damping }; };
 const LEAD = spring(0.3, 0.8), TRAIL = spring(0.46, 0.94), OPEN = spring(0.36, 0.88), FOLLOW = spring(0.08, 1);
@@ -44,7 +47,7 @@ export function createLiquidDock({ items, end, current, autoHide = true }) {
       class: `dk__item${end && it === end ? ' dk__item--end' : ''}`, href: it.href, 'aria-label': it.label, 'data-tip': it.label, 'data-tip-desc': it.desc || '', style: `--j:${i}`,
       onclick: (e) => {
         if (suppressClick) { e.preventDefault(); return; }
-        if (i !== target) { select(i); haptic(10); }
+        if (i !== target) { markDirection(i); select(i); haptic(10); }
       }
     }, [h('span', { class: 'dk__ic', 'aria-hidden': 'true' }, it.render ? it.render() : icon(it.icon)), lbl]);
   });
@@ -128,12 +131,16 @@ export function createLiquidDock({ items, end, current, autoHide = true }) {
     paint();
   }
 
+  /* the page change that follows slides the way the lens travels (app.js reads this for its view transition) */
+  function markDirection(i) { document.documentElement.dataset.navdir = i > target ? 'fwd' : 'back'; }
+
   /* ---- selecting: the edge on the side of travel leads, the other trails; a sheen crosses the lens as it lands */
   function select(i) {
     const moved = i !== target;
     target = i;
     lastIndex = i;
     btns.forEach((b, j) => (j === i ? b.setAttribute('aria-current', 'page') : b.removeAttribute('aria-current')));
+    paintHandle();
     if (!ready) return;
     const goalC = lefts[i] + (base[i] + lw[i]) / 2, now = (L + R) / 2;
     edgeL = goalC < now ? LEAD : TRAIL;
@@ -165,13 +172,19 @@ export function createLiquidDock({ items, end, current, autoHide = true }) {
   const localX = (e) => e.clientX - nav.getBoundingClientRect().left;
   nav.addEventListener('pointerdown', (e) => {
     if (e.button > 0 || e.pointerType === 'mouse') return;
-    down = { id: e.pointerId, x: e.clientX, moved: false };
+    down = { id: e.pointerId, x: e.clientX, y: e.clientY, moved: false, samples: [{ x: e.clientX, t: e.timeStamp }] };
   });
   nav.addEventListener('pointermove', (e) => {
     if (e.pointerType === 'mouse') { if (ready) magnify(localX(e)); return; }
     if (!down || e.pointerId !== down.id || !ready) return;
+    /* keep the last 100ms of movement to read the swipe's speed on release */
+    down.samples.push({ x: e.clientX, t: e.timeStamp });
+    while (down.samples.length > 2 && e.timeStamp - down.samples[0].t > 100) down.samples.shift();
     if (!down.moved) {
-      if (Math.abs(e.clientX - down.x) < 8) return;
+      const dx = Math.abs(e.clientX - down.x), dy = e.clientY - down.y;
+      /* a swipe down tucks the dock away */
+      if (dy > 16 && dy > dx * 1.4) { down = null; setHidden(true); haptic(8); return; }
+      if (dx < 8) return;
       down.moved = true;
       try { nav.setPointerCapture(e.pointerId); } catch { /* pointer already gone */ }
       nav.classList.add('is-scrub');
@@ -191,18 +204,23 @@ export function createLiquidDock({ items, end, current, autoHide = true }) {
   nav.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') magnify(null); });
   const release = (e, cancelled = false) => {
     if (!down || (e && e.pointerId !== down.id)) return;
-    const wasDrag = down.moved;
+    const wasDrag = down.moved, samples = down.samples;
     down = null;
     nav.classList.remove('is-scrub');
     btns[over]?.classList.remove('is-over');
     if (wasDrag && dragX != null) {
-      const i = cancelled ? target : nearest(dragX);
+      /* momentum: carry the lens on by the swipe's speed (px/ms) for 100ms, then land on the nearest item */
+      const s0 = samples[0], s1 = samples[samples.length - 1];
+      const v = s1.t > s0.t ? (s1.x - s0.x) / (s1.t - s0.t) : 0;
+      const thrown = clamp(dragX + clamp(v, -2.5, 2.5) * 100, centreNow(0), centreNow(n - 1));
+      const i = cancelled ? target : nearest(thrown);
       dragX = null; over = -1;
       hideTag(cancelled ? 0 : 700);
       if (cancelled) { select(target); return; }
       /* the pointer-up becomes a click on the item the press began on; ignore that one */
       suppressClick = true; setTimeout(() => { suppressClick = false; }, 350);
       const moved = i !== target;
+      if (moved) markDirection(i);
       select(i);
       if (!moved) { lens.classList.remove('is-land'); void lens.offsetWidth; lens.classList.add('is-land'); run(); }
       haptic(12);
@@ -226,21 +244,29 @@ export function createLiquidDock({ items, end, current, autoHide = true }) {
   });
 
   /* ---- out of the way while reading */
-  const cur = all[target];
+  const handleIc = h('span', { class: 'dk-handle__ic', 'aria-hidden': 'true' });
+  const handleTxt = h('span', { class: 'dk-handle__txt' });
   const handle = h('button', { class: 'dk-handle', type: 'button', 'aria-label': 'Show menu', tabindex: '-1', onclick: () => { setHidden(false); haptic(8); } }, [
-    h('span', { class: 'dk-handle__ic', 'aria-hidden': 'true' }, cur.render ? cur.render() : icon(cur.icon)),
-    h('span', { class: 'dk-handle__txt', text: cur.short || cur.label }),
-    h('span', { class: 'dk-handle__grip', 'aria-hidden': 'true' })
+    handleIc, handleTxt, h('span', { class: 'dk-handle__grip', 'aria-hidden': 'true' })
   ]);
+  function paintHandle() {
+    const cur = all[target];
+    handleIc.replaceChildren(cur.render ? cur.render() : icon(cur.icon));
+    handleTxt.textContent = cur.short || cur.label;
+  }
+  let hdown = null;
+  handle.addEventListener('pointerdown', (e) => { hdown = { y: e.clientY }; });
+  handle.addEventListener('pointermove', (e) => { if (hdown && hdown.y - e.clientY > 14) { hdown = null; setHidden(false); haptic(8); } });
+  ['pointerup', 'pointercancel'].forEach((ev) => handle.addEventListener(ev, () => { hdown = null; }));
   const wrap = h('div', { class: 'dkw' }, [nav, handle]);
-  let hidden = false, lastY = window.scrollY, acc = 0;
+  let hidden = false, off = false, lastY = window.scrollY, acc = 0;
   function setHidden(v) {
     if (v === hidden) return;
     hidden = v;
     wrap.classList.toggle('is-hidden', v);
-    document.body.classList.toggle('dock-off', v);
+    document.body.classList.toggle('dock-off', v || off);
     handle.tabIndex = v ? 0 : -1;
-    nav.inert = v;
+    nav.inert = v || off;
     if (!v) magnify(null);
   }
   const onScroll = () => {
@@ -257,6 +283,7 @@ export function createLiquidDock({ items, end, current, autoHide = true }) {
   /* ---- start: measure on the first frame the dock is on the page, place the lens on the previous page's item, then
      flow to this page's item */
   btns[target].setAttribute('aria-current', 'page');
+  paintHandle();
   if (!entered && !reduced()) wrap.classList.add('is-enter');
   entered = true;
   const relayout = () => { if (!alive || !nav.isConnected) return; measure(); snap(); };
@@ -275,8 +302,38 @@ export function createLiquidDock({ items, end, current, autoHide = true }) {
   window.addEventListener('resize', onResize);
   document.fonts?.ready.then(() => { if (!raf) relayout(); });
 
+  /* ---- the shared dock's controls: pages light their item, hide it, or change the account item when the visitor signs
+     in or out; nothing re-mounts */
+  function setOff(v) {
+    if (v === off) return;
+    off = v;
+    wrap.classList.toggle('is-off', v);
+    nav.inert = v || hidden;
+    handle.inert = v;
+    document.body.classList.toggle('dock-off', v || hidden);
+  }
+  function setItem(i, it) {
+    all[i] = it;
+    const b = btns[i];
+    b.href = it.href;
+    b.setAttribute('aria-label', it.label);
+    b.dataset.tip = it.label;
+    b.dataset.tipDesc = it.desc || '';
+    b.querySelector('.dk__ic').replaceChildren(it.render ? it.render() : icon(it.icon));
+    b.querySelector('.dk__txt').textContent = it.short || it.label;
+    if (i === target) paintHandle();
+    if (ready) relayout();
+  }
+
   return {
     el: wrap,
+    /** light the item with this id (the page's own), flowing from wherever the lens is */
+    select(id) { const i = all.findIndex((it) => it.id === id); if (i >= 0 && i !== target) select(i); else if (i >= 0) paintHandle(); },
+    setItem,
+    setAutoHide(v) { autoHide = v; },
+    /** bring the dock back for a page that has one: visible, untucked */
+    show() { setOff(false); lastY = window.scrollY; acc = 0; setHidden(false); },
+    hide() { setOff(true); },
     destroy() {
       alive = false;
       cancelAnimationFrame(raf); cancelAnimationFrame(rz); clearTimeout(tagT);

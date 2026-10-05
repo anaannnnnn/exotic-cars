@@ -1,21 +1,21 @@
 /* ==========================================================================
    Finish: one "selected" language everywhere - the same radiance as the dock's lens. A selected control is filled
-   with signal cyan lit from the top left, carries a bright lip and a deeper base, a 1px cyan rim and a two-stage
+   with champagne gold lit from the top left, carries a bright lip and a deeper base, a 1px gold rim and a two-stage
    bloom (12px close, 28px wide) so it lifts off the page; whatever is not selected steps back. Crisp type, image
    edges, focus rings. Values follow better-ui: press 0.96, named transition properties, 1px image outlines.
    ========================================================================== */
 :root {
-  --acc-deep: #00c4b9;
-  --sel-ink: #04120f;                     /* text and icons sitting on signal cyan (contrast about 16:1) */
+  --acc-deep: #b98c3f;
+  --sel-ink: #1c1408;                     /* text and icons sitting on champagne gold (contrast about 16:1) */
   --sel-fill:
     radial-gradient(120% 160% at 26% -10%, rgba(255, 255, 255, 0.8) 0%, rgba(255, 255, 255, 0) 42%),
-    linear-gradient(180deg, #6bfff8 0%, #00fff2 46%, #00e6da 78%, #00c4b9 100%);
+    linear-gradient(180deg, #f6e6bd 0%, #e3bf72 46%, #d6ad5c 78%, #b98c3f 100%);
   --glow:
-    inset 0 1px 0.5px rgba(255, 255, 255, 0.9), inset 0 -3px 7px rgba(0, 92, 86, 0.3),
-    0 0 0 1px rgba(0, 255, 242, 0.68), 0 0 12px rgba(0, 255, 242, 0.5), 0 0 28px rgba(0, 255, 242, 0.26), 0 8px 18px -6px rgba(0, 196, 185, 0.7);
+    inset 0 1px 0.5px rgba(255, 255, 255, 0.9), inset 0 -3px 7px rgba(92, 62, 14, 0.3),
+    0 0 0 1px rgba(227, 191, 114, 0.68), 0 0 12px rgba(227, 191, 114, 0.5), 0 0 28px rgba(227, 191, 114, 0.26), 0 8px 18px -6px rgba(196, 150, 70, 0.7);
   --glow-sm:
     inset 0 1px 0.5px rgba(255, 255, 255, 0.85),
-    0 0 0 1px rgba(0, 255, 242, 0.62), 0 0 10px rgba(0, 255, 242, 0.42), 0 5px 12px -5px rgba(0, 196, 185, 0.65);
+    0 0 0 1px rgba(227, 191, 114, 0.62), 0 0 10px rgba(227, 191, 114, 0.42), 0 5px 12px -5px rgba(196, 150, 70, 0.65);
   --recede: 0.62;                          /* how far unselected siblings step back */
 }
 
@@ -33,10 +33,10 @@ h1, h2, h3, .sect-head h2, .shop__title, .spot__head h2, .bb__txt h2, .slide__ti
 :root[data-theme='dark'] :is(.scard__img img, .ncard__img img, .slide__img, .body-t img, .vrc__img img, .gal__slide img) { outline-color: rgba(255, 255, 255, 0.1); }
 
 /* ---------- focus: one visible ring for keyboards, never for taps ---------- */
-:where(a, button, input, select, textarea, [role='tab'], [role='radio'], [tabindex]):focus-visible { outline: 2px solid #0a0a0b; outline-offset: 3px; box-shadow: 0 0 0 6px rgba(0, 255, 242, 0.32), 0 0 18px rgba(0, 255, 242, 0.35); }
+:where(a, button, input, select, textarea, [role='tab'], [role='radio'], [tabindex]):focus-visible { outline: 2px solid #0a0a0b; outline-offset: 3px; box-shadow: 0 0 0 6px rgba(227, 191, 114, 0.32), 0 0 18px rgba(227, 191, 114, 0.35); }
 :root[data-theme='dark'] :where(a, button, input, select, textarea, [role='tab'], [role='radio'], [tabindex]):focus-visible { outline-color: #fff; }
 
-/* ---------- selected = signal cyan with a contained glow, everywhere ---------- */
+/* ---------- selected = champagne gold with a contained glow, everywhere ---------- */
 /* liquid tabs (shop stock tabs) */
 .lq--ink .lq__thumb { background: var(--sel-fill); box-shadow: var(--glow); }
 .lq--ink .lq__item[aria-selected='true'] { color: var(--sel-ink); font-weight: 650; }
@@ -58,8 +58,8 @@ h1, h2, h3, .sect-head h2, .shop__title, .spot__head h2, .bb__txt h2, .slide__ti
 /* chips, slots, switches */
 .chip2[aria-pressed='true'] { background: var(--sel-fill); color: var(--sel-ink); box-shadow: var(--glow-sm); font-weight: 650; }
 .slot[aria-checked='true'] { background: var(--sel-fill); color: var(--sel-ink); box-shadow: var(--glow-sm); }
-.trow input:checked + i { background: #0a0a0b; box-shadow: 0 0 0 1px rgba(0, 255, 242, 0.45), 0 4px 12px -4px rgba(0, 210, 200, 0.6); }
-/* slideshow progress fills in cyan */
+.trow input:checked + i { background: #0a0a0b; box-shadow: 0 0 0 1px rgba(227, 191, 114, 0.45), 0 4px 12px -4px rgba(196, 150, 70, 0.6); }
+/* slideshow progress fills in gold */
 .show__dot[aria-selected='true']::after { background: linear-gradient(90deg, #0a0a0b, #0a0a0b 60%, var(--acc)); }
 /* primary actions glow when focused or pressed */
 .pill--signal, .ask__go, .tb__btn--signal { transition-property: scale, box-shadow, background-color; transition-duration: 160ms; }

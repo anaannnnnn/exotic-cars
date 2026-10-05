@@ -1,4 +1,5 @@
 import { haptic } from './haptics.js';
+import { themeToggle } from './theme-toggle.js';
 import { h, icon } from './dom.js';
 
 /* Shared building blocks for the Service, VR and Account pages. */
@@ -7,7 +8,7 @@ export function pageHead({ title, sub = '', back = '#/home', action = null }) {
   return h('header', { class: 'phead' }, [
     h('a', { class: 'circle-btn', href: back, 'aria-label': 'Back', 'data-tip': 'Back' }, icon('back')),
     h('div', { class: 'phead__t' }, [h('h1', { text: title }), sub ? h('p', { text: sub }) : null]),
-    action || h('span', { class: 'phead__sp', 'aria-hidden': 'true' })
+    action || themeToggle()
   ]);
 }
 

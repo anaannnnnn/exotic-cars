@@ -1,4 +1,5 @@
 import * as stock from '../data/stock.js';
+import { themeToggle } from '../ui/theme-toggle.js';
 import { h, icon, clear, debounce } from '../ui/dom.js';
 import { brandMark } from '../ui/brand.js';
 import { openService } from '../ui/panels.js';
@@ -25,7 +26,7 @@ export function topBar({ back, backLabel, action }) {
   const bar = h('header', { class: 'tb' }, [
     h('a', { class: 'tb__btn', href: back, 'aria-label': backLabel, 'data-tip': backLabel }, icon('back')),
     h('a', { class: 'tb__brand', href: '#/home', 'aria-label': 'Exotic Cars home' }, [h('span', { class: 'tb__dot', 'aria-hidden': 'true' }), h('span', { class: 'tb__word', text: 'Exotic Cars' })]),
-    action || h('span', { class: 'tb__btn tb__btn--ghost', 'aria-hidden': 'true' })
+    h('div', { class: 'tb__tools' }, [themeToggle('tb__btn'), action].filter(Boolean))
   ]);
   return { el: bar, destroy() {} };   /* scroll states (frosted, away) are set page-wide by fx.js */
 }

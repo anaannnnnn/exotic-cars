@@ -62,8 +62,7 @@ export function mountVR(root) {
     h('div', { class: 'sect-head' }, [h('h2', { text: 'Choose a car' })]),
     h('div', { class: 'pg__tools' }, [h('form', { class: 'ask ask--sm', role: 'search', onsubmit: (e) => e.preventDefault() }, [h('span', { class: 'ask__spark', 'aria-hidden': 'true' }, icon('search')), search]), seg.el]),
     grid, empty,
-    h('p', { class: 'pg__note', text: 'VR needs a WebXR headset browser; AR works on recent iPhone and Android phones. 3D models come from Sketchfab and are credited inside the viewer.' }),
-    h('div', { class: 'dockbar' }, dock.el)
+    h('p', { class: 'pg__note', text: 'VR needs a WebXR headset browser; AR works on recent iPhone and Android phones. 3D models come from Sketchfab and are credited inside the viewer.' })
   ]));
   render();
   return { kind: 'vr', destroy() { dock.destroy(); closePanel(); } };

@@ -39,6 +39,7 @@ export function mountAccount(root) {
   root.append(main);
 
   function renderAuth(mode = 'in') {
+    mainDock('account');   /* the dock's account item follows the sign-in state */
     clear(main);
     const err = h('p', { class: 'form__err', role: 'alert' });
     const email = field({ label: 'Email', name: 'email', type: 'email', autocomplete: 'email', required: true });
@@ -104,13 +105,13 @@ export function mountAccount(root) {
         title, lede, seg.el, form, switchLink,
         h('ul', { class: 'perks' }, [['calendar', 'Bookings and repairs in one place'], ['model', 'Save and share your 3D builds'], ['spark', 'Your concierge remembers you']].map(([ic, t]) => h('li', {}, [h('span', { class: 'perks__ic' }, icon(ic)), t]))),
         h('p', { class: 'acct__note', text: 'Your account is kept securely on this device; it moves to the dealership’s servers once they are connected. Passwords are stored only as a salted hash.' })
-      ]),
-      h('div', { class: 'dockbar' }, dock.el)
+      ])
     );
     requestAnimationFrame(() => { if (matchMedia('(hover: hover)').matches) (mode === 'in' ? email : name).input.focus({ preventScroll: true }); });
   }
 
   function renderProfile(u) {
+    mainDock('account');   /* the dock's account item follows the sign-in state */
     clear(main);
     const reqs = getAppointments().slice(0, 6);
     main.append(
@@ -130,8 +131,7 @@ export function mountAccount(root) {
       h('div', { class: 'prof__actions' }, [
         h('a', { class: 'pill pill--line pill--lg', href: '#/concierge' }, [icon('spark'), 'Ask the concierge']),
         h('button', { class: 'pill pill--ink pill--lg', type: 'button', onclick: () => { logout(); toast('Signed out'); renderAuth('in'); main.classList.remove('is-in'); } }, [icon('logout'), 'Sign out'])
-      ]),
-      h('div', { class: 'dockbar' }, dock.el)
+      ])
     );
   }
 

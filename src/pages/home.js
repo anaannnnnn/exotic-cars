@@ -5,6 +5,7 @@ import { closePanel } from '../ui/panels.js';
 import { getSettings } from '../state/settings.js';
 import { Viewer } from '../viewer/sketchfab.js';
 import { haptic } from '../ui/haptics.js';
+import { themeToggle } from '../ui/theme-toggle.js';
 
 /*
  * Landing: the showroom before the doors open. A line of detail across the top (Dubai, local time, a way straight
@@ -211,8 +212,8 @@ export function mountHome(root) {
   /* ---------- lock: press and hold to unlock the showroom */
   const body = svg('rect', { x: '57.4', y: '65.6', width: '19.2', height: '14', rx: '1.4', fill: 'none', stroke: 'currentColor', 'stroke-width': '2.75' });
   const shackle = svg('path', { class: 'xh__shackle', d: 'M61.5 64.2V60a5.5 5.5 0 0 1 11 0v4.2', fill: 'none', stroke: 'currentColor', 'stroke-width': '2.75' });
-  /* the orb: an ivory ring on a soft shadow, a signal-cyan hold line that blooms as it fills, and a glossy black core
-     whose lock turns cyan as the hold builds */
+  /* the orb: an ivory ring on a soft shadow, a champagne-gold hold line that blooms as it fills, and a glossy black core
+     whose lock turns gold as the hold builds */
   const lockSvg = svg('svg', { viewBox: '0 0 134 134', class: 'xh__locksvg', 'aria-hidden': 'true' }, [
     svg('defs', {}, [
       svg('radialGradient', { id: 'xh-core', cx: '38%', cy: '30%', r: '75%' }, [svg('stop', { offset: '0', 'stop-color': '#34343a' }), svg('stop', { offset: '0.55', 'stop-color': '#0d0d0f' }), svg('stop', { offset: '1', 'stop-color': '#000' })]),
@@ -315,7 +316,7 @@ export function mountHome(root) {
 
   const main = h('main', { class: 'xh' }, [
     h('div', { class: 'xh__aura', 'aria-hidden': 'true' }),
-    h('div', { class: 'xh__meta' }, [h('span', { class: 'xh__city', text: 'Dubai' }), h('span', { class: 'xh__clock' }, [clock, h('small', { text: 'GST' })]), skip]),
+    h('div', { class: 'xh__meta' }, [h('span', { class: 'xh__city' }, [themeToggle('theme-tg--line'), h('span', { text: 'Dubai' })]), h('span', { class: 'xh__clock' }, [clock, h('small', { text: 'GST' })]), skip]),
     h('header', { class: 'xh__head' }, [
       h('h1', { class: 'xh__brand' }, [h('span', { class: 'xh__word', text: 'EXOTIC' }), h('span', { class: 'xh__sub', text: 'Cars · Dubai' })]),
       caption

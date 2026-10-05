@@ -183,8 +183,7 @@ export function mountService(root) {
       h('p', { class: 'pg__lede', text: 'Choose a service below or describe what you need. The team confirms every request by phone.' })
     ]),
     h('div', { class: 'sect-head' }, [h('h2', { text: 'Services' })]),
-    catalogue, form, talk, mine,
-    h('div', { class: 'dockbar' }, dock.el)
+    catalogue, form, talk, mine
   ]));
   return { kind: 'service', destroy() { dock.destroy(); closePanel(); } };
 }

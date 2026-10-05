@@ -334,7 +334,7 @@ body[data-page='models'] #toast { bottom: 32px; }
 /* ---------- dark-mode touch-ups for fixed light greys ---------- */
 :root[data-theme='dark'] .round { background: var(--card); }
 :root[data-theme='dark'] .round:hover { background: var(--line); }
-:root[data-theme='dark'] .gen, :root[data-theme='dark'] .tag { background: var(--paper); }
+:root[data-theme='dark'] .gen, :root[data-theme='dark'] .tag:not(.tag--signal):not(.tag--glass) { background: var(--paper); }
 :root[data-theme='dark'] .tile { background: var(--card); }
 :root[data-theme='dark'] .tile__img, :root[data-theme='dark'] .card__img { background: #26262e; }
 :root[data-theme='dark'] .tile__img img { border-radius: 10px; }

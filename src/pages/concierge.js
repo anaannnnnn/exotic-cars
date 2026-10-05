@@ -94,8 +94,7 @@ export function mountConcierge(root, firstQuestion = '') {
       h('button', { class: 'circle-btn', type: 'button', 'aria-label': 'New conversation', 'data-tip': 'New conversation', onclick: () => { memory.log = []; memory.filters = null; memory.focus = null; clear(log); start(); } }, icon('rotate'))
     ]),
     log,
-    h('div', { class: 'cg__composer' }, [suggest, form]),
-    h('div', { class: 'dockbar' }, dock.el)
+    h('div', { class: 'cg__composer' }, [suggest, form])
   ]));
 
   function start() {
