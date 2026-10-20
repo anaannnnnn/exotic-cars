@@ -1,0 +1,9 @@
+CREATE TABLE inventory (
+  id SERIAL PRIMARY KEY,
+  make VARCHAR(255) NOT NULL,
+  model VARCHAR(255) NOT NULL,
+  year INT NOT NULL,
+  price NUMERIC(10, 2) NOT NULL,
+  in_stock BOOLEAN NOT NULL DEFAULT TRUE,
+  photo_url VARCHAR(255)
+);
