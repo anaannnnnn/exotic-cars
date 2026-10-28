@@ -14,6 +14,7 @@ import { mountLeads } from './views/leads.js';
 import { mountAppointments } from './views/appointments.js';
 import { mountCustomers } from './views/customers.js';
 import { mountSettings } from './views/settings.js';
+import { mountForecast } from './views/forecast.js';
 
 /*
  * Exotic Cars CRM (/admin/). A small single-page app on the same origin as the site: the session is an HttpOnly cookie
@@ -52,6 +53,7 @@ const themeBtn = (withLabel = false) => {
 /* ---------------------------------------------------------------- routes */
 const NAV = [
   { id: 'dashboard', label: 'Dashboard', icon: 'dashboard', href: '#/' },
+  { id: 'forecast', label: 'Forecast', icon: 'trend', href: '#/forecast' },
   { id: 'leads', label: 'Leads', icon: 'leads', href: '#/leads', badge: 'leads' },
   { id: 'appointments', label: 'Bookings', icon: 'calendar', href: '#/appointments', badge: 'appointments' },
   { id: 'inventory', label: 'Inventory', icon: 'car', href: '#/inventory' },
@@ -59,13 +61,14 @@ const NAV = [
   { id: 'customers', label: 'Customers', icon: 'users', href: '#/customers' },
   { id: 'settings', label: 'Settings', icon: 'settings', href: '#/settings' }
 ];
-const TABS = ['dashboard', 'leads', 'appointments', 'inventory'];
+const TABS = ['dashboard', 'forecast', 'leads', 'appointments', 'inventory'];
 
 function resolve(hash) {
   const parts = hash.replace(/^#\/?/, '').split('?')[0].split('/').filter(Boolean).map(decodeURIComponent);
   const [section = 'dashboard', sub] = parts;
   switch (section) {
     case 'dashboard': return { nav: 'dashboard', mount: mountDashboard };
+    case 'forecast': return { nav: 'forecast', mount: mountForecast };
     case 'inventory': return sub ? { nav: 'inventory', mount: mountCarEditor, params: { id: sub } } : { nav: 'inventory', mount: mountInventory };
     case 'products': return sub ? { nav: 'products', mount: mountProductEditor, params: { id: sub } } : { nav: 'products', mount: mountProducts };
     case 'leads': return { nav: 'leads', mount: mountLeads, params: { id: sub } };
