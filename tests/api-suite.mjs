@@ -59,7 +59,7 @@ describe('before setup', () => {
   });
 
   it('closes every staff route without a session', async () => {
-    for (const [m, p] of [['GET', '/admin/stats'], ['GET', '/admin/cars'], ['GET', '/admin/leads'], ['GET', '/admin/customers'], ['GET', '/admin/export/leads'], ['POST', '/admin/cars'], ['DELETE', '/admin/leads/000000000-00000000']]) {
+    for (const [m, p] of [['GET', '/admin/stats'], ['GET', '/admin/cars'], ['GET', '/admin/leads'], ['GET', '/admin/customers'], ['GET', '/admin/ads'], ['GET', '/admin/transactions'], ['GET', '/admin/export/leads'], ['POST', '/admin/cars'], ['DELETE', '/admin/leads/000000000-00000000']]) {
       const r = await call(m, p, { body: m === 'POST' ? {} : undefined });
       expect(r.status, `${m} ${p}`).toBe(401);
     }
@@ -229,6 +229,46 @@ describe('inventory', () => {
     expect(r.data.pagination).toMatchObject({ limit: 5, offset: 0 });
     expect(r.data.makes).toContain('Ferrari');
     expect((await asStaff('GET', '/admin/cars?limit=9999')).status).toBe(400);
+  });
+});
+
+describe('home advertisements and transaction reports', () => {
+  it('adds and removes active home advertisement slides', async () => {
+    const created = await asStaff('POST', '/admin/ads', { body: { image: 'https://cdn.example.com/campaign.webp', text: 'Autumn collection', font: 'Michroma', active: true } });
+    expect(created.status).toBe(201);
+    expect(created.data).toMatchObject({ text: 'Autumn collection', font: 'Michroma', active: true });
+    const pub = await call('GET', '/ads');
+    expect(pub.status).toBe(200);
+    expect(pub.data.some((slide) => slide.id === created.data.id)).toBe(true);
+    expect((await asStaff('DELETE', `/admin/ads/${created.data.id}`)).status).toBe(204);
+    expect((await call('GET', '/ads')).data.some((slide) => slide.id === created.data.id)).toBe(false);
+  });
+
+  it('reports sales and purchases by date, car, brand, and salesperson or seller', async () => {
+    const ferrari = await asStaff('POST', '/admin/cars', { body: { title: '2026 Report Ferrari Roma', brand: 'Ferrari', year: 2026, price: 500000 } });
+    const lambo = await asStaff('POST', '/admin/cars', { body: { title: '2026 Report Lamborghini Urus', brand: 'Lamborghini', year: 2026, price: 700000 } });
+    expect(ferrari.status).toBe(201);
+    expect(lambo.status).toBe(201);
+    const today = new Date().toISOString().slice(0, 10);
+    const [year, month] = today.split('-');
+    const invalidDate = await asStaff('POST', '/admin/transactions', { body: { type: 'purchase', carId: ferrari.data.id, amount: 420000, date: '2026-02-31', counterparty: 'Verified Seller' } });
+    expect(invalidDate.status).toBe(400);
+    const buy = await asStaff('POST', '/admin/transactions', { body: { type: 'purchase', carId: ferrari.data.id, amount: 420000, date: today, counterparty: 'Verified Seller' } });
+    const sale = await asStaff('POST', '/admin/transactions', { body: { type: 'sale', carId: ferrari.data.id, amount: 485000, date: today, salesperson: 'Nora' } });
+    await asStaff('POST', '/admin/transactions', { body: { type: 'sale', carId: lambo.data.id, amount: 690000, date: today, salesperson: 'Omar' } });
+    expect(buy.status).toBe(201);
+    expect(sale.status).toBe(201);
+    expect((await asStaff('POST', '/admin/transactions', { body: { type: 'sale', carId: ferrari.data.id, amount: 485000, date: today, salesperson: 'Nora' } })).status).toBe(409);
+
+    const sales = await asStaff('GET', `/admin/transactions?type=sale&month=${month}&year=${year}&car=${ferrari.data.id}&brand=Ferrari&salesperson=Nora`);
+    expect(sales.status).toBe(200);
+    expect(sales.data.report).toMatchObject({ count: 1, amount: 485000 });
+    expect(sales.data.data[0]).toMatchObject({ carId: ferrari.data.id, brand: 'Ferrari', salesperson: 'Nora' });
+
+    const purchases = await asStaff('GET', `/admin/transactions?type=purchase&month=${month}&year=${year}&car=${ferrari.data.id}&brand=Ferrari&salesperson=Verified%20Seller`);
+    expect(purchases.status).toBe(200);
+    expect(purchases.data.report).toMatchObject({ count: 1, amount: 420000 });
+    expect(purchases.data.data[0].counterparty).toBe('Verified Seller');
   });
 });
 
@@ -503,6 +543,10 @@ describe('demo data, the forecast calculator and the purchasing planner', () => 
     const st = (await asStaff('GET', '/admin/demo')).data;
     expect(st.enabled).toBe(true);
     expect(st.counts.sales).toBe(r.data.counts.sales);
+    const ledger = (await asStaff('GET', '/admin/transactions?type=sale&limit=500')).data;
+    expect(ledger.report.count).toBeGreaterThanOrEqual(r.data.counts.sales);
+    expect(ledger.data.some((sale) => sale.demo && sale.amount > 0 && sale.salesperson)).toBe(true);
+    expect(ledger.report.byBrand.length).toBeGreaterThan(5);
   });
 
   it('shows the demo prices on a lead\'s deal desk', async () => {

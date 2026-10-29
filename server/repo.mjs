@@ -259,18 +259,29 @@ export async function removeAd(id) {
 export async function listTransactions(filters = {}) {
   const types = filters.type ? [filters.type] : ['sale', 'purchase'];
   const keys = (await Promise.all(types.map((t) => listKeys('crm', `transactions/${t}/`)))).flat();
-  const allRows = (await getMany('crm', keys)).filter(Boolean);
+  const storedRows = (await getMany('crm', keys)).filter(Boolean);
+  /* The database's demonstration sales use the separate sales/ ledger and have no inventory carId.
+     Include them in sales reports without pretending they are actual stock transactions. */
+  const demoRows = types.includes('sale')
+    ? (await getMany('crm', await listKeys('crm', 'sales/'))).filter((r) => r?.demo).map((s) => ({
+      id: `demo-${s.id}`, type: 'sale', carId: null, carTitle: s.title, brand: s.brand,
+      amount: Number(s.price) || 0, date: String(s.soldAt || '').slice(0, 10),
+      salesperson: s.salesperson || null, counterparty: null, notes: null,
+      createdAt: s.soldAt || '', demo: true
+    }))
+    : [];
+  const allRows = [...storedRows, ...demoRows];
   const rows = allRows.filter((r) => {
     const d = String(r.date || '');
     return (!filters.month || Number(d.slice(5, 7)) === filters.month) && (!filters.year || Number(d.slice(0, 4)) === filters.year)
       && (!filters.car || String(r.carId) === String(filters.car)) && (!filters.brand || r.brand === filters.brand)
-      && (!filters.salesperson || norm(r.salesperson) === norm(filters.salesperson));
+      && (!filters.salesperson || norm(r.salesperson || r.counterparty) === norm(filters.salesperson));
   }).sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt));
   const data = rows.slice(0, filters.limit || 500);
   const total = rows.reduce((sum, r) => sum + Number(r.amount || 0), 0);
   const byBrand = Object.entries(rows.reduce((m, r) => (m[r.brand] = (m[r.brand] || 0) + Number(r.amount || 0), m), {})).sort((a,b) => b[1]-a[1]);
   const byPerson = Object.entries(rows.reduce((m, r) => (m[r.salesperson || r.counterparty || 'Unassigned'] = (m[r.salesperson || r.counterparty || 'Unassigned'] || 0) + Number(r.amount || 0), m), {})).sort((a,b) => b[1]-a[1]);
-  return { data, truncated: rows.length > data.length, report: { count: rows.length, amount: total, byBrand, byPerson }, filters: { months: [...new Set(allRows.map((r) => Number(r.date.slice(5,7))))].sort((a,b)=>a-b), years: [...new Set(allRows.map((r) => Number(r.date.slice(0,4))))].sort((a,b)=>b-a), brands: [...new Set(allRows.map((r) => r.brand))].sort(), cars: [...new Map(allRows.map((r) => [r.carId, { id:r.carId, title:r.carTitle }])).values()], salespeople: [...new Set(allRows.map((r) => r.salesperson).filter(Boolean))].sort() } };
+  return { data, truncated: rows.length > data.length, report: { count: rows.length, amount: total, byBrand, byPerson }, filters: { months: [...new Set(allRows.map((r) => Number(r.date.slice(5,7))))].sort((a,b)=>a-b), years: [...new Set(allRows.map((r) => Number(r.date.slice(0,4))))].sort((a,b)=>b-a), brands: [...new Set(allRows.map((r) => r.brand))].sort(), cars: [...new Map(allRows.filter((r) => r.carId != null).map((r) => [r.carId, { id:r.carId, title:r.carTitle }])).values()], salespeople: [...new Set(allRows.map((r) => r.salesperson || r.counterparty).filter(Boolean))].sort() } };
 }
 export async function createTransaction(input) {
   const car = await getCar(input.carId);

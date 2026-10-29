@@ -393,7 +393,11 @@ on('GET', '/admin/ads', () => repo.listAds(), { staff: true });
 on('POST', '/admin/ads', async ({ req }) => json(await repo.addAd(parse(S.adSlide, await readJson(req))), 201), { staff: true });
 on('DELETE', '/admin/ads/:id', async ({ params }) => { await repo.removeAd(id('media', params.id)); return noContent(); }, { staff: true });
 on('GET', '/admin/transactions', ({ query }) => repo.listTransactions(parse(S.transactionQuery, query)), { staff: true });
-on('POST', '/admin/transactions', async ({ req }) => json(await repo.createTransaction(parse(S.transactionCreate, await readJson(req))), 201), { staff: true });
+on('POST', '/admin/transactions', async ({ req }) => {
+  const input = parse(S.transactionCreate, await readJson(req));
+  realDate(input.date);
+  return json(await repo.createTransaction(input), 201);
+}, { staff: true });
 
 /* ---------- inventory ---------- */
 on('GET', '/admin/cars', ({ query }) => repo.listCars(parse(S.listQuery, query)), { staff: true });

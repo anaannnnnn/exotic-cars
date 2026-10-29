@@ -182,7 +182,7 @@ export const transactionCreate = z.object({
   type: z.enum(['sale', 'purchase']),
   carId: z.coerce.number().int().positive(),
   amount: z.coerce.number().positive().max(1e10),
-  date: z.string().regex(/^\\d{4}-\\d{2}-\\d{2}$/),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   salesperson: optStr(100),
   counterparty: optStr(120),
   notes: optStr(1000)

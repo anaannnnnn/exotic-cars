@@ -65,7 +65,7 @@ export function mountTransactions(view, { type = 'sale' } = {}) {
       report.replaceChildren(breakdown('By brand', res.report.byBrand), breakdown(purchase ? 'By seller' : 'By salesperson', res.report.byPerson));
       rows.replaceChildren(...(res.data.length ? res.data.map((r) => h('article', { class: 'row txn-row' }, [
         h('span', { class: 'row__img txn-mark' }, icon(purchase ? 'money' : 'car')),
-        h('span', { class: 'row__t' }, [h('b', { text: r.carTitle }), h('small', { text: [r.brand, new Date(`${r.date}T12:00:00`).toLocaleDateString('en-GB', { dateStyle: 'medium' }), r.salesperson || r.counterparty].filter(Boolean).join(' · ') })]),
+        h('span', { class: 'row__t' }, [h('b', { text: r.carTitle }), h('small', { text: [r.brand, new Date(`${r.date}T12:00:00`).toLocaleDateString('en-GB', { dateStyle: 'medium' }), r.salesperson || r.counterparty, r.demo ? 'Demo data' : null].filter(Boolean).join(' · ') })]),
         h('span', { class: 'row__price' }, h('b', { text: aed(r.amount) }))
       ])) : [h('p', { class: 'empty', text: `No ${label.toLowerCase()} match these filters. Record a transaction above to start the ledger.` })]),
       res.truncated ? h('p', { class: 'muted small', text: 'Showing the first 500 records. Report totals include every matching transaction.' }) : null);
