@@ -15,4 +15,6 @@ Opened by DevX Control after the data was copied into **db / exotic_cars**.
 
 ## Deploying
 1. Put the real connection string in the server's `.env` as `MONGO_URI` (never commit it).
-2. Merge this pull request, then pull in DevX Control. It points the app at MongoDB, runs its checks, and only then offers to remove the old database.
+2. After this is merged, press **Switch to MongoDB** on the app in DevX Control. It copies the latest data, points the app at MongoDB, deploys, runs its checks, and only then offers to remove the old database.
+
+This pull request was merged automatically by DevX Control because every check passed and nothing needed a person.
