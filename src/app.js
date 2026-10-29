@@ -91,7 +91,7 @@ export async function boot() {
      own transition name), and a change made from the dock slides the way its lens travelled (data-navdir) */
   const html = document.documentElement;
   window.addEventListener('hashchange', () => {
-    const calm = html.dataset.motion === 'reduce' || matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const calm = html.dataset.motion === 'reduce' || false;
     if (document.startViewTransition && !calm && !document.querySelector('.unveil')) {
       const vt = document.startViewTransition(() => route());
       vt.finished.finally(() => { delete html.dataset.navdir; });

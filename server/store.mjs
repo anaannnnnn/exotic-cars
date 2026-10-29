@@ -2,6 +2,7 @@ import { getStore } from '@netlify/blobs';
 import { randomBytes, createHash } from 'node:crypto';
 import { HttpError } from './http.mjs';
 import { pgStore, databaseUrl, useSql } from './pg-store.mjs';
+import { mongoStore, mongoUrl } from './mongo-store.mjs';
 
 /*
  * Storage. Four stores:
@@ -10,7 +11,8 @@ import { pgStore, databaseUrl, useSql } from './pg-store.mjs';
  *   media   - uploaded photos
  *   system  - rate-limit buckets, the audit log, the import marker, the staff login, the signing key
  * Where they live depends on the host:
- *   - a Postgres database when DATABASE_URL (or POSTGRES_URL) is set - on Vercel, Neon from the Vercel Marketplace;
+ *   - MongoDB when MONGO_URI, MONGODB_URI, or MONGO_URL is set, or DATABASE_URL starts with mongodb;
+ *   - a Postgres database when DATABASE_URL (or POSTGRES_URL) is a Postgres URL - on Vercel, Neon;
  *   - Netlify Blobs on Netlify (nothing to set up), with strong consistency so a saved change reads straight back;
  *   - on Vercel without a database, every call answers 503 with how to connect one (the website keeps working from
  *     its built-in data).
@@ -24,7 +26,9 @@ const NO_DATABASE = () => new HttpError(503, 'No database', 'This site has no da
 const missing = new Proxy({}, { get: () => async () => { throw NO_DATABASE(); } });
 
 export function storageKind() {
-  if (usingSql || databaseUrl()) return 'postgres';
+  if (usingSql) return 'postgres';
+  if (mongoUrl()) return 'mongo';
+  if (databaseUrl()) return 'postgres';
   if (process.env.VERCEL) return 'missing';
   return 'netlify-blobs';
 }
@@ -33,7 +37,7 @@ const opened = new Map();
 export function store(name) {
   if (!opened.has(name)) {
     const kind = storageKind();
-    opened.set(name, kind === 'postgres' ? pgStore(name) : kind === 'missing' ? missing : getStore({ name, consistency: 'strong' }));
+    opened.set(name, kind === 'mongo' ? mongoStore(name) : kind === 'postgres' ? pgStore(name) : kind === 'missing' ? missing : getStore({ name, consistency: 'strong' }));
   }
   return opened.get(name);
 }
@@ -56,7 +60,7 @@ export async function readDoc(storeName, key) {
 
 /* writes to one key from the same process run one after another (a warm function instance, the dev server) */
 const queues = new Map();
-async function serial(key, fn) {
+export async function serial(key, fn) {
   const prev = queues.get(key) || Promise.resolve();
   let release;
   const gate = new Promise((r) => { release = r; });

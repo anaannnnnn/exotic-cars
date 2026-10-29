@@ -2,7 +2,8 @@ import {
   createElement, LayoutDashboard, CarFront, Disc3, KanbanSquare, CalendarClock, Users, Settings, LogOut, Search, Plus, X, Check,
   ChevronLeft, ChevronRight, ChevronDown, Phone, MessageCircle, Mail, Trash2, Pencil, Eye, EyeOff, Star, Sparkles, Tag, ImagePlus,
   Upload, Download, RefreshCw, ExternalLink, Sun, Moon, TriangleAlert, CircleCheck, Clock, ArrowUpRight, ArrowRight, Filter, Grip,
-  Database, ShieldCheck, Activity, Menu, StickyNote, Banknote, TrendingUp, Gauge, Wrench, Lock, Copy, List, Columns3, Wind, MapPin, Undo2
+  Database, ShieldCheck, Activity, Menu, StickyNote, Banknote, TrendingUp, Gauge, Wrench, Lock, Copy, List, Columns3, Wind, MapPin, Undo2,
+  History, ClipboardCheck, BadgeCheck, Timer, Target, UserPlus, KeyRound, ShoppingCart, PhoneCall, Handshake, Bell, Package, Flame, ShieldAlert, ScrollText, Truck, Receipt
 } from 'lucide';
 
 /* Building blocks for the CRM. Every text value goes in through textContent (h's `text` or a child string), never HTML. */
@@ -14,7 +15,9 @@ const ICONS = {
   tag: Tag, photo: ImagePlus, upload: Upload, download: Download, refresh: RefreshCw, external: ExternalLink, sun: Sun, moon: Moon,
   alert: TriangleAlert, done: CircleCheck, clock: Clock, open: ArrowUpRight, arrow: ArrowRight, filter: Filter, grip: Grip, db: Database,
   shield: ShieldCheck, activity: Activity, menu: Menu, note: StickyNote, money: Banknote, trend: TrendingUp, gauge: Gauge, wrench: Wrench,
-  lock: Lock, copy: Copy, list: List, board: Columns3, kit: Wind, pin: MapPin, undo: Undo2
+  lock: Lock, copy: Copy, list: List, board: Columns3, kit: Wind, pin: MapPin, undo: Undo2,
+  history: History, approve: ClipboardCheck, verified: BadgeCheck, timer: Timer, target: Target, adduser: UserPlus, key: KeyRound, cart: ShoppingCart, call: PhoneCall, deal: Handshake, bell: Bell,
+  package: Package, flame: Flame, risk: ShieldAlert, log: ScrollText, truck: Truck, receipt: Receipt
 };
 
 export function icon(name, cls = '') {
@@ -115,6 +118,9 @@ function trap(e) {
   if (e.key === 'Escape') { e.preventDefault(); top.close(); }
 }
 document.addEventListener('keydown', trap);
+
+/** Close every open drawer (a page change leaves none behind). */
+export const closeDrawers = () => stack.slice().forEach((d) => d.close?.());
 
 /** A side drawer (full screen on phones). Returns { el, body, foot, close }. */
 export function drawer({ title, sub, wide = false, onClose } = {}) {
@@ -280,4 +286,49 @@ export function spark(values) {
   const w = 7, gap = 3;
   return svg('svg', { class: 'spark', viewBox: `0 0 ${values.length * (w + gap)} 32`, preserveAspectRatio: 'none', 'aria-hidden': 'true' },
     values.map((v, i) => svg('rect', { x: i * (w + gap), y: 32 - Math.max(2, (v / max) * 32), width: w, height: Math.max(2, (v / max) * 32), rx: 2 })));
+}
+
+/* ---------------------------------------------------------------- roles, scores, deadlines */
+export const ROLE = { owner: { label: 'Owner', tone: 'violet' }, manager: { label: 'Manager', tone: 'blue' }, sales: { label: 'Sales', tone: 'green' }, service: { label: 'Service', tone: 'amber' } };
+export const can = (role, what) => {
+  const mgr = role === 'owner' || role === 'manager';
+  return { manage: mgr, approve: mgr, team: role === 'owner', policy: role === 'owner', leads: role !== 'service', forecast: mgr, purchasing: mgr, price: mgr, delete: mgr }[what] ?? false;
+};
+export const BAND = { hot: { label: 'Hot', tone: 'red' }, warm: { label: 'Warm', tone: 'amber' }, cool: { label: 'Cold', tone: 'blue' } };
+export const SOURCE = { website: 'Website', configurator: '3D builder', phone: 'Phone call', 'walk-in': 'Walk-in', whatsapp: 'WhatsApp', instagram: 'Instagram', referral: 'Referral', event: 'Event', other: 'Other' };
+
+/** A small ring showing a lead score (1-99), coloured by band. */
+export function scoreRing(score, band, size = 38) {
+  const r = size / 2 - 3, c = 2 * Math.PI * r;
+  return h('span', { class: `score tone--${BAND[band]?.tone || 'grey'}`, title: `Score ${score}`, style: `--s:${size}px` }, [
+    svg('svg', { viewBox: `0 0 ${size} ${size}`, 'aria-hidden': 'true' }, [
+      svg('circle', { cx: size / 2, cy: size / 2, r, fill: 'none', class: 'score__bg', 'stroke-width': 3 }),
+      svg('circle', { cx: size / 2, cy: size / 2, r, fill: 'none', class: 'score__fg', 'stroke-width': 3, 'stroke-linecap': 'round', 'stroke-dasharray': `${(score / 100) * c} ${c}`, transform: `rotate(-90 ${size / 2} ${size / 2})` })
+    ]),
+    h('b', { text: String(score) })
+  ]);
+}
+
+/** "2h over" / "due in 40 min" / nothing when all is well. */
+export function slaChip(sla) {
+  if (!sla || sla.state === 'closed' || sla.state === 'ok') return null;
+  const t = sla.state === 'overdue' ? `${sla.hoursOver < 1 ? 'Overdue' : `${sla.hoursOver >= 48 ? `${Math.round(sla.hoursOver / 24)} d` : `${Math.round(sla.hoursOver)} h`} over`}` : `Due in ${sla.minutesLeft >= 90 ? `${Math.round(sla.minutesLeft / 60)} h` : `${sla.minutesLeft} min`}`;
+  return h('span', { class: `sla sla--${sla.state}`, title: `Next touch was due ${new Date(sla.dueAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}` }, [icon('timer'), t]);
+}
+export const roleChip = (role) => chip(ROLE[role]?.label || role, ROLE[role]?.tone || '');
+export const when = (iso) => new Date(iso).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
+export const aedShort = (n) => (n == null ? '—' : `AED ${compact(n)}`);
+
+/** A short two-note chime for a new lead or a request waiting on you. */
+export function ping() {
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    const ac = new AC();
+    [784, 1175].forEach((f, i) => {
+      const o = ac.createOscillator(), g = ac.createGain(), t = ac.currentTime + i * 0.12;
+      o.type = 'sine'; o.frequency.value = f; g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.16, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0008, t + 0.4);
+      o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t + 0.42);
+    });
+    setTimeout(() => ac.close?.(), 1000);
+  } catch { /* no audio */ }
 }

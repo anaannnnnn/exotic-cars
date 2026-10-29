@@ -1,4 +1,5 @@
 import * as stock from '../data/stock.js';
+import { aiStatus, aiAsk, aiAskVoice } from '../data/api.js';
 
 /*
  * The concierge's brain, running on this device: it reads a plain-language request, works out the filters it implies
@@ -99,8 +100,32 @@ function describe(f) {
 
 const pick = (list) => list[Math.floor(Math.random() * list.length)];
 
+const FALLBACK_SUGGEST = ['Show me new arrivals', 'What can I configure in 3D?', 'Book a test drive'];
+/* what the server's AI answered, in the shape the pages already render */
+function fromAi(r, state) {
+  return { text: r.text, cars: (r.carIds || []).map(stock.stockCar).filter(Boolean), actions: (r.actions || []).map((a) => ({ kind: a.kind, label: a.label, service: a.service })), suggestions: r.suggestions?.length ? r.suggestions : FALLBACK_SUGGEST, filters: state.filters || null, ai: true, heard: r.heard };
+}
+const turns = (state, current) => {
+  const h = (state.history || []).map((m) => ({ from: m.from, text: String(m.text || '') })).filter((m) => m.text);
+  if (current && h.length && h[h.length - 1].from === 'you' && h[h.length - 1].text === current) h.pop();
+  return h.slice(-10);
+};
+const toB64 = (blob) => new Promise((ok, no) => { const fr = new FileReader(); fr.onload = () => ok(String(fr.result).split(',')[1]); fr.onerror = no; fr.readAsDataURL(blob); });
+
+/** A spoken question (a WAV blob) answered by the AI. Resolves { heard, text, cars, ... } or rejects when the AI is not available. */
+export async function askAudio(wav, state = {}) {
+  const st = await aiStatus();
+  if (!st.ai) throw new Error('The AI voice is not available');
+  return fromAi(await aiAskVoice({ audio: await toB64(wav), mime: 'audio/wav', history: turns(state), focus: state.focus ?? null }), state);
+}
+
 /** One concierge turn. Returns { text, cars, actions, suggestions, filters }. */
 export async function ask(text, state = {}) {
+  /* the server's AI answers when it is switched on; any failure drops to the on-device engine below */
+  try {
+    const st = await aiStatus();
+    if (st.ai && String(text || '').trim()) return fromAi(await aiAsk({ text: String(text).slice(0, 800), history: turns(state, String(text).trim()), focus: state.focus ?? null }), state);
+  } catch { /* fall back */ }
   if (typeof window !== 'undefined' && typeof window.EXOTIC_CONCIERGE === 'function') {
     try {
       const r = await window.EXOTIC_CONCIERGE(text, state.history || []);
@@ -111,7 +136,7 @@ export async function ask(text, state = {}) {
   const sale = stock.queryStock({ tab: 'sale' }).length;
 
   if (!q || /^(hi|hello|hey|salam|hola|good (morning|evening|afternoon))\b/.test(q)) {
-    return { text: `Hello. I know all ${sale} cars in the showroom. Tell me what you have in mind — a make, a body style, a year, a colour — and I'll find it.`, cars: [], actions: [], suggestions: ['Show me Ferrari convertibles', 'Low mileage SUVs', 'Cars I can configure in 3D', 'Book a test drive'] };
+    return { text: `Hello. I know every car in the showroom. Tell me what you have in mind — a make, a body style, a year, a colour — and I'll find it.`, cars: [], actions: [], suggestions: ['Show me Ferrari convertibles', 'Low mileage SUVs', 'Cars I can configure in 3D', 'Book a test drive'] };
   }
   if (/\b(book|appointment|test ?drive|viewing|service|detailing|maintenance)\b/.test(q)) {
     const car = state.focus ? stock.stockCar(state.focus) : null;

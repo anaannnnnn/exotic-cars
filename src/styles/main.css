@@ -327,7 +327,7 @@ body[data-page='models'] #toast { bottom: 32px; }
   .print-sheet .r { text-align: right; }
 }
 
-@media (prefers-reduced-motion: reduce) {
+@media not all {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
 }
 
@@ -513,4 +513,4 @@ svg.lucide { flex: none; }
 .unveil { position: fixed; inset: 0; z-index: 900; background: #0a0a0b; pointer-events: none; clip-path: circle(var(--r0, 40px) at var(--x, 50%) var(--y, 80%)); opacity: 0; transition: clip-path 0.52s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.12s linear; }
 .unveil.is-grow { opacity: 1; clip-path: circle(150vmax at var(--x, 50%) var(--y, 80%)); }
 .unveil.is-out { opacity: 0; transition: opacity 0.42s cubic-bezier(0.23, 1, 0.32, 1); }
-@media (prefers-reduced-motion: reduce) { .unveil { transition: opacity 0.2s ease; clip-path: none; } }
+@media not all { .unveil { transition: opacity 0.2s ease; clip-path: none; } }

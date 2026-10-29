@@ -11,7 +11,7 @@ const lerp3 = (v, [a, b, c], [p, q, r]) => (v <= b ? p + ((Math.max(v, a) - a) /
 
 let root, box, titleEl, descEl;
 let x = 0, y = 0, vx = 0, vy = 0, tx = 0, ty = 0, raf = 0, last = 0, active = false, current = null, primed = false;
-const reduce = () => document.documentElement.dataset.motion === 'reduce' || matchMedia('(prefers-reduced-motion: reduce)').matches;
+const reduce = () => document.documentElement.dataset.motion === 'reduce' || false;
 
 function tick(now) {
   const dt = Math.min(1 / 30, Math.max(1 / 240, (now - (last || now)) / 1000 || 1 / 60));

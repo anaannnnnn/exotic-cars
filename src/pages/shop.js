@@ -9,12 +9,21 @@ import { liquidTabs } from '../ui/liquid-tabs.js';
 import { brandTheme, brandVars, makeLabel } from '../ui/brand-theme.js';
 
 /* Filters survive a visit to a car page. */
-const memory = { tab: 'sale', q: '', brand: '', model: '', from: 0, to: 0, shown: 24, fresh: false };
+let missedTimer = 0;
+/* what a customer searched for and did not find is counted in the CRM (what the stock could not answer) */
+function missed() {
+  clearTimeout(missedTimer);
+  missedTimer = setTimeout(() => {
+    if (memory.tab !== 'sale' || !(memory.brand || (memory.q || '').trim().length >= 3)) return;
+    import('../data/api.js').then((m) => m.reportDemand?.({ query: [memory.brand, memory.model, memory.q].filter(Boolean).join(' '), filters: { brand: memory.brand || null, from: memory.from || null, to: memory.to || null }, source: 'shop' })).catch(() => {});
+  }, 1600);
+}
+const memory = { tab: 'sale', q: '', brand: '', model: '', from: 0, to: 0, shown: 24, fresh: false, sort: 'new', body: '', only3d: false, onlyNew: false };
 const STEP = 24;
 
 /** Open the shop on one make (from Home's make tiles and spotlight). */
 export function shopWithBrand(brand) {
-  Object.assign(memory, { tab: 'sale', q: '', brand, model: '', from: 0, to: 0, shown: STEP, fresh: true });
+  Object.assign(memory, { tab: 'sale', q: '', brand, model: '', from: 0, to: 0, shown: STEP, fresh: true, sort: 'new', body: '', only3d: false, onlyNew: false });
   location.hash = '#/shop';
 }
 
@@ -35,7 +44,7 @@ const bit = (name, text) => (text ? h('span', { class: 'mb' }, [icon(name), text
 const meta = (c) => h('span', { class: 'scard__meta' }, [bit('year', c.year), bit('gauge', stock.kmLabel(c)), bit('pin', c.region)]);
 
 function card(c, canConfigure, i = 0) {
-  const badge = c.sold ? 'Sold' : c.newArrival ? 'New arrival' : c.featured ? 'Featured' : null;
+  const badge = c.sold ? 'Sold' : c.featured ? 'Featured' : null;
   const img = h('span', { class: 'scard__img' }, [
     h('img', { src: stock.coverUrl(c), alt: '', loading: 'lazy', decoding: 'async', width: 800, height: 600, onerror: stock.coverError(c) }),
     badge ? h('span', { class: `badge${c.sold ? ' badge--sold' : c.newArrival ? ' badge--new' : ''}`, text: badge }) : null
@@ -49,13 +58,8 @@ function card(c, canConfigure, i = 0) {
     h('span', { class: 'scard__foot' }, [h('span', { class: 'scard__price', text: c.price ? stock.priceLabel(c) : 'On request', 'aria-label': stock.priceLabel(c) }), h('span', { class: 'scard__go', 'aria-hidden': 'true' }, icon('right'))])
   ])]);
   const wrap = h('div', { class: 'scw rv tilt', style: `--i:${i % 6}` });
-  if (!canConfigure) { wrap.append(a); return wrap; }
-  /* configurable: the card takes the notched shape and the configure button sits in the bite */
-  const bite = biteFor(40, 52);
-  notch(a, { r: 24, n: bite, k: 12, sizeVar: wrap });
-  notch(img, { r: 18, n: (w) => bite(w + 12) - 6, k: 9 });
-  a.classList.add('is-notched');
-  wrap.append(a, h('a', { class: 'notch-btn notch-btn--sm', href: `#/shop/${c.id}/configure`, 'aria-label': `Configure ${c.title} in 3D`, 'data-tip': 'Configure in 3D', 'data-tip-desc': 'Paint, wheels and aero' }, icon('model')));
+  if (canConfigure) a.dataset.cfg = '1';   /* tapping the card reveals "See more details" and "Customize in 3D" (ui/motion.js) */
+  wrap.append(a);
   return wrap;
 }
 
@@ -86,15 +90,16 @@ export function mountShop(root) {
   let brands = null;
 
   const bar = topBar({ back: '#/home', backLabel: 'Home', action: h('a', { class: 'tb__btn tb__btn--signal', href: '#/concierge', 'aria-label': 'Ask the concierge', 'data-tip': 'Ask the concierge', 'data-tip-desc': 'Find a car in plain words' }, icon('spark')) });
+  const shopMain = h('main', { class: 'wrap shop' }, [
+    h('div', { class: 'shop__head' }, [h('h1', { class: 'shop__title', text: 'Shop' }), count]),
+    tabs.el,
+    h('div', { class: 'shop__tools' }, [h('label', { class: 'search' }, [icon('search'), search]), filterBtn]),
+    filterWrap,
+    brandsSlot, banner, list, more
+  ]);
   root.append(
     bar.el,
-    h('main', { class: 'wrap shop' }, [
-      h('div', { class: 'shop__head' }, [h('h1', { class: 'shop__title', text: 'Shop' }), count]),
-      tabs.el,
-      h('div', { class: 'shop__tools' }, [h('label', { class: 'search' }, [icon('search'), search]), filterBtn]),
-      filterWrap,
-      brandsSlot, banner, list, more
-    ])
+    shopMain
   );
 
   filterBtn.addEventListener('click', () => {
@@ -117,18 +122,82 @@ export function mountShop(root) {
     brandsSlot.replaceChildren(brands.el);
   }
 
-  function renderBanner() {
+  /* ---------- a make's own page: the highlighted car first, then the rest, with sort and filter ---------- */
+  const SORTS = [['new', 'Newest first'], ['old', 'Oldest first'], ['low', 'Price: low to high'], ['high', 'Price: high to low'], ['km', 'Lowest mileage']];
+  const cmp = (a, b) => (a > b) - (a < b);
+  const SORT_FN = {
+    new: (x, y) => cmp(y.year || 0, x.year || 0),
+    old: (x, y) => cmp(x.year || 0, y.year || 0),
+    low: (x, y) => cmp(x.price || Infinity, y.price || Infinity),
+    high: (x, y) => cmp(y.price || 0, x.price || 0),
+    km: (x, y) => cmp(x.km ?? Infinity, y.km ?? Infinity)
+  };
+  const pickHero = (l) => l.find((c) => c.featured && stock.configuratorMatch(c)) || l.find((c) => c.featured) || l.find((c) => c.newArrival) || l.find((c) => stock.configuratorMatch(c)) || l[0] || null;
+  const brandView = (cars) => cars
+    .filter((c) => (!memory.body || c.body === memory.body) && (!memory.only3d || stock.configuratorMatch(c)) && (!memory.onlyNew || c.newArrival))
+    .sort(SORT_FN[memory.sort] || SORT_FN.new);
+  const leaveBrand = () => { Object.assign(memory, { brand: '', model: '', shown: STEP }); brands.set(''); renderFilters(); render(true); window.scrollTo({ top: 0 }); };
+
+  const heroSlot = h('div', { class: 'bh-slot' });
+  const barSlot = h('div', { class: 'bc-slot' });
+  let barFor = '', barUi = null;
+  function buildBar(base) {
+    const chips = [];
+    const add = (text, test, set) => {
+      const el = h('button', { class: 'ui-chip', type: 'button', 'aria-pressed': 'false', text, onclick: () => { set(); memory.shown = STEP; render(true); } });
+      chips.push([el, test]);
+      return el;
+    };
+    const bodies = [...new Set(base.map((c) => c.body).filter(Boolean))].sort();
+    const sel = h('select', { class: 'ui-select__el', 'aria-label': 'Sort by', onchange: (e) => { memory.sort = e.target.value; memory.shown = STEP; render(true); } }, SORTS.map(([v, t]) => h('option', { value: v, text: t })));
+    const countEl = h('span', { class: 'bc__count', 'aria-live': 'polite' });
+    const el = h('div', { class: 'bc' }, [
+      h('div', { class: 'bc__row' }, [h('label', { class: 'ui-select' }, [h('span', { class: 'ui-select__lbl', text: 'Sort by' }), sel, icon('chevron')]), countEl]),
+      h('div', { class: 'bc__chips', role: 'group', 'aria-label': 'Filter cars' }, [
+        add('All', () => !memory.body && !memory.only3d && !memory.onlyNew, () => Object.assign(memory, { body: '', only3d: false, onlyNew: false })),
+        ...bodies.map((b) => add(b, () => memory.body === b, () => { memory.body = memory.body === b ? '' : b; })),
+        add('3D ready', () => memory.only3d, () => { memory.only3d = !memory.only3d; }),
+        add('New arrivals', () => memory.onlyNew, () => { memory.onlyNew = !memory.onlyNew; })
+      ])
+    ]);
+    return { el, sync(n) { sel.value = memory.sort; chips.forEach(([c, t]) => c.setAttribute('aria-pressed', String(!!t()))); countEl.textContent = `${n} ${n === 1 ? 'car' : 'cars'}`; } };
+  }
+  function brandHero(c, b, total) {
+    const t = brandTheme(b);
+    const name = c ? (c.title.replace(new RegExp(`^${c.brand.replace(/\s+/g, '[\\s-]*')}\\s*`, 'i'), '') || c.title) : '';
+    const pic = c ? h('a', { class: 'bh__car', href: `#/shop/${c.id}`, 'data-fx': 'spot tilt glare', 'aria-label': `Highlighted car: ${c.title}` }, [
+      h('span', { class: 'bh__pic' }, h('img', { src: stock.coverUrl(c), alt: '', decoding: 'async', draggable: 'false', onerror: stock.coverError(c) })),
+      h('span', { class: 'bh__flag' }, [icon('spark'), 'Highlight']),
+      h('span', { class: 'bh__info' }, [
+        h('b', { text: name }),
+        h('span', { class: 'bh__spec', text: [c.year, stock.kmLabel(c), c.hp].filter(Boolean).join(' · ') }),
+        h('span', { class: 'bh__foot' }, [h('span', { class: 'bh__price', text: stock.priceLabel(c) }), h('span', { class: 'bh__cta' }, ['View the car', icon('right')])])
+      ]),
+      h('span', { class: 'xc__glare', 'aria-hidden': 'true' })
+    ]) : null;
+    return h('section', { class: 'bh', style: brandVars(b), 'aria-label': `${makeLabel(b)} cars` }, [
+      h('span', { class: 'bh__mark', 'aria-hidden': 'true' }, brandMark(makeLabel(b)) || ''),
+      h('div', { class: 'bh__head' }, [h('button', { class: 'bh__back', type: 'button', onclick: leaveBrand }, [icon('back'), 'All makes']), h('p', { class: 'bh__eyebrow', text: t.name })]),
+      h('h1', { class: 'bh__title', text: makeLabel(b) }),
+      h('p', { class: 'bh__sub', text: `${total} ${total === 1 ? 'car' : 'cars'} ${memory.tab === 'sold' ? 'sold' : 'in stock'}` }),
+      pic
+    ]);
+  }
+  function renderBanner(view, hero) {
     const b = memory.brand;
     list.setAttribute('style', b ? brandVars(b) : '');
     list.classList.toggle('is-branded', !!b);
-    if (!b) { banner.replaceChildren(); return; }
-    const t = brandTheme(b);
-    const n = stock.queryStock({ tab: memory.tab, brand: b }).length;
-    banner.replaceChildren(h('section', { class: 'bb', style: brandVars(b), 'aria-label': `${makeLabel(b)} cars` }, [
-      h('span', { class: 'bb__mark', 'aria-hidden': 'true' }, brandMark(makeLabel(b)) || ''),
-      h('div', { class: 'bb__txt' }, [h('small', { text: t.name }), h('h2', { text: makeLabel(b) }), h('p', { text: `${n} ${n === 1 ? 'car' : 'cars'} ${memory.tab === 'sold' ? 'sold' : 'in stock'}` })]),
-      h('button', { class: 'bb__x', type: 'button', 'aria-label': 'Show all makes', 'data-tip': 'All makes', onclick: () => { Object.assign(memory, { brand: '', model: '', shown: STEP }); brands.set(''); renderFilters(); render(true); } }, icon('close'))
-    ]));
+    shopMain.setAttribute('style', b ? brandVars(b) : '');
+    shopMain.classList.toggle('is-brand-page', !!b);
+    bar.el.setAttribute('style', b ? brandVars(b) : '');
+    bar.el.classList.toggle('is-brand-page', !!b);
+    if (!b) { banner.replaceChildren(); barFor = ''; return; }
+    if (!banner.firstChild) banner.append(heroSlot, barSlot);
+    const base = stock.queryStock({ tab: memory.tab, brand: b });
+    const key = `${memory.tab}|${b}`;
+    if (key !== barFor) { barFor = key; barUi = buildBar(base); barSlot.replaceChildren(barUi.el); }
+    barUi.sync(view.length);
+    heroSlot.replaceChildren(brandHero(hero, b, base.length));
   }
 
   function renderFilters() {
@@ -147,11 +216,14 @@ export function mountShop(root) {
 
   let shownBefore = 0;
   function render(reset = false) {
-    const cars = stock.queryStock(memory);
-    count.textContent = `${cars.length} ${cars.length === 1 ? 'car' : 'cars'}${memory.brand ? ` · ${makeLabel(memory.brand)}` : ''}`;
-    renderBanner();
+    const found = stock.queryStock(memory);
+    const view = memory.brand ? brandView(found) : found;
+    const hero = memory.brand ? pickHero(view) : null;
+    const cars = hero ? view.filter((c) => c !== hero) : view;
+    count.textContent = `${view.length} ${view.length === 1 ? 'car' : 'cars'}${memory.brand ? ` · ${makeLabel(memory.brand)}` : ''}`;
+    renderBanner(view, hero);
     if (reset) { clear(list); shownBefore = 0; }
-    if (!cars.length) { clear(list); list.append(h('p', { class: 'empty', text: 'No cars match your search.' })); }
+    if (!view.length) { clear(list); list.append(h('p', { class: 'empty', text: memory.brand ? 'No cars match these filters.' : 'No cars match your search.' })); missed(); }
     /* only the new page of cards is added, so cards already on screen don't flash */
     cars.slice(shownBefore, memory.shown).forEach((c, i) => list.append(card(c, !c.sold && !!stock.configuratorMatch(c), i)));
     shownBefore = Math.min(cars.length, memory.shown);
@@ -202,7 +274,7 @@ export function mountShopCar(root, id) {
   track.addEventListener('keydown', (e) => { if (e.key === 'ArrowRight') go(index + 1); if (e.key === 'ArrowLeft') go(index - 1); });
 
   const match = stock.configuratorMatch(c);
-  const badge = c.sold ? 'Sold' : c.newArrival ? 'New arrival' : null;
+  const badge = c.sold ? 'Sold' : null;
   const name = c.title;
 
   const bar = topBar({ back: '#/shop', backLabel: 'Back to shop', action: h('button', { class: 'tb__btn', type: 'button', 'aria-label': 'Copy link', 'data-tip': 'Copy link', 'data-tip-desc': 'Share this car', onclick: () => navigator.clipboard?.writeText(location.href).then(() => toast('Link copied'), () => toast('Copy is not available')) }, icon('share')) });

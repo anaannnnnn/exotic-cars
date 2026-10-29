@@ -37,3 +37,22 @@ export async function api(path, { method = 'GET', body, timeout = 8000 } = {}) {
 }
 
 export const unavailable = (e) => !(e instanceof ApiError) || e.status === 404 || e.status === 405 || e.status === 503 || e.status >= 500;
+
+/** Tell the dealership what a customer asked for that the stock does not have (counted in the CRM). Never blocks the page. */
+export function reportDemand({ query, filters, source = 'concierge' }) {
+  const f = filters || {};
+  const clean = Object.fromEntries(['brand', 'body', 'colour', 'from', 'to', 'kmMax', 'hpMin'].filter((k) => f[k] != null).map((k) => [k, f[k]]));
+  return api('demand', { method: 'POST', body: { query: String(query || '').slice(0, 200), brand: clean.brand || null, body: clean.body || null, colour: clean.colour || null, yearFrom: clean.from || null, yearTo: clean.to || null, source } }).catch(() => null);
+}
+
+/* ---------- the AI concierge (Gemini on the server): text, voice in, natural voice out ---------- */
+let aiState = null;
+/** { ai, voice }: whether the server has the AI switched on. Asked once; a missing backend simply means "no". */
+export const aiStatus = () => (aiState ||= api('concierge/status', { timeout: 5000 }).catch(() => ({ ai: false, voice: false })));
+export const aiAsk = (body) => api('concierge', { method: 'POST', body, timeout: 30000 });
+export const aiAskVoice = (body) => api('concierge/voice', { method: 'POST', body, timeout: 45000 });
+export async function aiSpeech(text) {
+  const res = await fetch(`${ROOT}concierge/speak`, { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text }), signal: AbortSignal.timeout(30000) });
+  if (!res.ok) throw new ApiError(res.status, null);
+  return res.blob();
+}

@@ -117,9 +117,22 @@ export const staffConfigured = async () => (await staffMode()) !== 'setup';
 /* which version of the login a session was issued for: changing the password ends every other session */
 const loginVersion = (mode, acct) => (mode === 'env' || mode === 'default' ? mode : acct.passwordChangedAt || acct.createdAt);
 
-/** Check a sign-in. Returns { email, v } for a session, or null. */
+/* ---------- the team: named logins with a role (owner, manager, sales, service), one record each in the CRM store ---------- */
+export const ROLES = ['owner', 'manager', 'sales', 'service'];
+export const memberId = (email) => createHash('sha256').update(`staff:${String(email).trim().toLowerCase()}`).digest('hex').slice(0, 24);
+export const findMember = (email) => store('crm').get(`staff/${memberId(email)}`, { type: 'json' });
+const memberVersion = (m) => `u:${m.passwordChangedAt || m.createdAt}`;
+
+/** Check a sign-in. Returns { email, v, role, name, uid } for a session, or null. */
 export async function checkStaffCredentials(email, password) {
   const got = String(email || '').trim().toLowerCase();
+  const member = await findMember(got).catch(() => null);
+  if (member) {
+    const ok = await verifyPassword(password, member.passwordHash);
+    if (!ok || member.active === false) return null;
+    await store('crm').setJSON(`staff/${member.id}`, { ...member, lastLoginAt: new Date().toISOString() }).catch(() => {});
+    return { email: member.email, v: memberVersion(member), role: member.role, name: member.name, uid: member.id, branch: member.branch || null };
+  }
   const mode = await staffMode();
   if (mode === 'env') {
     const want = String(process.env.ADMIN_EMAIL).trim().toLowerCase();
@@ -168,7 +181,7 @@ export async function changeStaffPassword(current, next) {
 }
 
 export async function staffToken(login) {
-  return signToken({ sub: login.email, role: 'staff', v: login.v }, STAFF_TTL);
+  return signToken({ sub: login.email, role: 'staff', r: login.role || 'owner', n: login.name || null, uid: login.uid || null, v: login.v }, STAFF_TTL);
 }
 
 /** The staff session, or 401. A session only counts for the login (and password) it was issued for. */
@@ -176,6 +189,11 @@ export async function requireStaff(req) {
   const data = await verifyToken(cookies(req)[STAFF_COOKIE]);
   const deny = () => new HttpError(401, 'Unauthorized', 'Sign in to the CRM to continue.');
   if (!data || data.role !== 'staff') throw deny();
+  if (data.uid) {
+    const m = await store('crm').get(`staff/${data.uid}`, { type: 'json' });
+    if (!m || m.active === false || data.v !== memberVersion(m)) throw deny();
+    return { sub: m.email, email: m.email, role: m.role, name: m.name, uid: m.id, branch: m.branch || null, exp: data.exp };
+  }
   const mode = await staffMode();
   if (mode === 'env') {
     if (data.v !== 'env' || !sameText(data.sub, String(process.env.ADMIN_EMAIL).trim().toLowerCase())) throw deny();
@@ -185,7 +203,8 @@ export async function requireStaff(req) {
     const acct = mode === 'stored' ? await storedStaff() : null;
     if (!acct || data.v !== loginVersion('stored', acct) || data.sub !== acct.email) throw deny();
   }
-  return data;
+  /* the shop's own login (environment, built-in or set in the CRM) is the owner */
+  return { sub: data.sub, email: data.sub, role: 'owner', name: data.n || 'Owner', uid: null, branch: null, exp: data.exp };
 }
 
 /* ---------- customers ---------- */

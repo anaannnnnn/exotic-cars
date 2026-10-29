@@ -5,7 +5,7 @@
  *  - reveal: `.rv` elements rise into place the first time they scroll into view (staggered by --i).
  */
 const SEL = '.pill, .qtile, .notch-btn, .svc, .talk__card, .vrc, .slot, .chip2, .btile, .ncard';
-const reduced = () => document.documentElement.dataset.motion === 'reduce' || matchMedia('(prefers-reduced-motion: reduce)').matches;
+const reduced = () => document.documentElement.dataset.motion === 'reduce' || false;
 
 export function initFx() {
   document.addEventListener('pointermove', (e) => {

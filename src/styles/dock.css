@@ -13,8 +13,8 @@
   --dk-icon: rgba(255, 255, 255, 0.58);
   --dk-icon-hi: #ffffff;
   --dk-ink: #ffffff;
-  --dk-red: #d4182c;
-  --dk-red-deep: #8e0c1f;
+  --dk-red: #39ff88;
+  --dk-red-deep: #12b85a;
   --dk-ease: cubic-bezier(0.33, 1, 0.68, 1);       /* ease-out-cubic */
   --dk-fade: #efeee9;                              /* the bottom of the ambient page background (pages.css) */
 }
@@ -67,7 +67,7 @@ body.dock-off::after { opacity: 0; }
 .dk__spill {
   position: absolute; z-index: -1; left: 0; top: 50%; height: calc(var(--dk-h) * 2.1); margin-top: calc(var(--dk-h) * -1.05);
   border-radius: 50%; pointer-events: none; will-change: transform;
-  background: radial-gradient(closest-side, rgba(212, 24, 44, 0.5), rgba(212, 24, 44, 0.18) 55%, rgba(212, 24, 44, 0) 100%);
+  background: radial-gradient(closest-side, rgba(57, 255, 136, 0.5), rgba(57, 255, 136, 0.18) 55%, rgba(57, 255, 136, 0) 100%);
   opacity: var(--dk-spill-o, 1); animation: dk-breathe 3.6s ease-in-out infinite;
 }
 @keyframes dk-breathe { 50% { opacity: calc(var(--dk-spill-o, 1) * 0.68); } }
@@ -79,11 +79,11 @@ body.dock-off::after { opacity: 0; }
   background: var(--sel-fill);
   box-shadow:
     inset 0 1px 0.5px rgba(255, 255, 255, 0.95),
-    inset 0 -3px 7px rgba(70, 0, 10, 0.38),
-    0 0 0 1px rgba(212, 24, 44, 0.7),
-    0 0 12px rgba(212, 24, 44, 0.62),
-    0 0 28px rgba(212, 24, 44, 0.34),
-    0 8px 20px -6px rgba(160, 14, 34, 0.75);
+    inset 0 -3px 7px rgba(57, 255, 136, 0.38),
+    0 0 0 1px rgba(57, 255, 136, 0.7),
+    0 0 12px rgba(57, 255, 136, 0.62),
+    0 0 28px rgba(57, 255, 136, 0.34),
+    0 8px 20px -6px rgba(57, 255, 136, 0.75);
 }
 /* the sheen that crosses the lens as it lands */
 .dk__sheen { position: absolute; inset: 0; border-radius: inherit; background: linear-gradient(105deg, rgba(255, 255, 255, 0) 30%, rgba(255, 255, 255, 0.75) 48%, rgba(255, 255, 255, 0) 64%); translate: -110% 0; }
@@ -117,7 +117,7 @@ body.dock-off::after { opacity: 0; }
 @media (hover: hover) and (pointer: fine) {
   .dk__item:not(.is-lit):hover { color: var(--dk-icon-hi); }
 }
-.dk__item:focus-visible { outline: 2px solid var(--dk-red); outline-offset: 2px; box-shadow: 0 0 0 6px rgba(212, 24, 44, 0.25); }
+.dk__item:focus-visible { outline: 2px solid var(--dk-red); outline-offset: 2px; box-shadow: 0 0 0 6px rgba(57, 255, 136, 0.25); }
 
 /* account at the end, after a hairline */
 .dk__sep { position: relative; z-index: 2; flex: none; width: 1px; height: 26px; margin: 0 5px; background: linear-gradient(180deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0)); }
@@ -128,6 +128,14 @@ body.dock-off::after { opacity: 0; }
 }
 .dk__item.is-lit .dk__avatar { background: var(--dk-ink); color: var(--dk-red); box-shadow: none; }
 
+/* Compact active state: a precise moving underline instead of the former inflated red capsule. */
+.dk__spill { display: none; }
+.dk__lens { top: auto; bottom: 5px; height: 3px; border-radius: 3px; overflow: visible; background: #7dffb3; box-shadow: 0 0 0 1px rgba(57, 255, 136, 0.16), 0 0 10px rgba(57, 255, 136, 0.48); }
+.dk__sheen { display: none; }
+.dk__lbl { display: none !important; }
+.dk__item.is-lit { color: #fff; }
+.dk__item.is-lit .dk__avatar { background: var(--dk-red); color: #fff; }
+
 /* ---------- thumb scrubbing ---------- */
 .dk.is-scrub .dk__item { transition-duration: 90ms; }
 .dk.is-scrub .dk__item:not(.is-lit) { color: rgba(255, 255, 255, 0.4); }
@@ -135,8 +143,8 @@ body.dock-off::after { opacity: 0; }
 .dk__tag {
   position: absolute; z-index: 3; left: 0; bottom: calc(100% + 14px); pointer-events: none; white-space: nowrap;
   padding: 7px 12px; border-radius: 999px; font-size: 12px; font-weight: 650; letter-spacing: 0.01em; color: var(--dk-ink);
-  background: linear-gradient(180deg, #ff6f7b, var(--dk-red));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 0 0 1px rgba(212, 24, 44, 0.6), 0 0 18px rgba(212, 24, 44, 0.45), 0 10px 20px -10px rgba(10, 10, 11, 0.5);
+  background: linear-gradient(180deg, #7dffb3, var(--dk-red));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 0 0 1px rgba(57, 255, 136, 0.6), 0 0 18px rgba(57, 255, 136, 0.45), 0 10px 20px -10px rgba(10, 10, 11, 0.5);
   margin-left: 0; translate: -50% 6px; opacity: 0; scale: 0.25; filter: blur(4px); transform-origin: 50% 100%;
   transition-property: opacity, scale, filter, translate; transition-duration: 220ms; transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
 }
@@ -167,8 +175,8 @@ body.dock-off::after { opacity: 0; }
 .dk-handle:active { scale: 0.96; }
 .dk-handle__ic {
   width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; color: var(--dk-ink);
-  background: linear-gradient(180deg, #ff6f7b, var(--dk-red) 50%, var(--dk-red-deep));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 0 0 1px rgba(212, 24, 44, 0.6), 0 0 14px rgba(212, 24, 44, 0.5);
+  background: linear-gradient(180deg, #7dffb3, var(--dk-red) 50%, var(--dk-red-deep));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 0 0 1px rgba(57, 255, 136, 0.6), 0 0 14px rgba(57, 255, 136, 0.5);
 }
 .dk-handle__ic svg { width: 16px; height: 16px; stroke-width: 2; }
 .dk-handle__ic .dk__avatar { width: 32px; height: 32px; background: transparent; box-shadow: none; }
@@ -184,7 +192,7 @@ body.dock-off::after { opacity: 0; }
 }
 
 /* ---------- preferences ---------- */
-@media (prefers-reduced-motion: reduce) {
+@media not all {
   .dk, .dk-handle { transition-duration: 0ms !important; }
   .dk__spill, .dkw.is-enter .dk, .dkw.is-enter .dk__item, .dkw.is-enter .dk__lens, .dkw.is-enter .dk__spill, .dk__lens.is-land .dk__sheen { animation: none !important; }
   .dk__ic { transition: none; }

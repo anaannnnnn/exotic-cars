@@ -22,15 +22,14 @@ export function mountVR(root) {
     const m = stock.stockModels3d(c)[0];
     const name = c.title;
     const media = h('span', { class: 'vrc__img' }, h('img', { src: stock.coverUrl(c), alt: '', loading: 'lazy', onerror: stock.coverError(c) }));
-    const btn = h('button', { class: 'vrc', type: 'button', 'data-tip': 'Open in VR', 'data-tip-desc': 'Headset, phone AR or 360° on screen', onclick: () => launchVRModel(m, name) }, [
+    /* tapping the card reveals "See more details" and "Open in VR" (ui/motion.js) - no icon button on the card */
+    const btn = h('a', { class: 'vrc', href: `#/shop/${c.id}`, 'data-vr': '1', 'data-tip': name, 'data-tip-desc': 'Headset, phone AR or 360° on screen' }, [
       media,
       h('span', { class: 'vrc__body' }, [h('b', { text: name }), h('small', { text: [c.year, LABEL[c.brand] || c.brand].filter(Boolean).join(' · ') })])
     ]);
+    btn.addEventListener('vropen', () => launchVRModel(m, name));
     const wrap = h('div', { class: 'scw', style: `--i:${i % 18}` });
-    const bite = biteFor(40, 50);
-    notch(btn, { r: 24, n: bite, k: 12, sizeVar: wrap });
-    notch(media, { r: 19, n: (w) => bite(w + 10) - 5, k: 9 });
-    wrap.append(btn, h('button', { class: 'notch-btn notch-btn--sm', type: 'button', 'aria-label': `Open ${name} in VR`, onclick: () => launchVRModel(m, name) }, icon('vr')));
+    wrap.append(btn);
     return wrap;
   }
   function render() {

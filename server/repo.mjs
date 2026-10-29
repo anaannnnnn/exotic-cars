@@ -4,15 +4,16 @@ import { randomBytes } from 'node:crypto';
 import { HttpError } from './http.mjs';
 import { readDoc, updateDoc, writeDoc, listKeys, getMany, getRecord, putRecord, deleteRecord, newId, newRef, store, audit } from './store.mjs';
 import { LEAD_STATUSES, APPOINTMENT_STATUSES } from './schemas.mjs';
+import { publish } from './bus.mjs';
 
 /*
  * The dealership's data and what the API can do with it. Cars and products are one document each (the public site
  * reads them whole); CRM records are one key each. Nothing here knows about HTTP beyond throwing HttpError.
  */
-const now = () => new Date().toISOString();
+export const now = () => new Date().toISOString();
 const today = () => new Date().toISOString().slice(0, 10);
-const norm = (s) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-const page = (rows, { limit, offset }) => ({
+export const norm = (s) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+export const page = (rows, { limit, offset }) => ({
   data: rows.slice(offset, offset + limit),
   pagination: { total: rows.length, limit, offset, next: offset + limit < rows.length ? offset + limit : null }
 });
@@ -308,18 +309,22 @@ async function createOnce(kind, record) {
   return record;
 }
 
-export async function createLead(input, customer) {
+export async function createLead(input, customer, extra = {}) {
   const { website, ref, ...data } = input;
   const at = now();
-  return createOnce('lead', {
+  const lead = await createOnce('lead', {
     id: newId(), ref: ref || newRef('EX'), status: 'new', ...data,
     value: data.configuration?.total ?? null,
     customerId: customer?.sub || null,
-    notes: [], history: [{ at, status: 'new' }], createdAt: at, updatedAt: at
+    origin: 'customer', branch: extra.branch || 'dubai', assignee: null,
+    notes: [], history: [{ at, status: 'new' }], events: [{ at, kind: 'created', text: `Enquiry from ${data.source || 'the website'}${data.type === 'configuration' ? ' with a 3D build' : ''}` }],
+    stageAt: at, lastTouchAt: null, createdAt: at, updatedAt: at, ...extra
   });
+  if (!lead.duplicate) publish('lead.new', { id: lead.id, ref: lead.ref, name: lead.name, car: lead.car?.title || null, origin: lead.origin, source: lead.source || null });
+  return lead;
 }
 
-async function all(prefix) {
+export async function all(prefix) {
   return getMany('crm', await listKeys('crm', prefix));
 }
 
@@ -341,19 +346,35 @@ export async function getLead(id) {
 }
 
 /* record edits go through updateDoc too, so two people annotating the same lead never overwrite each other */
-const editRecord = (key, what, fn) => updateDoc('crm', key, fn, { missing: () => new HttpError(404, 'Not found', `There is no ${what} with that id.`) });
+export const editRecord = (key, what, fn) => updateDoc('crm', key, fn, { missing: () => new HttpError(404, 'Not found', `There is no ${what} with that id.`) });
 
-export function patchLead(id, patch, by) {
+export function patchLead(id, patch, by, actorEmail) {
   return editRecord(`leads/${id}`, 'lead', (l) => {
     const at = now();
     const next = { ...l, ...patch, updatedAt: at };
-    if (patch.status && patch.status !== l.status) next.history = [...(l.history || []), { at, status: patch.status, by }];
+    if (patch.status && patch.status !== l.status) {
+      if (l.ownedId && ['new', 'contacted', 'qualified', 'negotiating', 'lost'].includes(patch.status)) throw new HttpError(409, 'Already sold', 'This car has been handed over to the buyer, so the lead cannot be reopened.');
+      if (patch.status === 'won') {
+        const d = l.deal;
+        if (!d || !(d.finalPrice > 0)) throw new HttpError(409, 'Agree the price first', 'Open the deal, check the price and save it before marking this lead won.');
+        if (d.approval && !['none', 'approved'].includes(d.approval.status)) throw new HttpError(409, 'Discount not approved', d.approval.status === 'pending' ? 'The discount on this deal is waiting for a manager to approve it.' : 'The discount on this deal was not approved. Change the price and ask again.');
+        next.value = d.finalPrice;
+        next.wonAt = at;
+      }
+      if (l.status === 'new' && ['contacted', 'qualified', 'negotiating'].includes(patch.status) && !(l.touches || []).some((t) => t.outcome !== 'no-answer')) throw new HttpError(409, 'Log the contact first', 'Call or message the customer and record it with Log contact, then move the lead on.');
+      if (!l.assignee && actorEmail) { next.assignee = actorEmail; next.events = [...(next.events || l.events || []), { at, kind: 'assign', by, text: `Assigned to ${actorEmail}` }]; }
+      next.history = [...(l.history || []), { at, status: patch.status, by }];
+      next.events = [...(l.events || []), { at, kind: 'stage', by, text: `Moved to ${patch.status}` }];
+      next.stageAt = at;
+      next.lastTouchAt = at;
+    }
+    if (patch.assignee !== undefined && patch.assignee !== l.assignee) next.events = [...(next.events || []), { at, kind: 'assign', by, text: patch.assignee ? `Assigned to ${patch.assignee}` : 'Unassigned' }];
     return next;
-  });
+  }).then((l) => { publish('lead.updated', { id: l.id, ref: l.ref, status: l.status, by }); return l; });
 }
 
 export function addLeadNote(id, text, by) {
-  return editRecord(`leads/${id}`, 'lead', (l) => ({ ...l, notes: [...(l.notes || []), { at: now(), by, text }], updatedAt: now() }));
+  return editRecord(`leads/${id}`, 'lead', (l) => ({ ...l, notes: [...(l.notes || []), { at: now(), by, text }], events: [...(l.events || []), { at: now(), kind: 'note', by, text }], lastTouchAt: now(), updatedAt: now() }));
 }
 
 export async function deleteLead(id) {
@@ -367,7 +388,9 @@ export async function deleteLead(id) {
 export async function createAppointment(input, customer) {
   const { website, ref, ...data } = input;
   const at = now();
-  return createOnce('appointment', { id: newId(), ref: ref || newRef('AA'), status: 'requested', ...data, customerId: customer?.sub || null, staffNotes: [], history: [{ at, status: 'requested' }], createdAt: at, updatedAt: at });
+  const a = await createOnce('appointment', { id: newId(), ref: ref || newRef('AA'), status: 'requested', ...data, customerId: customer?.sub || null, branch: 'dubai', staffNotes: [], history: [{ at, status: 'requested' }], createdAt: at, updatedAt: at });
+  if (!a.duplicate) publish('appointment.new', { id: a.id, ref: a.ref, name: a.name, service: a.service });
+  return a;
 }
 
 export async function listAppointments(q) {
@@ -457,8 +480,8 @@ export async function deleteCustomer(id) {
 
 /* ======================================================================================== dashboard */
 export async function stats() {
-  const [carsDoc, leads, appts, customers, imported] = await Promise.all([
-    readDoc('catalog', 'cars'), all('leads/'), all('appointments/'), all('customers/'), importStatus()
+  const [carsDoc, leads, appts, customers, imported, jobs] = await Promise.all([
+    readDoc('catalog', 'cars'), all('leads/'), all('appointments/'), all('customers/'), importStatus(), all('jobs/')
   ]);
   const cars = carsDoc?.data.cars || [];
   const sale = cars.filter((c) => !c.sold && !c.hidden);
@@ -489,7 +512,8 @@ export async function stats() {
       total: appts.length, byStatus: apptBy, upcoming: upcoming.length, today: appts.filter((a) => a.date === t && a.status !== 'cancelled').length,
       next: upcoming.slice(0, 6).map(({ id, ref, name, service, car, date, slot, status }) => ({ id, ref, name, service, car, date, slot, status }))
     },
-    customers: { total: customers.length, last30: customers.filter((c) => c.createdAt >= since(30)).length }
+    customers: { total: customers.length, last30: customers.filter((c) => c.createdAt >= since(30)).length },
+    workshop: { requested: jobs.filter((j) => j.status === 'requested').length, open: jobs.filter((j) => !['delivered', 'cancelled'].includes(j.status)).length, awaitingQuote: jobs.filter((j) => j.status === 'quoted').length }
   };
 }
 

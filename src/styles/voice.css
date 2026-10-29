@@ -1,0 +1,75 @@
+/* ==========================================================================
+   Voice: voice bites on answers, the mic, the call sheet and the hands-free voice call
+   ========================================================================== */
+.vbite { display: inline-flex; align-items: center; gap: 8px; height: 34px; padding: 0 14px 0 6px; width: fit-content; border-radius: var(--pill); background: var(--surface); box-shadow: var(--shadow-1); color: var(--ink); font-size: 12.5px; font-weight: 600; transition: scale 160ms var(--ease-out), background-color 160ms; }
+.vbite:active { scale: 0.96; }
+.vbite__ic { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; background: #0a0a0b; color: #fff; }
+.vbite__ic svg { width: 13px; height: 13px; stroke-width: 2; }
+.vbite__wave { display: none; align-items: center; gap: 2px; height: 14px; }
+.vbite__wave i { width: 2.5px; height: 4px; border-radius: 2px; background: var(--sel-fill); }
+.vbite.is-playing .vbite__wave { display: inline-flex; }
+.vbite.is-playing .vbite__wave i { animation: vwave 900ms ease-in-out infinite; }
+.vbite.is-playing .vbite__wave i:nth-child(2) { animation-delay: 120ms; } .vbite.is-playing .vbite__wave i:nth-child(3) { animation-delay: 240ms; } .vbite.is-playing .vbite__wave i:nth-child(4) { animation-delay: 360ms; } .vbite.is-playing .vbite__wave i:nth-child(5) { animation-delay: 480ms; }
+.vbite.is-playing .vbite__ic { background: var(--sel-fill); }
+.vbite.is-playing .vbite__t { display: none; }
+@keyframes vwave { 0%, 100% { height: 4px; } 50% { height: 14px; } }
+
+.ask__mic { flex: none; width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; color: var(--ink); background: var(--paper); transition: scale 160ms var(--ease-out), background-color 160ms, color 160ms; position: relative; }
+.ask__mic svg { width: 19px; height: 19px; }
+.ask__mic:active { scale: 0.94; }
+.ask__mic[aria-pressed='true'] { background: var(--sel-fill); color: #fff; }
+.ask.is-listening .ask__mic::after { content: ''; position: absolute; inset: -4px; border-radius: 50%; border: 2px solid var(--sel-fill); animation: mic-ring 1.2s ease-out infinite; }
+@keyframes mic-ring { from { opacity: 0.9; scale: 0.85; } to { opacity: 0; scale: 1.35; } }
+.circle-btn--call { background: #0a0a0b; color: #fff; }
+:root[data-theme='dark'] .circle-btn--call { background: var(--sel-fill); }
+
+/* the call sheet */
+.callways { display: grid; gap: 10px; }
+.callway { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 68px; padding: 10px 16px 10px 10px; border-radius: 24px; background: var(--surface); color: var(--ink); box-shadow: var(--shadow-1); text-align: left; transition: scale 160ms var(--ease-out), box-shadow 160ms; }
+.callway:active { scale: 0.98; }
+@media (hover: hover) and (pointer: fine) { .callway:hover { box-shadow: var(--shadow-2); } }
+.callway__ic { flex: none; width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center; background: var(--paper); }
+.callway__ic svg { width: 21px; height: 21px; }
+.callway__t { flex: 1; display: grid; gap: 2px; min-width: 0; }
+.callway__t b { font-size: 15.5px; font-weight: 600; letter-spacing: -0.01em; }
+.callway__t small { font-size: 12.5px; color: var(--muted); }
+.callway__go svg { width: 18px; height: 18px; color: var(--muted); }
+.callway--ring .callway__ic { background: #1f8a58; color: #fff; }
+.callway--ai { background: #0a0a0b; color: #fff; }
+.callway--ai .callway__t small, .callway--ai .callway__go svg { color: rgba(255, 255, 255, 0.62); }
+.callway--ai .callway__ic { background: var(--sel-fill); color: #fff; }
+
+/* the voice call: a full-screen dark room with a breathing orb */
+.vc { position: fixed; inset: 0; z-index: 200; display: flex; flex-direction: column; padding: calc(env(safe-area-inset-top) + 18px) 22px calc(env(safe-area-inset-bottom) + 22px); color: #fff; background: radial-gradient(70% 55% at 50% 38%, #3a0f17 0%, #120a0c 55%, #070506 100%); opacity: 0; transition: opacity 260ms var(--ease-out); }
+.vc.is-in { opacity: 1; }
+.vc__top { display: flex; align-items: center; justify-content: space-between; }
+.vc__who { display: grid; line-height: 1.25; } .vc__who b { font-size: 17px; font-weight: 600; } .vc__who small { color: rgba(255, 255, 255, 0.6); font-size: 12.5px; }
+.vc__time { font-variant-numeric: tabular-nums; color: rgba(255, 255, 255, 0.7); font-size: 14px; }
+.vc__mid { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; text-align: center; padding-block: 12px; overflow-y: auto; }
+.vc__orb { position: relative; width: 148px; height: 148px; display: grid; place-items: center; margin-bottom: 14px; cursor: pointer; flex: none; }
+.vc__orb span { position: relative; z-index: 2; width: 92px; height: 92px; border-radius: 50%; display: grid; place-items: center; background: radial-gradient(circle at 35% 28%, #ff6a78, #39ff88 55%, #7a0c1a); box-shadow: 0 0 60px rgba(57, 255, 136, 0.55), inset 0 2px 8px rgba(255, 255, 255, 0.35); }
+.vc__orb svg { width: 36px; height: 36px; stroke-width: 1.5; }
+.vc__orb i { position: absolute; inset: 0; border-radius: 50%; border: 1.5px solid rgba(255, 90, 106, 0.5); opacity: 0; }
+.vc[data-state='listening'] .vc__orb i, .vc[data-state='speaking'] .vc__orb i { animation: vc-ring 2.2s ease-out infinite; }
+.vc__orb i:nth-child(2) { animation-delay: 0.7s !important; } .vc__orb i:nth-child(3) { animation-delay: 1.4s !important; }
+.vc[data-state='speaking'] .vc__orb span { animation: vc-pulse 700ms ease-in-out infinite alternate; }
+.vc[data-state='thinking'] .vc__orb span { animation: vc-think 1.2s linear infinite; }
+@keyframes vc-ring { from { opacity: 0.7; scale: 0.62; } to { opacity: 0; scale: 1.5; } }
+@keyframes vc-pulse { to { scale: 1.1; } }
+@keyframes vc-think { 0%, 100% { scale: 0.96; } 50% { scale: 1.04; } }
+.vc__status { font-size: 13px; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255, 255, 255, 0.6); font-weight: 600; }
+.vc__heard { min-height: 1.4em; font-size: 15px; color: rgba(255, 255, 255, 0.55); max-width: 30ch; }
+.vc__said { font-size: clamp(19px, 5.2vw, 26px); line-height: 1.25; font-weight: 500; letter-spacing: -0.015em; max-width: 26ch; text-wrap: balance; }
+.vc__cars { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 6px; }
+.vc__car { display: grid; gap: 6px; width: 116px; font-size: 11.5px; line-height: 1.25; color: rgba(255, 255, 255, 0.85); }
+.vc__car img { width: 100%; aspect-ratio: 3 / 2; object-fit: cover; border-radius: 16px; background: #000; }
+.vc__bar { display: flex; justify-content: center; align-items: center; gap: 16px; padding: 8px 0 14px; }
+.vc__btn { width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center; background: rgba(255, 255, 255, 0.12); color: #fff; transition: scale 160ms var(--ease-out), background-color 160ms; }
+.vc__btn svg { width: 22px; height: 22px; } .vc__btn:active { scale: 0.94; } .vc__btn.is-on { background: #fff; color: #0a0a0b; }
+.vc__end { display: inline-flex; align-items: center; gap: 10px; height: 56px; padding: 0 28px; border-radius: 999px; background: #39ff88; color: #fff; font-weight: 600; font-size: 15px; box-shadow: 0 10px 30px -10px rgba(57, 255, 136, 0.7); transition: scale 160ms var(--ease-out); }
+.vc__end:active { scale: 0.96; } .vc__end svg { width: 20px; height: 20px; }
+.vc__type { max-width: 440px; width: 100%; margin: 0 auto; background: rgba(255, 255, 255, 0.1); box-shadow: none; }
+.vc__type .ask__input { color: #fff; } .vc__type .ask__input::placeholder { color: rgba(255, 255, 255, 0.5); }
+@media not all { .vc__orb i, .vc__orb span, .vbite__wave i, .ask.is-listening .ask__mic::after { animation: none !important; } }
+.ask.is-listening .ask__mic { box-shadow: 0 0 0 calc(var(--lvl, 0) * 12px) rgba(57, 255, 136, 0.28); transition: box-shadow 80ms linear; }
+.vc[data-state='listening'] .vc__orb span { scale: calc(1 + var(--lvl, 0) * 0.16); transition: scale 80ms linear; }

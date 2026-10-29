@@ -24,7 +24,7 @@ const STEP = 1 / 240;   /* physics sub-step, s */
 let lastIndex = null;
 let entered = false;
 
-const reduced = () => document.documentElement.dataset.motion === 'reduce' || matchMedia('(prefers-reduced-motion: reduce)').matches;
+const reduced = () => document.documentElement.dataset.motion === 'reduce' || false;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const px = (v) => `${v.toFixed(2)}px`;
 

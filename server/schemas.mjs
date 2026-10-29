@@ -89,6 +89,22 @@ export const productFields = {
 export const productCreate = z.object(productFields);
 export const productPatch = z.object(productFields).partial().refine((o) => Object.keys(o).length > 0, 'Nothing to change');
 
+/* ---------- homepage promotions ---------- */
+const promoHref = z.string().trim().max(2048).refine((v) => /^#\/[a-z0-9/?&=._%+-]*$/i.test(v) || /^https:\/\/[^\s<>\"]+$/i.test(v), 'Use a website route beginning #/ or an https:// link');
+export const promotion = z.object({
+  id: z.string().trim().regex(/^[a-z0-9-]{4,80}$/i),
+  title: str(120, 2),
+  eyebrow: optStr(60),
+  body: optStr(220),
+  brand: optStr(40),
+  image: safeUrl,
+  cta: str(40, 1).default('Explore'),
+  href: promoHref.default('#/shop'),
+  active: z.boolean().default(true),
+  order: z.coerce.number().int().min(0).max(999).default(0)
+});
+export const promotionsPut = z.object({ items: z.array(promotion).max(20) });
+
 /* ---------- public forms ---------- */
 const configuration = z.object({
   paint: optStr(200),
@@ -121,9 +137,12 @@ export const appointmentCreate = z.object({
   phone,
   email: optEmail,
   notes: optStr(2000),
+  ownedId: optStr(40),
+  pickupAddress: optStr(300),
   website: honeypot
 });
 
+export const customerStaffCreate = z.object({ name: str(80, 2), email, phone: z.union([phone, z.literal('')]).optional().nullable() });
 export const register = z.object({ name: str(80, 2), email, phone: z.union([phone, z.literal('')]).optional().nullable(), password: z.string().min(8, 'Use at least 8 characters').max(128) });
 export const login = z.object({ email, password: z.string().min(1).max(128) });
 export const staffLogin = z.object({ email: z.string().trim().max(254), password: z.string().min(1).max(256) });
@@ -140,7 +159,9 @@ export const leadPatch = z.object({
   phone: phone.optional(),
   email: optEmail,
   message: optStr(2000),
-  value: z.coerce.number().min(0).max(1e10).optional().nullable()
+  value: z.coerce.number().min(0).max(1e10).optional().nullable(),
+  assignee: z.string().trim().max(254).optional().nullable().transform((v) => (v === undefined ? undefined : v || null)),
+  branch: z.string().trim().max(24).optional()
 }).refine((o) => Object.keys(o).length > 0, 'Nothing to change');
 export const appointmentPatch = z.object({
   status: z.enum(APPOINTMENT_STATUSES).optional(),
@@ -181,5 +202,83 @@ export const listQuery = z.object({
   status: z.string().trim().max(30).optional(),
   make: z.string().trim().max(40).optional(),
   category: z.string().trim().max(20).optional(),
-  sort: z.string().trim().max(30).optional()
+  sort: z.string().trim().max(30).optional(),
+  mine: z.enum(['1']).optional(),
+  assignee: z.string().trim().max(254).optional(),
+  branch: z.string().trim().max(24).optional(),
+  band: z.enum(['hot', 'warm', 'cool']).optional(),
+  sla: z.enum(['overdue', 'due', 'ok']).optional(),
+  source: z.string().trim().max(30).optional(),
+  approval: z.string().trim().max(20).optional()
 });
+
+/* ---------- the deal desk, the team, the workshop ---------- */
+export const SOURCES = ['website', 'configurator', 'phone', 'walk-in', 'whatsapp', 'instagram', 'referral', 'event', 'other'];
+export const leadStaffCreate = z.object({
+  name: str(80, 2), phone, email: optEmail, message: optStr(2000),
+  source: z.enum(SOURCES).default('phone'),
+  type: z.enum(['configuration', 'viewing', 'general']).default('viewing'),
+  car: z.object({ id: z.union([z.number().int(), z.string().max(80)]).optional().nullable(), title: str(160) }).optional().nullable(),
+  budget: z.coerce.number().min(0).max(1e10).optional().nullable(),
+  assignee: z.string().trim().max(254).optional().nullable(),
+  branch: z.string().trim().max(24).optional().nullable(),
+  status: z.enum(['new', 'contacted', 'qualified']).optional(),
+  confirmDuplicate: z.boolean().optional()
+});
+export const dealInput = z.object({
+  carId: z.union([z.number().int(), z.string().max(40)]).optional().nullable(),
+  listPrice: z.coerce.number().min(1).max(1e10).optional(),
+  finalPrice: z.coerce.number().min(0).max(1e10).optional(),
+  reason: z.string().trim().max(300).optional().nullable().transform((v) => v || null),
+  payment: z.enum(['cash', 'finance', 'lease', 'part-exchange']).optional().nullable(),
+  deposit: z.coerce.number().min(0).max(1e10).optional().nullable(),
+  tradeIn: z.object({ desc: optStr(200), value: z.coerce.number().min(0).max(1e10).optional().nullable() }).optional().nullable(),
+  notes: optStr(2000)
+});
+export const discountDecision = z.object({ decision: z.enum(['approved', 'rejected']), note: z.string().trim().max(300).optional().nullable() });
+export const touchInput = z.object({
+  kind: z.enum(['call', 'whatsapp', 'email', 'visit']),
+  outcome: z.enum(['connected', 'no-answer', 'left-message', 'not-interested', 'visit-booked', 'offer-made']).optional().nullable(),
+  note: z.string().trim().max(1000).optional().nullable(),
+  nextAt: z.string().trim().max(40).optional().nullable().refine((v) => !v || !Number.isNaN(Date.parse(v)), 'Choose a real date and time'),
+  nextText: z.string().trim().max(160).optional().nullable()
+});
+export const ROLES = ['owner', 'manager', 'sales', 'service'];
+export const teamCreate = z.object({ email, name: str(80, 2), role: z.enum(ROLES), branch: z.string().trim().max(24).optional().nullable(), password: staffPassword });
+export const teamPatch = z.object({ name: str(80, 2), role: z.enum(ROLES), branch: z.string().trim().max(24).nullable(), active: z.boolean(), password: staffPassword }).partial().refine((o) => Object.keys(o).length > 0, 'Nothing to change');
+export const demandInput = z.object({
+  query: z.string().trim().max(200).optional().nullable(), brand: z.string().trim().max(40).optional().nullable(), body: z.string().trim().max(30).optional().nullable(), colour: z.string().trim().max(30).optional().nullable(),
+  yearFrom: z.coerce.number().int().min(1950).max(thisYear + 2).optional().nullable(), yearTo: z.coerce.number().int().min(1950).max(thisYear + 2).optional().nullable(), source: z.enum(['concierge', 'shop', 'other']).default('other'), website: honeypot
+});
+export const JOB_STATUS = ['requested', 'scheduled', 'received', 'inspecting', 'quoted', 'approved', 'in-progress', 'qc', 'ready', 'delivered', 'cancelled'];
+export const jobPatch = z.object({
+  status: z.enum(JOB_STATUS), note: z.string().trim().max(500).nullable(), assignee: z.string().trim().max(254).nullable(),
+  eta: z.string().trim().max(40).nullable(), courtesy: z.boolean(), description: optStr(2000),
+  quote: z.object({ items: z.array(z.object({ label: str(120, 1), qty: z.coerce.number().int().min(1).max(100).optional(), price: z.coerce.number().min(0).max(1e8) })).min(1).max(40), note: optStr(500) }),
+  pickup: z.object({ needed: z.boolean(), address: optStr(300) }).partial(),
+  warranty: z.object({ covered: z.boolean() }).partial(),
+  invoice: z.object({ total: z.coerce.number().min(0).max(1e9), paid: z.boolean() }).partial()
+}).partial().refine((o) => Object.keys(o).length > 0, 'Nothing to change');
+export const trackQuery = z.object({ ref: z.string().trim().min(4).max(20), phone: z.string().trim().min(3).max(32) });
+export const quoteDecision = z.object({ decision: z.enum(['approved', 'declined']), ref: z.string().trim().max(20).optional(), phone: z.string().trim().max(32).optional() });
+export const handoverInput = z.object({ vin: optStr(32), plate: optStr(16), km: z.coerce.number().int().min(0).max(2_000_000).optional().nullable(), warrantyText: optStr(80), plan: z.enum(['essential', 'complete', 'concierge']).optional().nullable() });
+export const claimInput = z.object({ code: z.string().trim().min(6).max(20) });
+export const plannerAsk = z.object({ q: z.string().trim().min(2).max(200) });
+export const forecastQuery = z.object({ horizon: z.coerce.number().int().min(3).max(12).default(6) });
+export const forecastCalc = z.object({
+  history: z.array(z.coerce.number().min(0).max(10000)).min(1).max(24),
+  stock: z.coerce.number().min(0).max(100000).default(0), safety: z.coerce.number().min(0).max(100000).default(0),
+  leadDays: z.coerce.number().min(0).max(365).default(45), periodDays: z.coerce.number().min(7).max(730).default(90),
+  price: z.coerce.number().min(1).max(1e9), cost: z.coerce.number().min(0).max(1e9).default(0), recon: z.coerce.number().min(0).max(1e9).default(0),
+  discountPct: z.coerce.number().min(0).max(60).default(0), holdingPct: z.coerce.number().min(0).max(20).default(0.55), targetMarginPct: z.coerce.number().min(0).max(80).default(11),
+  month: z.coerce.number().int().min(0).max(11).default(new Date().getMonth()), event: z.string().trim().max(30).default('none')
+});
+export const forecastSuggest = z.object({ brand: z.string().trim().min(1).max(60), model: z.string().trim().max(80).optional() });
+export const purchasingQuery = z.object({ budget: z.coerce.number().min(0).max(1e10).optional(), appetite: z.enum(['cautious', 'balanced', 'bold']).default('balanced'), cover: z.coerce.number().min(0.5).max(24).optional() });
+export const activityQuery = z.object({ limit: z.coerce.number().int().min(1).max(200).default(40), offset: z.coerce.number().int().min(0).default(0), by: z.string().trim().max(254).optional(), action: z.string().trim().max(60).optional(), entity: z.string().trim().max(30).optional(), q: z.string().trim().max(100).optional(), since: z.string().trim().max(40).optional(), mine: z.enum(['1']).optional() });
+
+/* ---------- the AI concierge ---------- */
+const turn = z.object({ from: z.enum(['you', 'ai']), text: z.string().trim().max(700) });
+export const conciergeAsk = z.object({ text: z.string().trim().min(1).max(800), history: z.array(turn).max(12).optional().default([]), focus: z.union([z.number().int(), z.string().max(20)]).optional().nullable() });
+export const conciergeVoice = z.object({ audio: z.string().min(100).max(4_000_000), mime: z.string().trim().regex(/^audio\/[a-z0-9.+-]+(;.*)?$/i).max(80), history: z.array(turn).max(12).optional().default([]), focus: z.union([z.number().int(), z.string().max(20)]).optional().nullable() });
+export const conciergeSpeak = z.object({ text: z.string().trim().min(1).max(500) });

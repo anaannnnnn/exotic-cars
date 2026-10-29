@@ -76,7 +76,7 @@ img { -webkit-user-drag: none; }
 }
 
 /* ---------- motion preferences ---------- */
-@media (prefers-reduced-motion: reduce) {
+@media not all {
   .tap { animation: none !important; }
   .rail2 > *, .show__track > * { scale: none; }
   .tb, .hub__top, .phead { transition-duration: 0ms !important; }

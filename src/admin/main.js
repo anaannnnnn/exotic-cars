@@ -3,7 +3,7 @@ import '@fontsource-variable/instrument-sans/wdth.css';
 import '@fontsource-variable/archivo/wdth.css';
 import './admin.css';
 import { api, get, del, setUnauthorizedHandler, SITE } from './api.js';
-import { h, icon, clear, toast } from './ui.js';
+import { h, icon, clear, toast, can, ROLE, ping, closeDrawers } from './ui.js';
 import { mountLogin } from './views/login.js';
 import { mountDashboard } from './views/dashboard.js';
 import { mountInventory } from './views/inventory.js';
@@ -16,6 +16,15 @@ import { mountCustomers } from './views/customers.js';
 import { mountSettings } from './views/settings.js';
 import { mountAds } from './views/ads.js';
 import { mountTransactions } from './views/transactions.js';
+import { mountApprovals } from './views/approvals.js';
+import { mountActivity } from './views/activity.js';
+import { mountTeam } from './views/team.js';
+import { mountForecast } from './views/forecast.js';
+import { mountPurchasing } from './views/purchasing.js';
+import { mountWorkshop } from './views/workshop.js';
+import './pro.css';
+import './planning.css';
+import './noir.css';
 
 /*
  * Exotic Cars CRM (/admin/). A small single-page app on the same origin as the site: the session is an HttpOnly cookie
@@ -52,33 +61,49 @@ const themeBtn = (withLabel = false) => {
 };
 
 /* ---------------------------------------------------------------- routes */
-const NAV = [
+const NAV_ALL = [
   { id: 'dashboard', label: 'Dashboard', icon: 'dashboard', href: '#/' },
-  { id: 'leads', label: 'Leads', icon: 'leads', href: '#/leads', badge: 'leads' },
+  { id: 'leads', label: 'Leads', icon: 'leads', href: '#/leads', badge: 'leads', roles: ['owner', 'manager', 'sales'] },
+  { id: 'approvals', label: 'Approvals', icon: 'approve', href: '#/approvals', badge: 'approvals', roles: ['owner', 'manager'] },
   { id: 'appointments', label: 'Bookings', icon: 'calendar', href: '#/appointments', badge: 'appointments' },
-  { id: 'inventory', label: 'Inventory', icon: 'car', href: '#/inventory' },
-  { id: 'sales', label: 'Sales', icon: 'money', href: '#/sales' },
-  { id: 'purchases', label: 'Purchases', icon: 'download', href: '#/purchases' },
-  { id: 'ads', label: 'Advertisements', icon: 'photo', href: '#/ads' },
-  { id: 'products', label: 'Wheels & kits', icon: 'wheel', href: '#/products' },
+  { id: 'workshop', label: 'Workshop', icon: 'wrench', href: '#/workshop', badge: 'jobs' },
+  { id: 'inventory', label: 'Inventory', icon: 'car', href: '#/inventory', roles: ['owner', 'manager', 'sales'] },
+  { id: 'sales', label: 'Sales', icon: 'trend', href: '#/sales', roles: ['owner', 'manager'] },
+  { id: 'purchases', label: 'Purchases', icon: 'cart', href: '#/purchases', roles: ['owner', 'manager'] },
+  { id: 'ads', label: 'Advertisements', icon: 'photo', href: '#/ads', roles: ['owner', 'manager'] },
+  { id: 'products', label: 'Wheels & kits', icon: 'wheel', href: '#/products', roles: ['owner', 'manager'] },
   { id: 'customers', label: 'Customers', icon: 'users', href: '#/customers' },
+  { id: 'forecast', label: 'Forecast', icon: 'trend', href: '#/forecast', roles: ['owner', 'manager'] },
+  { id: 'purchasing', label: 'Purchasing AI', icon: 'cart', href: '#/purchasing', roles: ['owner', 'manager'] },
+  { id: 'activity', label: 'Activity', icon: 'history', href: '#/activity' },
+  { id: 'team', label: 'Team', icon: 'adduser', href: '#/team', roles: ['owner', 'manager'] },
   { id: 'settings', label: 'Settings', icon: 'settings', href: '#/settings' }
 ];
-const TABS = ['dashboard', 'leads', 'appointments', 'inventory'];
+let NAV = NAV_ALL;
+const TAB_PICK = { owner: ['dashboard', 'leads', 'approvals', 'workshop'], manager: ['dashboard', 'leads', 'approvals', 'workshop'], sales: ['dashboard', 'leads', 'appointments', 'inventory'], service: ['dashboard', 'workshop', 'appointments', 'customers'] };
+let TABS = TAB_PICK.owner;
 
 function resolve(hash) {
   const parts = hash.replace(/^#\/?/, '').split('?')[0].split('/').filter(Boolean).map(decodeURIComponent);
   const [section = 'dashboard', sub] = parts;
+  const allowed = (id) => NAV.some((n) => n.id === id);
+  const pick = (id, r) => (allowed(id) ? r : { nav: 'dashboard', mount: mountDashboard });
   switch (section) {
     case 'dashboard': return { nav: 'dashboard', mount: mountDashboard };
-    case 'inventory': return sub ? { nav: 'inventory', mount: mountCarEditor, params: { id: sub } } : { nav: 'inventory', mount: mountInventory };
-    case 'products': return sub ? { nav: 'products', mount: mountProductEditor, params: { id: sub } } : { nav: 'products', mount: mountProducts };
-    case 'sales': return { nav: 'sales', mount: mountTransactions, params: { type: 'sale' } };
-    case 'purchases': return { nav: 'purchases', mount: mountTransactions, params: { type: 'purchase' } };
-    case 'ads': return { nav: 'ads', mount: mountAds };
-    case 'leads': return { nav: 'leads', mount: mountLeads, params: { id: sub } };
+    case 'sales': return pick('sales', { nav: 'sales', mount: mountTransactions, params: { type: 'sale' } });
+    case 'purchases': return pick('purchases', { nav: 'purchases', mount: mountTransactions, params: { type: 'purchase' } });
+    case 'ads': return pick('ads', { nav: 'ads', mount: mountAds });
+    case 'inventory': return pick('inventory', sub ? { nav: 'inventory', mount: mountCarEditor, params: { id: sub } } : { nav: 'inventory', mount: mountInventory });
+    case 'products': return pick('products', sub ? { nav: 'products', mount: mountProductEditor, params: { id: sub } } : { nav: 'products', mount: mountProducts });
+    case 'leads': return pick('leads', { nav: 'leads', mount: mountLeads, params: { id: sub } });
+    case 'approvals': return pick('approvals', { nav: 'approvals', mount: mountApprovals });
     case 'appointments': return { nav: 'appointments', mount: mountAppointments, params: { id: sub } };
+    case 'workshop': return { nav: 'workshop', mount: mountWorkshop, params: { id: sub } };
     case 'customers': return { nav: 'customers', mount: mountCustomers, params: { id: sub } };
+    case 'forecast': return pick('forecast', { nav: 'forecast', mount: mountForecast });
+    case 'purchasing': return pick('purchasing', { nav: 'purchasing', mount: mountPurchasing });
+    case 'activity': return { nav: 'activity', mount: mountActivity };
+    case 'team': return pick('team', { nav: 'team', mount: mountTeam });
     case 'settings': return { nav: 'settings', mount: mountSettings };
     default: return { nav: 'dashboard', mount: mountDashboard };
   }
@@ -113,8 +138,8 @@ function buildShell() {
         h('a', { class: 'side__link', href: SITE, target: '_blank', rel: 'noopener' }, [icon('open'), h('span', { text: 'Open the website' })]),
         themeBtn(true),
         h('div', { class: 'me' }, [
-          h('span', { class: 'me__av', text: (session.email[0] || '?').toUpperCase() }),
-          h('span', { class: 'me__t' }, [h('b', { text: 'Signed in' }), h('small', { text: session.email })]),
+          h('span', { class: 'me__av', text: ((session.name || session.email)[0] || '?').toUpperCase() }),
+          h('span', { class: 'me__t' }, [h('b', { text: session.name || 'Signed in' }), h('small', { text: `${ROLE[session.role]?.label || 'Staff'} · ${session.email}` })]),
           h('button', { class: 'iconbtn', type: 'button', 'aria-label': 'Sign out', title: 'Sign out', onclick: signOut }, icon('logout'))
         ])
       ])
@@ -139,15 +164,41 @@ async function refreshBadges() {
   if (!shell) return;
   try {
     const s = await get('admin/stats');
-    const set = (key, n) => Object.entries(shell.badges).forEach(([k, b]) => { if (k.startsWith(key)) { b.hidden = !n; b.textContent = n > 99 ? '99+' : String(n); } });
-    set('leads', s.leads.byStatus.new);
+    const set = (key, n, hot) => Object.entries(shell.badges).forEach(([k, b]) => { if (k.startsWith(key)) { b.hidden = !n; b.textContent = n > 99 ? '99+' : String(n); b.classList.toggle('nbadge--hot', Boolean(hot)); } });
+    const hl = s.health || {};
+    set('leads', (s.leads.byStatus.new || 0) + (hl.overdue || 0), hl.overdue);
     set('appointments', s.appointments.byStatus.requested);
+    set('approvals', hl.pendingApprovals, hl.pendingApprovals);
+    set('jobs', s.workshop?.requested || 0);
     return s;
   } catch { return null; }
 }
 
+/* ---------------------------------------------------------------- live: the server tells every open screen what just happened */
+const SOUND_KEY = 'exotic-crm-sound';
+export const soundOn = () => { try { return localStorage.getItem(SOUND_KEY) !== 'off'; } catch { return true; } };
+let es = null, refreshTimer = 0;
+function live() {
+  es?.close();
+  if (!('EventSource' in window)) return;
+  es = new EventSource(`${new URL('../api/v1/', location.href).pathname}admin/events`);
+  es.onmessage = (m) => {
+    let e; try { e = JSON.parse(m.data); } catch { return; }
+    const say = (text, hash) => { toast(text); if (soundOn()) ping(); if (hash) shell?.el.querySelector('.live__last')?.setAttribute('href', hash); };
+    if (e.type === 'lead.new') say(`New lead: ${e.name}${e.car ? ` · ${e.car}` : ''}`);
+    else if (e.type === 'approval.requested') say(`${e.byName} asks to approve AED ${Number(e.amount).toLocaleString('en-AE')} off ${e.name}`);
+    else if (e.type === 'approval.decided' && e.to === session?.email) say(`Your discount was ${e.decision}`);
+    else if (e.type === 'appointment.new') say(`New booking: ${e.service} · ${e.name}`);
+    else if (e.type === 'job.updated' && e.customer) say(`Customer answered the quote on ${e.ref}`);
+    clearTimeout(refreshTimer);
+    refreshTimer = setTimeout(() => { refreshBadges(); current?.live?.(e); }, 350);
+  };
+  es.onerror = () => { /* the browser reconnects by itself */ };
+}
+
 async function route() {
   if (!session) return;
+  closeDrawers();
   current?.destroy?.();
   current = null;
   const r = resolve(location.hash);
@@ -170,14 +221,18 @@ async function route() {
 
 function start(s) {
   session = s;
+  NAV = NAV_ALL.filter((n) => !n.roles || n.roles.includes(s.role || 'owner'));
+  TABS = TAB_PICK[s.role || 'owner'];
   clear(root);
   shell = buildShell();
   root.append(shell.el);
   refreshBadges();
   route();
+  live();
 }
 
 async function signOut() {
+  es?.close();
   try { await del('admin/session'); } catch { /* the cookie expires anyway */ }
   session = null;
   shell = null;
@@ -187,11 +242,13 @@ async function signOut() {
 }
 
 function showLogin(notice) {
+  es?.close();
   session = null;
   shell = null;
   clear(root);
-  mountLogin(root, { notice, onSignedIn: (s) => {
+  mountLogin(root, { notice, onSignedIn: async (s0) => {
     if (!location.hash || location.hash === '#') location.hash = '#/';
+    const s = { ...s0, ...(await get('admin/session').catch(() => ({}))), created: s0.created };
     start(s);
     if (s.created) toast('Your login is ready. The site’s cars, wheels and kits are now in the CRM.');
   } });

@@ -6,6 +6,7 @@ import { getSettings } from '../state/settings.js';
 import { Viewer } from '../viewer/sketchfab.js';
 import { haptic } from '../ui/haptics.js';
 import { themeToggle } from '../ui/theme-toggle.js';
+import { createEngine } from '../ui/engine.js';
 
 /*
  * Landing: the showroom before the doors open. A line of detail across the top (Dubai, local time, a way straight
@@ -51,7 +52,7 @@ export function mountHome(root) {
   let lineup = [...byModel.values()].sort((a, b) => String(a.id).localeCompare(String(b.id)));
   let alive = true, seq = 0, angle = 0, slotTimer = null;
   const failed = new Set();
-  const reduce = () => getSettings().reduceMotion || matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const reduce = () => getSettings().reduceMotion || false;
 
   /* ---------- 3D stage: an overhead spotlight, a contact shadow, the car, and a quiet loading line */
   const stageHost = h('div', { class: 'xh__stage' });
@@ -63,6 +64,10 @@ export function mountHome(root) {
     stageHost, loading
   ]);
   const viewer = new Viewer(stageHost);
+  const engine = createEngine();
+  /* browsers start sound only from a gesture: the first touch or key anywhere on the landing readies the engine */
+  const prime = () => engine.prime();
+  ['pointerup', 'touchend', 'keydown'].forEach((ev) => window.addEventListener(ev, prime, { once: true, capture: true }));
 
   /* ---------- turntable ring with a draggable knob (the two chevron pills) and a lit arc that travels with it */
   const arc = svg('path', { class: 'xh__arc', fill: 'none' });
@@ -173,9 +178,9 @@ export function mountHome(root) {
       loadText.textContent = 'The showroom is open';
       credit.replaceChildren();
       caption.href = '#/shop';
-      caption.setAttribute('aria-label', `Browse all ${cars.length} cars`);
+      caption.setAttribute('aria-label', 'Browse the collection');
       capMake.replaceChildren(h('span', { text: 'The collection' }));
-      capModel.textContent = `${cars.length} cars for sale`;
+      capModel.textContent = 'Step inside';
       capYear.textContent = '';
       return;
     }
@@ -200,14 +205,6 @@ export function mountHome(root) {
     turn(reduce() ? 0 : 1.6);
     [1800, 4500].forEach((ms) => setTimeout(() => { if (alive && my === seq) viewer.refreshBase().then(() => alive && my === seq && turn(0.4)); }, ms));
   }
-
-  /* ---------- today's stock in three figures */
-  const makes = stock.stockBrands('sale').length;
-  const in3d = cars.filter((c) => stock.configuratorMatch(c)).length;
-  const fig = (n, unit) => h('li', { class: 'xh__fig' }, [h('b', { text: String(n) }), h('span', { text: unit })]);
-  const figures = h('ul', { class: 'xh__figs', 'aria-label': 'Today in the showroom' }, [
-    fig(cars.length, 'for sale'), fig(makes, makes === 1 ? 'make' : 'makes'), fig(in3d, 'in 3D')
-  ]);
 
   /* ---------- lock: press and hold to unlock the showroom */
   const body = svg('rect', { x: '57.4', y: '65.6', width: '19.2', height: '14', rx: '1.4', fill: 'none', stroke: 'currentColor', 'stroke-width': '2.75' });
@@ -242,7 +239,7 @@ export function mountHome(root) {
   const easeOut = (t) => 1 - Math.pow(1 - t, 3);
   /* a light tick of the motor at each quarter of the hold */
   let quarter = 0;
-  function paintHold() { lockBtn.style.setProperty('--p', p.toFixed(4)); }
+  function paintHold() { lockBtn.style.setProperty('--p', p.toFixed(4)); engine.update(p); }
   function holdTick(now) {
     const dt = Math.min(0.05, (now - (holdLast || now)) / 1000);
     holdLast = now;
@@ -263,6 +260,7 @@ export function mountHome(root) {
   const startHold = (e) => {
     if (opened || e.button > 0) return;
     holding = true;
+    engine.start();
     quarter = Math.floor(p * 4);
     lockBtn.classList.add('is-holding');
     hint.textContent = 'Keep holding';
@@ -292,6 +290,7 @@ export function mountHome(root) {
   function unlock() {
     opened = true;
     holding = false;
+    engine.finish();
     lockBtn.classList.add('is-open');
     hint.textContent = 'Welcome in';
     haptic([10, 30, 16]);
@@ -322,7 +321,7 @@ export function mountHome(root) {
       caption
     ]),
     h('section', { class: 'xh__floor', 'aria-label': 'Featured car' }, [show, ring, credit]),
-    h('footer', { class: 'xh__foot' }, [figures, h('div', { class: 'xh__lockwrap' }, [lockBtn, hint])])
+    h('footer', { class: 'xh__foot xh__foot--solo' }, [h('div', { class: 'xh__lockwrap' }, [lockBtn, hint])])
   ]);
   root.append(main);
   placeKnob();
@@ -339,5 +338,5 @@ export function mountHome(root) {
     .catch(() => {})
     .finally(() => { if (alive) { show3d(carFor(slot())); schedule(); } });
 
-  return { kind: 'home', destroy() { alive = false; clearInterval(clockTimer); cancelAnimationFrame(holdRaf); clearTimeout(slotTimer); viewer.unload(); closePanel(); } };
+  return { kind: 'home', destroy() { alive = false; engine.stop(); ['pointerup', 'touchend', 'keydown'].forEach((ev) => window.removeEventListener(ev, prime, { capture: true })); clearInterval(clockTimer); cancelAnimationFrame(holdRaf); clearTimeout(slotTimer); viewer.unload(); closePanel(); } };
 }

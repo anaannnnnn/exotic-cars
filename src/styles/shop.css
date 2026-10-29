@@ -5,10 +5,10 @@
 :root { --spring: cubic-bezier(0.34, 1.4, 0.64, 1); }
 
 /* ---------- reveal on scroll (fx.js adds .is-in); backwards fill so hover/press transforms are free afterwards ---------- */
-@keyframes rv-in { from { opacity: 0; translate: 0 24px; scale: 0.96; } }
+@keyframes rv-in { from { opacity: 0; transform: translate3d(0, 12px, 0); filter: blur(4px); } to { opacity: 1; transform: none; filter: blur(0); } }
 .rv { opacity: 0; }
 .scw.rv { animation: none; }
-.rv.is-in { opacity: 1; animation: rv-in 700ms var(--ease-out) backwards; animation-delay: calc(var(--i, 0) * 60ms); }
+.rv.is-in { opacity: 1; animation: rv-in 300ms var(--ease-out) backwards; animation-delay: calc(var(--i, 0) * 100ms); }
 
 /* ---------- tilt towards the pointer (mouse), press-in everywhere ---------- */
 .tilt { transition: transform 500ms var(--ease-out), scale 160ms var(--ease-out); transform-style: preserve-3d; }
@@ -23,7 +23,7 @@
 .lq::-webkit-scrollbar { display: none; }
 .lq__thumb {
   position: absolute; left: 0; top: 4px; bottom: 4px; width: 0; border-radius: var(--pill); pointer-events: none;
-  background: #0a0a0b; box-shadow: inset 0 0 0 1.5px rgba(212, 24, 44, 0.6), 0 6px 16px -8px rgba(10, 10, 11, 0.5);
+  background: #0a0a0b; box-shadow: inset 0 0 0 1.5px rgba(57, 255, 136, 0.6), 0 6px 16px -8px rgba(10, 10, 11, 0.5);
   transition: transform 520ms var(--spring), width 520ms var(--spring), scale 300ms var(--spring), background 400ms var(--ease-out), box-shadow 400ms var(--ease-out);
 }
 /* stretching across: quick, and squeezed thin like a drop being pulled */
@@ -74,11 +74,11 @@
 /* the wordmark gives way before any button does: "Exotic" alone under 420px, the dot alone under 340px */
 @media (max-width: 419px) { .tb__cars { display: none; } .tb__brand { padding: 0 8px; } }
 @media (max-width: 339px) { .tb__word { display: none; } }
-@media (hover: hover) and (pointer: fine) { .tb__btn:hover { box-shadow: var(--shadow-2); } .tb__btn--signal:hover { box-shadow: 0 0 0 4px rgba(212, 24, 44, 0.22); } }
+@media (hover: hover) and (pointer: fine) { .tb__btn:hover { box-shadow: var(--shadow-2); } .tb__btn--signal:hover { box-shadow: 0 0 0 4px rgba(57, 255, 136, 0.22); } }
 .tb__brand { justify-self: center; display: inline-flex; align-items: center; gap: 9px; height: 36px; padding: 0 14px; border-radius: var(--pill); transition: scale 160ms var(--ease-out); }
 .tb__brand:active { scale: 0.96; }
 .tb__word { font-family: 'Michroma', var(--font); font-size: 11px; letter-spacing: 0.3em; padding-left: 0.3em; text-transform: uppercase; color: var(--ink); white-space: nowrap; }
-.tb__dot { position: relative; width: 8px; height: 8px; border-radius: 50%; background: var(--sel-fill); box-shadow: 0 0 0 3px rgba(212, 24, 44, 0.18); }
+.tb__dot { position: relative; width: 8px; height: 8px; border-radius: 50%; background: var(--sel-fill); box-shadow: 0 0 0 3px rgba(57, 255, 136, 0.18); }
 .tb__dot::after { content: ''; position: absolute; inset: -3px; border-radius: 50%; border: 1.5px solid var(--acc); animation: tb-ping 2.4s var(--ease-out) infinite; }
 @keyframes tb-ping { 0% { opacity: 0.9; scale: 0.6; } 70%, 100% { opacity: 0; scale: 2.2; } }
 body[data-page='shop'] .bar, body[data-page='shopcar'] .bar { display: none; }
@@ -155,6 +155,14 @@ body[data-page='shop'] { --page-pad: 16px; }
 .shop .badge { top: 10px; right: 10px; padding: 5px 10px; border-radius: var(--pill); font-size: 10.5px; letter-spacing: 0.06em; background: rgba(10, 10, 11, 0.62); color: #fff; -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
 .shop .badge--new { background: var(--sel-fill); color: var(--acc-ink); }
 .shop .badge--sold { background: rgba(255, 255, 255, 0.86); color: #0a0a0b; }
+
+/* Selecting a marque turns the entire stock view into that house's showroom. */
+.shop.is-brand-page { position: relative; isolation: isolate; }
+.shop.is-brand-page::before { content: ''; position: fixed; z-index: -1; inset: 0; pointer-events: none; background: linear-gradient(165deg, color-mix(in srgb, var(--b-bg) 22%, var(--bg)) 0%, var(--bg) 44%, color-mix(in srgb, var(--b-bg2) 16%, var(--bg)) 100%); }
+.shop.is-brand-page .shop__title { color: var(--b-acc); }
+.shop.is-brand-page :is(.search, .fchip, .filters, .lq) { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--b-acc) 26%, var(--line)); }
+.tb.is-brand-page { color: var(--b-ink); background: color-mix(in srgb, var(--b-bg) 86%, transparent); }
+.tb.is-brand-page .tb__dot { background: var(--b-acc); }
 /* with a make chosen, the cards take its colour on the make line and the price */
 .sgrid.is-branded .scard__make { color: var(--b-bg); }
 .sgrid.is-branded .scard__price { color: color-mix(in srgb, var(--b-bg) 82%, #000); }
@@ -269,7 +277,7 @@ body[data-page='shopcar'] .scar { padding-top: 0; }
 .marques.is-in .mq__bar i { animation: mq-bar 1100ms cubic-bezier(0.22, 1, 0.36, 1) both; animation-delay: calc(300ms + var(--i, 0) * 80ms); }
 @keyframes mq-bar { from { transform: scaleX(0); } }
 @media (max-width: 359px) { .mq { grid-template-columns: 44px minmax(0, 1fr) auto; gap: 10px; } .mq__medal { width: 44px; height: 44px; } .mq__medal svg { width: 22px; height: 22px; } .mq__bar { left: 66px; } }
-@media (prefers-reduced-motion: reduce) { .marques.is-in .mq__bar i { animation: none; } }
+@media not all { .marques.is-in .mq__bar i { animation: none; } }
 
 /* spotlight band: takes the chosen make's colours */
 .spot { position: relative; isolation: isolate; overflow: hidden; margin: 30px 12px 0; padding: 20px 0 4px; border-radius: 32px; color: var(--b-ink); box-shadow: 0 30px 50px -34px var(--b-bg2); transition: color 400ms var(--ease-out), box-shadow 600ms; }
@@ -309,7 +317,7 @@ body[data-page='shopcar'] .scar { padding-top: 0; }
 .quick { padding-top: 30px; }
 
 /* ---------- motion preferences ---------- */
-@media (prefers-reduced-motion: reduce) {
+@media not all {
   .rv, .rv.is-in { opacity: 1; animation: none !important; }
   .tilt, .lq__thumb, .lq__item, .tb::before, .bb, .bb::before, .bb::after, .bb__mark, .spot *, .spot::after, .tb__dot::after, .shop__head, .shop__tools, .brands-slot, .shop > .lq { animation: none !important; transition: none !important; }
 }

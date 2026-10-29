@@ -7,6 +7,7 @@
  * the environment to use those instead).
  */
 import http from 'node:http';
+import { Readable } from 'node:stream';
 import { mkdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { randomBytes } from 'node:crypto';
@@ -40,6 +41,12 @@ http.createServer(async (req, res) => {
     const cookie = response.headers.getSetCookie?.();
     if (cookie?.length) headers['set-cookie'] = cookie;
     res.writeHead(response.status, headers);
+    if ((response.headers.get('content-type') || '').includes('text/event-stream')) {
+      const stream = Readable.fromWeb(response.body);
+      req.on('close', () => { try { response.body.cancel(); } catch { /* closed */ } stream.destroy(); });
+      stream.pipe(res);
+      return;
+    }
     res.end(response.body ? Buffer.from(await response.arrayBuffer()) : undefined);
   } catch (e) {
     console.error(e);

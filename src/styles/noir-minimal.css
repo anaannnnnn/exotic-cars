@@ -1,0 +1,34 @@
+/* ==========================================================================
+   Noir, minimal neon. Loaded after noir.css. The theme uses one variable (--neon) for its accent everywhere: fills, borders,
+   glows, icons. Here that variable becomes a calm off-white, so selected states and buttons are quiet and glows disappear, and
+   the neon green is kept only for a few tiny touches (--tick): the focus ring, the live dot and thin indicator lines.
+   ========================================================================== */
+:root, :root[data-theme='dark'], :root[data-theme='light'] {
+  --neon: #eceef2;
+  --neon-rgb: 236, 238, 242;
+  --neon-glow: none;
+  --primary: #eceef2;
+  --primary-foreground: #060607;
+  --acc: #eceef2;
+  --acc-ink: #060607;
+  --sel-fill: #eceef2;
+  --sel-ink: #060607;
+  --hub-signal: #eceef2;
+  --dk-red: #eceef2;
+  --tick: #39ff88;
+  --tick-rgb: 57, 255, 136;
+}
+:focus-visible, .hub :is(button, a):focus-visible, .hub :focus-visible { outline-color: var(--tick); }
+.hub :is(button, a):focus-visible { box-shadow: 0 0 0 5px rgba(var(--tick-rgb), 0.1); }
+.live { background: var(--tick); box-shadow: 0 0 0 3px rgba(var(--tick-rgb), 0.14); }
+.hub .show__bar i, .hub .slide__body--lite::before { background: var(--tick); box-shadow: none; }
+/* the soft washes and glows that used the accent go neutral and faint */
+.hub__body::before { background: radial-gradient(80% 110% at 50% 0%, rgba(255, 255, 255, 0.03), transparent 62%); }
+.hub .mq__bar i { opacity: 0.55; box-shadow: none; }
+
+/* a little green on the website (the CRM stays minimal): only a few small touches */
+:root, :root[data-theme='dark'], :root[data-theme='light'] { --dk-red: var(--tick); --hub-signal: var(--tick); }
+.hub .ask__go, .pill--signal { background: var(--tick); color: #03150a; }
+.hub .eyebrow, .hub .spot__eyebrow { color: var(--tick); }
+.hub .xc__3d, .hub .ncard__3d { color: var(--tick); border-color: rgba(var(--tick-rgb), 0.4); }
+.hub .xc:is(:hover, .is-focus) .xc__go, .hub .bx:is(:hover, :active) .bx__go { background: var(--tick); color: #03150a; }

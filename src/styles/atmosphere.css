@@ -14,7 +14,7 @@
   --bd-b: rgba(150, 160, 182, 0.28);             /* silver */
   --bd-c: rgba(255, 138, 150, 0.24);             /* rose */
   --tr-line: rgba(140, 22, 36, 0.11);            /* the streamlines */
-  --tr-red: #d4182c;                             /* light travelling along them */
+  --tr-red: #39ff88;                             /* light travelling along them */
   --tr-white: #2b2b30;                           /* by day the second light is graphite */
   --tr-glow: 0.1;
   --tr-tail: 0.28;
@@ -27,17 +27,17 @@
   --dk-spill-o: 0.5;
 }
 :root[data-theme='dark'] {
-  --bd-base: #0a0708;
-  --bd-top: #170c0e;
+  --bd-base: #090a0c;
+  --bd-top: #111216;
   --bd-soft: rgba(255, 255, 255, 0.05);
-  --bd-a: rgba(222, 24, 48, 0.32);               /* tail-light red */
-  --bd-b: rgba(40, 48, 92, 0.32);                /* night blue */
-  --bd-c: rgba(132, 12, 52, 0.32);               /* wine */
+  --bd-a: rgba(155, 162, 176, 0.12);              /* cool silver */
+  --bd-b: rgba(62, 68, 82, 0.18);                 /* graphite blue */
+  --bd-c: rgba(151, 26, 43, 0.1);                 /* restrained tail-light accent */
   --tr-line: rgba(255, 255, 255, 0.07);
-  --tr-red: #ff3246;                             /* tail-lights */
-  --tr-white: #fff1dc;                           /* headlights */
-  --tr-glow: 0.22;
-  --tr-tail: 0.4;
+  --tr-red: #a83a46;                              /* tail-lights */
+  --tr-white: #e4e5e8;                            /* headlights */
+  --tr-glow: 0.14;
+  --tr-tail: 0.26;
   --bd-vignette: rgba(0, 0, 0, 0.55);
   --bd-grain: 0.04;
   --bd-blend: screen;
@@ -80,22 +80,12 @@
   -webkit-mask-image: linear-gradient(to top, #000 0%, #000 50%, transparent 100%); mask-image: linear-gradient(to top, #000 0%, #000 50%, transparent 100%);
 }
 .backdrop__trails .trail { fill: none; stroke: var(--tr-line); stroke-width: calc(var(--w, 1) * 2.4); }
-.backdrop__trails .pulse {
-  fill: none; stroke-linecap: round; stroke-width: 3; stroke-dasharray: 70 930; stroke-dashoffset: 1000;
-  animation: tr-run var(--d, 14s) linear var(--dl, 0s) infinite;
-}
-.backdrop__trails .pulse--r { stroke: var(--tr-red); }
-.backdrop__trails .pulse--w { stroke: var(--tr-white); stroke-dasharray: 48 952; animation-direction: reverse; }
-/* a soft halo around each light, centred on it (the dash pattern wraps 8 units behind the light) */
-.backdrop__trails .pulse--glow { stroke-width: 10; opacity: var(--tr-glow); stroke-dasharray: 78 914 8 0; }
-.backdrop__trails .pulse--w.pulse--glow { stroke-dasharray: 54 940 6 0; }
-/* the fading tail a light leaves behind it in a long exposure (behind = the side it came from) */
-.backdrop__trails .pulse--tail { stroke-width: 2; opacity: var(--tr-tail); stroke-dasharray: 0 760 240 0; }
-.backdrop__trails .pulse--w.pulse--tail { stroke-dasharray: 0 48 170 782; }
-@keyframes tr-run { to { stroke-dashoffset: 0; } }
-:root:not([data-theme='dark']) .backdrop__trails .pulse--r:not(.pulse--glow) { opacity: 0.6; }
-:root:not([data-theme='dark']) .backdrop__trails .pulse--w:not(.pulse--glow) { opacity: 0.3; }
-:root:not([data-theme='dark']) .backdrop__trails .pulse--w.pulse--glow { opacity: 0.05; }
+/* miniature cars: rosso cars run along the streamlines one way, graphite (by night ivory) cars the other; each leaves a soft
+   streak behind it. Placed and paced in index.html with SMIL motion paths, so no script runs for them. */
+.backdrop__trails .mcar--r { color: var(--tr-red); }
+.backdrop__trails .mcar--w { color: var(--tr-white); }
+:root:not([data-theme='dark']) .backdrop__trails .mcar--r { opacity: 0.82; }
+:root:not([data-theme='dark']) .backdrop__trails .mcar--w { opacity: 0.5; }
 .backdrop__floor { left: 0; right: 0; bottom: 0; height: 100%; background: radial-gradient(130% 90% at 50% 40%, transparent 55%, var(--bd-vignette) 100%); }
 .backdrop::after {
   content: ''; position: absolute; inset: 0; opacity: var(--bd-grain); mix-blend-mode: var(--bd-blend);
@@ -144,13 +134,13 @@ html.theme-vt::view-transition-group(dock) { animation-duration: 640ms; }
 @keyframes vt-in-l { from { opacity: 0; transform: translateX(-36px); } }
 ::view-transition-group(dock) { z-index: 10; }
 
-@media (prefers-reduced-motion: reduce) {
-  .backdrop__a, .backdrop__b, .backdrop__c, .backdrop__trails .pulse { animation: none; }
-  .backdrop__trails .pulse { opacity: 0; }
+@media not all {
+  .backdrop__a, .backdrop__b, .backdrop__c { animation: none; }
+  .backdrop__trails .pulses { display: none; }
   .theme-tg__ic { transition: none; }
 }
-:root[data-motion='reduce'] :is(.backdrop__a, .backdrop__b, .backdrop__c, .backdrop__trails .pulse) { animation: none; }
-:root[data-motion='reduce'] .backdrop__trails .pulse { opacity: 0; }
+:root[data-motion='reduce'] :is(.backdrop__a, .backdrop__b, .backdrop__c) { animation: none; }
+:root[data-motion='reduce'] .backdrop__trails .pulses { display: none; }
 @media (forced-colors: active) { .backdrop { display: none; } }
 
 /* ---------- dark-theme surfaces the older layers left light ---------- */

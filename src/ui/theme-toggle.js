@@ -8,7 +8,7 @@ import { haptic } from './haptics.js';
  * view transitions, or the visitor asked for less motion, the theme snaps with every CSS transition held for one
  * frame so nothing smears. Every toggle on the page stays in step through the settings listener.
  */
-const reduced = () => document.documentElement.dataset.motion === 'reduce' || matchMedia('(prefers-reduced-motion: reduce)').matches;
+const reduced = () => document.documentElement.dataset.motion === 'reduce' || false;
 
 function syncAll(dark) {
   document.querySelectorAll('.theme-tg').forEach((b) => {

@@ -1,6 +1,6 @@
 /* ==========================================================================
    Exotic Cars UI - compact, precise, calm. Our own system (not a third-party kit):
-   white and black surfaces, one accent colour, rosso red (#D4182C) used only as a fill with white text, a focus ring, or a
+   white and black surfaces, one accent colour, rosso red (#39ff88) used only as a fill with white text, a focus ring, or a
    selection mark - never as text on white, where it has no contrast. 4px corners, 32-40px controls, Instrument Sans (Michroma for the wordmark, Archivo for big figures).
    Loaded last, so it restyles the shop, panels, home and configurator together.
    ========================================================================== */
@@ -15,9 +15,9 @@
   --line: #e3e3e5;
   --line-2: #c9c9ce;         /* control borders */
   --on-ink: #ffffff;
-  --acc: #d4182c;            /* signal */
+  --acc: #39ff88;            /* signal */
   --acc-ink: #ffffff;        /* text on the rosso accent */
-  --acc-soft: rgba(212, 24, 44, 0.16);
+  --acc-soft: rgba(57, 255, 136, 0.16);
   --radius: 4px;
   --r-sm: 2px;
   --h-sm: 32px; --h-md: 40px; --h-lg: 48px;
@@ -207,7 +207,7 @@ select, textarea, input { font: inherit; color: inherit; }
 @keyframes ec-up { from { opacity: 0; transform: translateY(14px); } }
 :root[data-motion='reduce'] .scw, :root[data-motion='reduce'] .scar__info > *, :root[data-motion='reduce'] .gal, :root[data-motion='reduce'] .cfg *,
 :root[data-motion='reduce'] .head, :root[data-motion='reduce'] .pills, :root[data-motion='reduce'] .search, :root[data-motion='reduce'] .filters { animation: none !important; }
-@media (prefers-reduced-motion: reduce) { .scw, .scar__info > *, .gal, .cfg .rail, .cfg .opts, .cfg .cfg__foot, .ftip__box { animation: none !important; transition: none !important; } }
+@media not all { .scw, .scar__info > *, .gal, .cfg .rail, .cfg .opts, .cfg .cfg__foot, .ftip__box { animation: none !important; transition: none !important; } }
 
 /* ---------- toast ---------- */
 #toast { border-radius: var(--radius) !important; font-size: 13px !important; padding: 8px 14px !important; }
@@ -313,4 +313,4 @@ select, textarea, input { font: inherit; color: inherit; }
   .opts { right: 32px; width: calc(var(--ob) + 20px); }
   .price__amount { font-size: 28px; }
 }
-@media (prefers-reduced-motion: reduce) { .rbtn::after, .pillt::after { transition: none; } }
+@media not all { .rbtn::after, .pillt::after { transition: none; } }

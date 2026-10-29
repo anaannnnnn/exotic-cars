@@ -122,6 +122,7 @@ export function mountAccount(root) {
         h('h2', { text: u.name || 'Guest' }),
         h('p', { text: [u.email, u.phone].filter(Boolean).join(' · ') })
       ]),
+      h('div', { class: 'acct__garage' }, h('a', { class: 'ghost-card', href: '#/service' }, [h('span', { class: 'claim__ic' }, icon('key')), h('div', { class: 'claim__t' }, [h('b', { text: 'Your garage and jobs' }), h('small', { text: 'Your cars, warranty, service history and every job, tracked step by step.' })]), icon('right')])),
       h('div', { class: 'sect-head' }, [h('h2', { text: 'Your requests' }), h('a', { class: 'sect-head__link', href: '#/service' }, ['New', icon('right')])]),
       reqs.length ? h('ul', { class: 'mine__list mine__list--pad' }, reqs.map((a) => h('li', { class: 'mine__row' }, [
         h('span', { class: 'mine__ic' }, icon(/repair/i.test(a.service) ? 'wrench' : /call/i.test(a.service) ? 'phone' : /drive/i.test(a.service) ? 'gauge' : 'calendar')),

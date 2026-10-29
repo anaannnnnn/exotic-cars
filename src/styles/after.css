@@ -1,0 +1,88 @@
+/* ==========================================================================
+   After the sale: the ownership journey, the garage, job tracking, care plans, and why service with us.
+   Same language as the rest of the app: oval controls, paper surfaces, layered shadow, one rosso signal.
+   ========================================================================== */
+.svc__time { display: inline-flex; align-items: center; gap: 5px; margin-top: 10px; font-size: 11.5px; font-weight: 600; color: var(--ink-2); } .svc__time svg { width: 13px; height: 13px; }
+.svc__inc { display: grid; gap: 3px; margin: 8px 0 0; padding: 0; list-style: none; font-size: 12px; color: var(--muted); } .svc__inc li { position: relative; padding-left: 14px; } .svc__inc li::before { content: ''; position: absolute; left: 0; top: 0.55em; width: 6px; height: 2px; background: var(--sel-fill); border-radius: 2px; }
+.svc[aria-pressed='false'] .svc__inc, .svc[aria-pressed='false'] .svc__time { display: none; }
+
+/* journey: a rail of six steps, swiped on a phone */
+.journey { padding-top: 6px; }
+.journey__rail { list-style: none; margin: 0; padding: 4px 18px 10px; display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; counter-reset: j; }
+.journey__rail::-webkit-scrollbar { display: none; }
+.jstep { counter-increment: j; flex: none; width: min(78%, 280px); scroll-snap-align: start; display: grid; gap: 8px; align-content: start; padding: 18px; border-radius: var(--r-card); background: var(--surface); box-shadow: var(--shadow-1); position: relative; }
+.jstep::after { content: counter(j, decimal-leading-zero); position: absolute; top: 16px; right: 18px; font-family: var(--font-num); font-weight: 300; font-size: 26px; color: var(--line-2); letter-spacing: -0.02em; }
+.jstep__ic { width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; background: #0a0a0b; color: #fff; } .jstep__ic svg { width: 21px; height: 21px; }
+.jstep b { font-size: 16px; font-weight: 600; letter-spacing: -0.015em; line-height: 1.2; margin-top: 4px; } .jstep span:last-child { font-size: 13.5px; line-height: 1.45; color: var(--muted); }
+@media (min-width: 900px) { .journey__rail { display: grid; grid-template-columns: repeat(3, 1fr); overflow: visible; } .jstep { width: auto; } }
+
+/* the garage */
+.garage, .jobs, .plans, .benefits { padding-bottom: 6px; }
+.garage > :not(.sect-head), .jobs > :not(.sect-head) { margin-inline: 18px; }
+.garage { display: grid; gap: 12px; }
+.gcar { display: grid; grid-template-columns: 1fr; border-radius: var(--r-card); background: var(--surface); box-shadow: var(--shadow-2); overflow: hidden; }
+.gcar__img { aspect-ratio: 16 / 9; background: #040405; overflow: hidden; } .gcar__img img { width: 100%; height: 100%; object-fit: cover; mix-blend-mode: lighten; transform: scale(1.18); transform-origin: 50% 62%; }
+.gcar__body { display: grid; gap: 10px; padding: 16px 18px 18px; }
+.gcar__body h3 { font-size: 20px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.15; } .gcar__body p { margin: -4px 0 0; font-size: 13px; }
+.gcar__chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.gchip { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 11px; border-radius: 999px; background: var(--paper); font-size: 12px; font-weight: 600; color: var(--ink-2); } .gchip svg { width: 13px; height: 13px; }
+.gchip--ok { background: rgba(31, 138, 88, 0.12); color: #1f8a58; } .gchip--warn { background: rgba(214, 150, 20, 0.15); color: #a56d06; } .gchip--bad { background: rgba(57, 255, 136, 0.12); color: var(--acc); }
+:root[data-theme='dark'] .gchip--ok { color: #45d398; } :root[data-theme='dark'] .gchip--warn { color: #f2b955; }
+.gcar__act { display: flex; flex-wrap: wrap; gap: 8px; }
+.gcar__job { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 14px; border-radius: 18px; background: var(--paper); text-align: left; } .gcar__job > span:nth-child(2) { flex: 1; display: grid; } .gcar__job small { color: var(--muted); } .gcar__job svg { width: 18px; height: 18px; color: var(--muted); }
+.gcar__jd { width: 10px; height: 10px; border-radius: 50%; background: var(--sel-fill); box-shadow: 0 0 0 4px rgba(57, 255, 136, 0.18); animation: jpulse 1.8s ease-in-out infinite; }
+@keyframes jpulse { 50% { box-shadow: 0 0 0 7px rgba(57, 255, 136, 0.05); } }
+.ghist { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; } .ghist[hidden] { display: none; } .ghist li { display: flex; justify-content: space-between; gap: 10px; padding: 9px 12px; border-radius: 12px; background: var(--paper); font-size: 13px; } .ghist small { color: var(--muted); }
+@media (min-width: 760px) { .gcar { grid-template-columns: 280px 1fr; } .gcar__img { aspect-ratio: auto; min-height: 100%; } }
+
+.claim, .track, .ghost-card { display: grid; gap: 10px; padding: 16px; border-radius: var(--r-card); background: var(--surface); box-shadow: var(--shadow-1); }
+.claim { grid-template-columns: auto 1fr; align-items: center; } .claim__row, .claim .form__err { grid-column: 1 / -1; }
+.claim__ic { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: #0a0a0b; color: #fff; } .claim__ic svg { width: 20px; height: 20px; }
+.claim__t { display: grid; gap: 2px; } .claim__t b { font-size: 15px; font-weight: 600; } .claim__t small { color: var(--muted); font-size: 12.5px; line-height: 1.35; }
+.claim__row { display: flex; gap: 8px; flex-wrap: wrap; } .claim__row input { flex: 1; min-width: 120px; height: 46px; padding: 0 16px; border-radius: 999px; background: var(--paper); border: 0; color: var(--ink); font-size: 15px; } .claim__row input:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; } .claim__in { text-transform: uppercase; letter-spacing: 0.08em; }
+.ghost-card { grid-template-columns: auto 1fr auto; align-items: center; } .ghost-card > svg { width: 18px; height: 18px; color: var(--muted); }
+
+/* jobs */
+.jlist { display: grid; gap: 8px; }
+.jrow { display: grid; grid-template-columns: auto 1fr auto; gap: 4px 12px; align-items: center; width: 100%; padding: 14px; border-radius: 22px; background: var(--surface); box-shadow: var(--shadow-1); text-align: left; position: relative; overflow: hidden; transition: scale 160ms var(--ease-out); } .jrow:active { scale: 0.985; }
+.jrow__ic { grid-row: 1 / 3; width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; background: var(--paper); } .jrow__ic svg { width: 19px; height: 19px; }
+.jrow__t { display: grid; min-width: 0; } .jrow__t b { font-size: 14.5px; font-weight: 600; } .jrow__t small { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.jrow__s { display: grid; justify-items: end; gap: 3px; } .jrow__act { color: var(--acc); font-weight: 600; font-size: 11.5px; }
+.jpill { display: inline-flex; align-items: center; height: 24px; padding: 0 10px; border-radius: 999px; font-size: 11.5px; font-weight: 650; background: var(--paper); color: var(--ink-2); white-space: nowrap; }
+.jpill--quoted, .jpill--requested { background: rgba(57, 255, 136, 0.12); color: var(--acc); } .jpill--ready, .jpill--delivered, .jpill--approved { background: rgba(31, 138, 88, 0.14); color: #1f8a58; } .jpill--in-progress, .jpill--inspecting, .jpill--qc { background: rgba(110, 60, 210, 0.12); color: #6c3fd0; }
+.jrow__bar { grid-column: 2 / -1; height: 4px; border-radius: 4px; background: var(--paper); overflow: hidden; margin-top: 6px; } .jrow__bar i { display: block; height: 100%; width: calc(var(--p) * 100%); border-radius: 4px; background: var(--sel-fill); transition: width 700ms var(--ease-out); }
+.track .claim__row input { text-transform: uppercase; } .track .claim__row input[type='tel'] { text-transform: none; }
+
+/* care plans */
+.plans__grid { display: grid; gap: 12px; padding: 0 18px; }
+.plan { position: relative; display: grid; gap: 12px; align-content: start; padding: 20px; border-radius: var(--r-card); background: var(--surface); box-shadow: var(--shadow-1); }
+.plan--pop { background: #0a0a0b; color: #fff; box-shadow: var(--shadow-3); }
+.plan__tag { position: absolute; top: 16px; right: 16px; height: 24px; padding: 0 10px; display: inline-flex; align-items: center; border-radius: 999px; background: var(--sel-fill); color: var(--acc-ink); font-size: 11.5px; font-weight: 650; }
+.plan h3 { font-size: 21px; font-weight: 600; letter-spacing: -0.02em; } .plan__b { margin: -4px 0 0; color: var(--muted); font-size: 13.5px; line-height: 1.4; } .plan--pop .plan__b { color: rgba(255, 255, 255, 0.65); }
+.plan ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; font-size: 13.5px; } .plan li { display: flex; gap: 10px; align-items: flex-start; } .plan li svg { flex: none; width: 16px; height: 16px; margin-top: 2px; color: var(--sel-fill); stroke-width: 2.4; }
+.plan .pill { justify-self: start; height: 44px; margin-top: 4px; }
+@media (min-width: 900px) { .plans__grid { grid-template-columns: repeat(3, 1fr); align-items: stretch; } }
+
+/* why service with us */
+.benefits__grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; padding: 0 18px; }
+.benefit { display: grid; gap: 6px; align-content: start; padding: 16px; border-radius: 22px; background: var(--surface); box-shadow: var(--shadow-1); } .benefit b { font-size: 14.5px; font-weight: 600; letter-spacing: -0.01em; } .benefit span:last-child { font-size: 12.5px; line-height: 1.4; color: var(--muted); }
+.benefit__ic { width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; background: var(--paper); } .benefit__ic svg { width: 18px; height: 18px; }
+@media (min-width: 900px) { .benefits__grid { grid-template-columns: repeat(3, 1fr); } }
+
+/* the job sheet */
+.jt { display: grid; gap: 18px; }
+.jt__now { display: flex; gap: 14px; align-items: flex-start; padding: 16px; border-radius: 22px; background: var(--paper); } .jt__now b { font-size: 18px; font-weight: 600; letter-spacing: -0.015em; } .jt__now p { margin: 4px 0 0; color: var(--muted); font-size: 14px; line-height: 1.45; }
+.jt__dot { flex: none; width: 12px; height: 12px; margin-top: 6px; border-radius: 50%; background: var(--sel-fill); box-shadow: 0 0 0 5px rgba(57, 255, 136, 0.16); }
+.jt__now--ready .jt__dot, .jt__now--delivered .jt__dot, .jt__now--approved .jt__dot { background: #1f8a58; box-shadow: 0 0 0 5px rgba(31, 138, 88, 0.16); }
+.jt__bar { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; } .jt__bar i { height: 5px; border-radius: 4px; background: var(--paper); transition: background-color 500ms; } .jt__bar i.is-on { background: var(--sel-fill); }
+.jt__chips { display: flex; flex-wrap: wrap; gap: 6px; } .chip3 { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; border-radius: 999px; background: var(--paper); font-size: 12.5px; font-weight: 600; } .chip3 svg { width: 14px; height: 14px; } .chip3--ok { background: rgba(31, 138, 88, 0.12); color: #1f8a58; }
+.jt h3 { font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); font-weight: 650; margin-bottom: 10px; }
+.jt__quote { padding: 16px; border-radius: 22px; background: var(--surface); box-shadow: var(--shadow-1); } .jt__quote ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; } .jt__quote li { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; } .jt__quote li b { font-variant-numeric: tabular-nums; }
+.jt__total { display: flex; justify-content: space-between; align-items: baseline; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); } .jt__total b { font-family: var(--font-num); font-size: 24px; font-weight: 500; letter-spacing: -0.01em; }
+.jt__note { margin: 10px 0 0; font-size: 13px; color: var(--muted); } .jt__act { display: grid; gap: 8px; margin-top: 14px; } .jt__qs { margin: 12px 0 0; font-size: 13.5px; font-weight: 600; } .jt__qs--approved { color: #1f8a58; } .jt__qs--declined { color: var(--acc); }
+.jt__tl ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; } .jt__tl li { display: flex; gap: 12px; padding: 0 0 16px; position: relative; } .jt__tl li:not(:last-child)::after { content: ''; position: absolute; left: 5px; top: 16px; bottom: 0; width: 2px; background: var(--line); }
+.jt__tdot { flex: none; width: 12px; height: 12px; margin-top: 4px; border-radius: 50%; background: var(--ink); } .jt__tl b { font-size: 14px; } .jt__tl p { margin: 2px 0; font-size: 13px; color: var(--muted); } .jt__tl small { color: var(--faint, var(--muted)); font-size: 12px; }
+.jt__help { display: flex; gap: 8px; flex-wrap: wrap; }
+.sel-garage { width: 100%; height: 52px; padding: 0 18px; border-radius: 999px; border: 0; background: var(--paper); color: var(--ink); font-size: 15px; margin-bottom: 6px; }
+@media not all { .gcar__jd, .jrow__bar i, .jt__bar i { animation: none; transition: none; } }
+.acct__garage { padding: 0 18px; margin: 14px 0 4px; }

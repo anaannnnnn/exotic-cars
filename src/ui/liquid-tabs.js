@@ -7,7 +7,7 @@ import { haptic } from './haptics.js';
  * return inline custom properties (e.g. a make's colours) that the row takes while that chip is selected, so the
  * thumb - and anything styled from those properties - changes colour with the choice.
  */
-const reduced = () => document.documentElement.dataset.motion === 'reduce' || matchMedia('(prefers-reduced-motion: reduce)').matches;
+const reduced = () => document.documentElement.dataset.motion === 'reduce' || false;
 
 export function liquidTabs({ items, value, onChange, label, cls = '', theme = null }) {
   const thumb = h('span', { class: 'lq__thumb', 'aria-hidden': 'true' });

@@ -56,6 +56,9 @@ export function createSwipe({ label = 'Enquire', hint = 'Swipe right', mark = nu
     else if (e.key === 'ArrowLeft') { e.preventDefault(); measure(); track.classList.add('is-snap'); set(pos - max * 0.25); }
   });
   window.addEventListener('resize', measure);
+  /* the footer can change width without the window changing (fonts loading, the dock resizing): measure again then too */
+  const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => { if (!dragging && !busy) measure(); }) : null;
+  ro?.observe(track);
   requestAnimationFrame(measure);
-  return { el, destroy() { window.removeEventListener('resize', measure); } };
+  return { el, destroy() { window.removeEventListener('resize', measure); ro?.disconnect(); } };
 }

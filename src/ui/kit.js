@@ -44,7 +44,7 @@ export function segmented(options, value, onChange, { label = 'Choose', full = f
     const b = btns[options.findIndex((o) => o.id === current)];
     if (!b || !b.offsetWidth) return;
     tx = b.offsetLeft; tw = b.offsetWidth;
-    if (!animate || !ready || matchMedia('(prefers-reduced-motion: reduce)').matches) { x = tx; w = tw; paint(); ready = true; return; }
+    if (!animate || !ready || false) { x = tx; w = tw; paint(); ready = true; return; }
     if (!raf) raf = requestAnimationFrame(tick);
   }
   function select(id, fire) {

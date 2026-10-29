@@ -3,7 +3,7 @@ const KEY = 'apex-settings-v1';
 const USER = 'apex-user-v1';
 const APPTS = 'apex-appointments-v1';
 
-const defaults = { dark: false, hidePrices: false, reduceMotion: false };
+const defaults = { dark: false, hidePrices: false, reduceMotion: false, sound: true };
 let settings = { ...defaults };
 const listeners = new Set();
 
@@ -31,10 +31,10 @@ export function setSetting(key, value) {
 
 function applySettings() {
   const root = document.documentElement;
-  root.dataset.theme = settings.dark ? 'dark' : 'light';
+  root.dataset.theme = 'dark';   /* the site is dark-only */
   root.dataset.motion = settings.reduceMotion ? 'reduce' : 'full';
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute('content', settings.dark ? '#0a0708' : '#f6f2f1');
+  if (meta) meta.setAttribute('content', '#060607');
 }
 
 /* visitor (name + email only, kept on this device) */

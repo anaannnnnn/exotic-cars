@@ -326,15 +326,22 @@ describe('enquiries (leads)', () => {
   });
 
   it('moves through the pipeline with notes and history', async () => {
-    const p = await asStaff('PATCH', `/admin/leads/${leadId}`, { body: { status: 'contacted' } });
-    expect(p.data.status).toBe('contacted');
-    expect(p.data.history.at(-1)).toMatchObject({ status: 'contacted', by: 'sales@exoticcars.test' });
+    /* a lead cannot be moved on until someone has actually been in touch, and the first stage move claims an unassigned lead */
+    const early = await asStaff('PATCH', `/admin/leads/${leadId}`, { body: { status: 'contacted' } });
+    expect(early.status).toBe(409);
+    expect((await asStaff('POST', `/admin/leads/${leadId}/touch`, { body: { kind: 'call', outcome: 'no-answer' } })).status).toBe(200);
+    expect((await asStaff('PATCH', `/admin/leads/${leadId}`, { body: { status: 'contacted' } })).status).toBe(409);
+    expect((await asStaff('POST', `/admin/leads/${leadId}/touch`, { body: { kind: 'call', outcome: 'connected' } })).status).toBe(200);
+    const p = await asStaff('PATCH', `/admin/leads/${leadId}`, { body: { status: 'qualified' } });
+    expect(p.data.status).toBe('qualified');
+    expect(p.data.assignee).toBe('sales@exoticcars.test');
+    expect(p.data.history.at(-1)).toMatchObject({ status: 'qualified', by: 'sales@exoticcars.test' });
     const n = await asStaff('POST', `/admin/leads/${leadId}/notes`, { body: { text: 'Called, viewing on Thursday.' } });
     expect(n.status).toBe(201);
     expect(n.data.notes[0].text).toBe('Called, viewing on Thursday.');
     expect((await asStaff('PATCH', `/admin/leads/${leadId}`, { body: { status: 'sold-ish' } })).status).toBe(400);
     const stats = await asStaff('GET', '/admin/stats');
-    expect(stats.data.leads.byStatus.contacted).toBeGreaterThanOrEqual(1);
+    expect(stats.data.leads.byStatus.qualified).toBeGreaterThanOrEqual(1);
     expect(stats.data.leads.perDay).toHaveLength(14);
     expect(stats.data.leads.perDay.at(-1)).toBeGreaterThanOrEqual(1);
     expect(stats.data.inventory.forSale).toBeGreaterThan(100);
@@ -358,12 +365,14 @@ describe('enquiries (leads)', () => {
 });
 
 describe('bookings (appointments)', () => {
-  const booking = { ref: 'AA-7K2QD9', service: 'Detailing & ceramic', car: 'Lamborghini Urus', date: '2026-10-20', slot: '10:00', name: 'Sara Haddad', phone: '0559876543', notes: 'Pick-up from Marina' };
+  /* always a week ahead, so the booking stays "upcoming" whenever the suite runs */
+  const ahead = new Date(Date.now() + 7 * 864e5).toISOString().slice(0, 10);
+  const booking = { ref: 'AA-7K2QD9', service: 'Detailing & ceramic', car: 'Lamborghini Urus', date: ahead, slot: '10:00', name: 'Sara Haddad', phone: '0559876543', notes: 'Pick-up from Marina' };
 
   it('books once even when the phone retries', async () => {
     const a = await call('POST', '/appointments', { body: booking });
     expect(a.status).toBe(201);
-    expect(a.data).toMatchObject({ ref: 'AA-7K2QD9', status: 'requested', date: '2026-10-20' });
+    expect(a.data).toMatchObject({ ref: 'AA-7K2QD9', status: 'requested', date: ahead });
     const b = await call('POST', '/appointments', { body: booking });
     expect(b.status).toBe(200);
     const list = await asStaff('GET', '/admin/appointments?q=AA-7K2QD9');
@@ -467,6 +476,145 @@ describe('photos', () => {
 
   it('only accepts its own media keys', async () => {
     expect((await call('GET', '/media/..%2Fcrm%2Fleads')).status).toBe(404);
+  });
+});
+
+
+describe('demo data, the forecast calculator and the purchasing planner', () => {
+  const calc = (o = {}) => asStaff('POST', '/admin/forecast/calc', { body: { history: [4, 5, 6, 5, 7, 8, 6, 5, 7, 9, 10, 12], stock: 10, safety: 2, leadDays: 45, periodDays: 90, price: 1000000, cost: 850000, recon: 15000, discountPct: 2, holdingPct: 0.55, targetMarginPct: 11, month: 9, event: 'none', ...o } });
+
+  it('has demo data off until the owner loads it, and still forecasts from a baseline', async () => {
+    expect((await asStaff('GET', '/admin/demo')).data.enabled).toBe(false);
+    const f = await asStaff('GET', '/admin/forecast?horizon=6');
+    expect(f.status).toBe(200);
+    expect(f.data.demo).toBe(false);
+    expect(f.data.method).toBe('baseline');
+    expect(f.data.months).toHaveLength(6);
+  });
+
+  it('loads a realistic demo showroom, and loading again does not duplicate it', async () => {
+    const r = await asStaff('POST', '/admin/demo/load');
+    expect(r.status).toBe(200);
+    expect(r.data.counts.sales).toBeGreaterThan(400);
+    expect(r.data.counts.cars).toBeGreaterThan(400);
+    expect(r.data.counts.leads).toBeGreaterThan(80);
+    const again = await asStaff('POST', '/admin/demo/load');
+    expect(again.data.counts).toEqual(r.data.counts);
+    const st = (await asStaff('GET', '/admin/demo')).data;
+    expect(st.enabled).toBe(true);
+    expect(st.counts.sales).toBe(r.data.counts.sales);
+  });
+
+  it('shows the demo prices on a lead\'s deal desk', async () => {
+    const leads = (await asStaff('GET', '/admin/leads?limit=200')).data;
+    const rows = (leads.data || leads).filter((l) => l.car?.id).slice(0, 40);
+    expect(rows.length).toBeGreaterThan(10);
+    let priced = 0;
+    for (const row of rows) { const d = await asStaff('GET', `/admin/leads/${row.id}`); if (d.data.carRef?.price > 50000) priced += 1; }
+    expect(priced).toBeGreaterThan(rows.length / 2);               /* the demo leads' cars carry a demo price */
+  });
+
+  it('forecasts the showroom from a year of sales', async () => {
+    const f = (await asStaff('GET', '/admin/forecast?horizon=12')).data;
+    expect(f.method).toBe('sales');
+    expect(f.demo).toBe(true);
+    expect(f.history).toHaveLength(12);
+    expect(f.months).toHaveLength(12);
+    expect(f.confidence).toBeGreaterThan(0.5);
+    for (const m of f.months) { expect(m.winsLo).toBeLessThanOrEqual(m.wins); expect(m.wins).toBeLessThanOrEqual(m.winsHi); expect(m.revenue).toBeGreaterThan(0); }
+    expect(f.totals.units12).toBeGreaterThan(250);
+    const revs = f.byMake.map((m) => m.revenue); expect(revs).toEqual([...revs].sort((a, b) => b - a));
+    expect(f.assumptions.grossMarginPct).toBeGreaterThan(8); expect(f.assumptions.grossMarginPct).toBeLessThan(25);
+    expect(f.stages.find((x) => x.status === 'qualified').value).toBeGreaterThan(0);        /* open leads are valued at their car's price */
+  });
+
+  it('calculates demand, stock, purchase and profit the way the working says', async () => {
+    const r = (await calc()).data, F = r.forecast;
+    expect(F.qty).toBeGreaterThan(10);
+    expect(F.qtyLo).toBeLessThanOrEqual(F.qty); expect(F.qty).toBeLessThanOrEqual(F.qtyHi);
+    expect(r.purchase.qty).toBe(Math.max(0, Math.ceil(F.qty + 2 - 10 - 0.0001)));
+    expect(r.stock.reorderPoint).toBe(Math.ceil(r.stock.leadDemand + 2));
+    expect(r.money.unitNet).toBe(Math.round(1000000 * 0.98));
+    expect(r.money.unitProfit).toBe(Math.round(980000 - 865000));
+    expect(r.money.marginPct).toBeCloseTo((115000 / 980000) * 100, 1);
+    expect(r.scenarios.worst.profit).toBeLessThanOrEqual(r.scenarios.expected.profit); expect(r.scenarios.expected.profit).toBeLessThanOrEqual(r.scenarios.best.profit);
+    expect(r.steps).toHaveLength(6); expect(r.insights.length).toBeGreaterThan(2);
+    expect(r.report.history).toHaveLength(12); expect(r.report.months).toHaveLength(3);
+  });
+
+  it('moves demand with the season and the period, and warns about running out or overstock', async () => {
+    const none = (await calc()).data.forecast.qty, summer = (await calc({ event: 'summer' })).data.forecast.qty, dsf = (await calc({ event: 'dsf' })).data.forecast.qty;
+    expect(summer).toBeLessThan(none); expect(dsf).toBeGreaterThan(none);
+    expect((await calc({ periodDays: 180 })).data.forecast.qty).toBeGreaterThan(none * 1.6);
+    const out = (await calc({ stock: 0, leadDays: 120 })).data;
+    expect(out.stock.shortfall).toBeGreaterThan(0.5); expect(out.insights.some((i) => /run out/.test(i.text))).toBe(true); expect(out.money.lostProfit).toBeGreaterThan(0);
+    const over = (await calc({ stock: 80 })).data;
+    expect(over.purchase.qty).toBe(0); expect(over.insights.some((i) => /No purchase needed/.test(i.text))).toBe(true);
+    const thin = (await calc({ cost: 980000, recon: 20000 })).data;
+    expect(thin.insights.some((i) => /below your 11% target/.test(i.text))).toBe(true);
+  });
+
+  it('refuses nonsense for the calculator', async () => {
+    expect((await calc({ history: [] })).status).toBe(400);
+    expect((await calc({ price: 0 })).status).toBe(400);
+    expect((await calc({ periodDays: 3 })).status).toBe(400);
+    expect((await calc({ history: ['x'] })).status).toBe(400);
+  });
+
+  it('suggests starting numbers for a make and model', async () => {
+    const cat = (await asStaff('GET', '/admin/forecast/catalog')).data;
+    expect(cat.makes.length).toBeGreaterThan(5); expect(cat.events.length).toBe(8);
+    const top = cat.models.find((m) => m.units12 > 5);
+    const sg = (await asStaff('GET', `/admin/forecast/suggest?brand=${encodeURIComponent(top.brand)}&model=${encodeURIComponent(top.model)}`)).data;
+    expect(sg.history).toHaveLength(12); expect(sg.history.reduce((a, b) => a + b, 0)).toBe(sg.units12);
+    expect(sg.price).toBeGreaterThan(sg.cost); expect(sg.cost).toBeGreaterThan(0);
+  });
+
+  it('plans purchases model by model within the budget and every make\'s share of it', async () => {
+    const p = (await asStaff('GET', '/admin/purchasing')).data, budget = p.params.budget, cap = (budget * p.params.maxMakeSharePct) / 100;
+    expect(p.rows.length).toBeGreaterThan(50);
+    expect(p.summary.toBuy).toBeGreaterThan(10);
+    const order = { critical: 0, urgent: 1, plan: 2, ok: 3 };
+    const ranks = p.rows.map((r) => order[r.urgency]); expect(ranks).toEqual([...ranks].sort((a, b) => a - b));
+    expect(p.rows.every((r) => !(r.buy > 0 && r.urgency === 'ok'))).toBe(true);
+    const lines = p.allocation.lines;
+    for (const l of lines) { expect(l.alloc).toBeGreaterThanOrEqual(0); expect(l.alloc).toBeLessThanOrEqual(l.buy); expect(l.deferred).toBe(l.buy - l.alloc); }
+    expect(lines.reduce((s, l) => s + l.spend, 0)).toBeLessThanOrEqual(budget);
+    const byMake = {}; lines.forEach((l) => { byMake[l.brand] = (byMake[l.brand] || 0) + l.spend; });
+    Object.values(byMake).forEach((v) => expect(v).toBeLessThanOrEqual(cap + 1));
+    expect(p.rows.some((r) => r.maxBid && r.avgPrice && r.maxBid < r.avgPrice)).toBe(true);
+    const top = p.rows.find((r) => r.buy > 0); expect(top.reasons.length).toBeGreaterThan(1); expect(top.roi).toBeGreaterThan(5);
+    expect(p.aging.reduce((s, a) => s + a.units, 0)).toBe(p.summary.stockUnits - p.rows.reduce((s, r) => s + 0, 0) + 0 || p.summary.stockUnits);
+    expect(p.concentration.reduce((s, c) => s + c.share, 0)).toBeLessThanOrEqual(100.5);
+    expect(p.channels.length).toBeGreaterThan(2); expect(p.calendar).toHaveLength(6); expect(p.shopping.length).toBeGreaterThan(0); expect(p.priceBands).toHaveLength(5);
+  });
+
+  it('buys more with a bigger budget and a bolder appetite, and less with a smaller one', async () => {
+    const at = (q) => asStaff('GET', `/admin/purchasing?${q}`).then((r) => r.data);
+    const small = await at('budget=3000000'), big = await at('budget=60000000');
+    expect(small.summary.cars).toBeLessThan(big.summary.cars); expect(small.summary.allocated).toBeLessThanOrEqual(3000000);
+    const profits = big.allocation.scenarios.map((s) => s.profit); expect(profits).toEqual([...profits].sort((a, b) => a - b));
+    const cautious = await at('appetite=cautious'), bold = await at('appetite=bold');
+    expect(bold.summary.toBuy).toBeGreaterThanOrEqual(cautious.summary.toBuy);
+    expect((await asStaff('GET', '/admin/purchasing?appetite=reckless')).status).toBe(400);
+  });
+
+  it('answers plain questions from the plan', async () => {
+    for (const q of ['what should I buy this month', 'how much budget do I need', 'which cars are slow', 'where should I source cars', 'how is Ferrari doing', 'how is the Cullinan doing']) {
+      const r = await asStaff('POST', '/admin/purchasing/ask', { body: { q } });
+      expect(r.status).toBe(200); expect(r.data.text.length).toBeGreaterThan(20);
+    }
+  });
+
+  it('removes only the demo records, and everything goes back to a baseline', async () => {
+    const before = (await asStaff('GET', '/admin/customers?limit=500')).data.pagination.total;
+    expect(before).toBeGreaterThan(0);
+    const r = await asStaff('POST', '/admin/demo/remove');
+    expect(r.status).toBe(200); expect(r.data.removed).toBeGreaterThan(500);
+    expect((await asStaff('GET', '/admin/demo')).data.enabled).toBe(false);
+    const f = (await asStaff('GET', '/admin/forecast')).data; expect(f.demo).toBe(false); expect(f.method).toBe('baseline');
+    const leads = (await asStaff('GET', '/admin/leads?limit=500')).data; expect((leads.data || leads).every((l) => !l.demo)).toBe(true);
+    const sg = (await asStaff('GET', '/admin/forecast/suggest?brand=Ferrari')).data; expect(sg.units12).toBe(0);
   });
 });
 

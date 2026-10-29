@@ -23,12 +23,45 @@ const T = {
 };
 const FALLBACK = { bg: '#1a1a1c', bg2: '#050505', ink: '#ffffff', acc: '#d4182c', on: '#000000', name: 'Exotic' };
 
+
+/*
+ * Typography kit per make: the face its pages are set in, plus weight, tracking and case. Faces are the ones the app
+ * already ships (main.js): Archivo, Bodoni Moda, Jost, Inter Tight, Instrument Sans, IBM Plex Mono and Michroma.
+ */
+const BODONI = "'Bodoni Moda Variable', 'Times New Roman', serif";
+const JOST = "'Jost Variable', 'Instrument Sans Variable', system-ui, sans-serif";
+const TIGHT = "'Inter Tight Variable', 'Instrument Sans Variable', system-ui, sans-serif";
+const ARCH = "'Archivo Variable', 'Instrument Sans Variable', system-ui, sans-serif";
+const INSTR = "'Instrument Sans Variable', system-ui, sans-serif";
+const MONO = "'IBM Plex Mono', ui-monospace, monospace";
+const MICH = "'Michroma', 'Instrument Sans Variable', system-ui, sans-serif";
+const TYPE = {
+  Ferrari:         { font: ARCH,   wt: 800, track: '-0.02em', up: 'uppercase' },
+  Lamborghini:     { font: MICH,   wt: 400, track: '0.03em',  up: 'uppercase' },
+  'Rolls Royce':   { font: BODONI, wt: 500, track: '0.005em', up: 'none' },
+  'Mercedes Benz': { font: TIGHT,  wt: 300, track: '0.14em',  up: 'uppercase' },
+  Bentley:         { font: BODONI, wt: 600, track: '0.08em',  up: 'uppercase' },
+  Porsche:         { font: JOST,   wt: 600, track: '0.06em',  up: 'uppercase' },
+  'Aston Martin':  { font: JOST,   wt: 400, track: '0.18em',  up: 'uppercase' },
+  'Land Rover':    { font: INSTR,  wt: 700, track: '0.02em',  up: 'uppercase' },
+  McLaren:         { font: MONO,   wt: 500, track: '0.05em',  up: 'uppercase' },
+  BMW:             { font: INSTR,  wt: 700, track: '0.02em',  up: 'uppercase' },
+  Bugatti:         { font: BODONI, wt: 500, track: '0.2em',   up: 'uppercase' },
+  Audi:            { font: JOST,   wt: 500, track: '0em',     up: 'none' },
+  Maserati:        { font: TIGHT,  wt: 500, track: '0.12em',  up: 'uppercase' },
+  Cadillac:        { font: TIGHT,  wt: 600, track: '0.1em',   up: 'uppercase' },
+  'Alfa Romeo':    { font: ARCH,   wt: 700, track: '0.04em',  up: 'uppercase' },
+  Infiniti:        { font: JOST,   wt: 300, track: '0.16em',  up: 'uppercase' }
+};
+const TYPE_FALLBACK = { font: INSTR, wt: 600, track: '0em', up: 'none' };
+export const brandType = (make) => TYPE[make] || TYPE_FALLBACK;
+
 export const brandTheme = (make) => T[make] || FALLBACK;
 
 /** Inline style that hands a make's colours to an element and its children. */
 export const brandVars = (make) => {
-  const t = brandTheme(make);
-  return `--b-bg:${t.bg};--b-bg2:${t.bg2};--b-ink:${t.ink};--b-acc:${t.acc};--b-on:${t.on}`;
+  const t = brandTheme(make), y = brandType(make);
+  return `--b-bg:${t.bg};--b-bg2:${t.bg2};--b-ink:${t.ink};--b-acc:${t.acc};--b-on:${t.on};--b-font:${y.font};--b-wt:${y.wt};--b-track:${y.track};--b-case:${y.up}`;
 };
 
 const LABEL = { 'Rolls Royce': 'Rolls-Royce', 'Mercedes Benz': 'Mercedes-Benz' };

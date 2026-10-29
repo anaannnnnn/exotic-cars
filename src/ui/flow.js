@@ -8,7 +8,7 @@
  *    and whenever the visitor asks for less motion (it can still be dragged). `setPaused` is the visible pause button.
  * Returns { destroy, setPaused }.
  */
-const reduced = () => document.documentElement.dataset.motion === 'reduce' || matchMedia('(prefers-reduced-motion: reduce)').matches;
+const reduced = () => document.documentElement.dataset.motion === 'reduce' || false;
 
 export function flowRail(viewport, track, { speed = 30, resumeAfter = 2200 } = {}) {
   let pos = 0, half = 0, raf = 0, last = 0, alive = true;
@@ -22,7 +22,7 @@ export function flowRail(viewport, track, { speed = 30, resumeAfter = 2200 } = {
   }
   const wrap = () => { if (half > 0) pos = ((pos % half) + half) % half; };
   const paint = () => { track.style.transform = `translate3d(${(-pos).toFixed(2)}px, 0, 0)`; };
-  const drifting = () => !paused && !hover && !focus && !reduced() && performance.now() > holdUntil;
+  const drifting = () => !paused && !reduced() && performance.now() > holdUntil;   /* never stops for a resting mouse or focus: it keeps moving left */
 
   function tick(now) {
     const dt = Math.min(0.05, (now - (last || now)) / 1000);

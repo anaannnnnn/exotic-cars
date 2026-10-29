@@ -5,6 +5,7 @@ import {
   getSettings, setSetting, getUser, signIn, signOut, saveAppointment, getAppointments, resetLocalData
 } from '../state/settings.js';
 import { send as sendRequest, problemText } from '../state/outbox.js';
+import { openVoiceCall } from './voicecall.js';
 
 /* Modal sheets opened from the dock: service appointment, sign in, settings and the VR viewer. */
 
@@ -19,7 +20,7 @@ export function closePanel() {
   open = null;
 }
 
-function modal(title, sub, body, { wide = false, onClose } = {}) {
+export function modal(title, sub, body, { wide = false, onClose } = {}) {
   closePanel();
   const onKey = (e) => { if (e.key === 'Escape') closePanel(); };
   const el = h('div', { class: 'sheet', role: 'dialog', 'aria-modal': 'true', 'aria-label': title }, [
@@ -195,6 +196,7 @@ export function openSettings() {
   modal('Settings', null, h('div', { class: 'settings' }, [
     row('Dark appearance', 'Easier on the eyes in a dim showroom', 'dark'),
     row('Hide prices', 'For customer-facing screens', 'hidePrices'),
+    row('Engine sound', 'The rev when you hold to enter the showroom', 'sound'),
     row('Reduce motion', 'Calmer animations and a still dock', 'reduceMotion'),
     h('button', { class: 'ghost ghost--block', type: 'button', text: 'Clear saved data on this device', onclick: () => { resetLocalData(); closePanel(); toast('Saved data cleared'); } })
   ]));
@@ -250,4 +252,18 @@ export function openVR() {
     document.body.append(el);
     document.body.classList.add('is-locked');
   }
+}
+
+/* ------------------------------------------------------------------ call */
+const PHONE = '+971552446000', WHATSAPP = '971559020734';
+/** Three ways to talk: ring the showroom, WhatsApp it, or have a hands-free voice call with the concierge. */
+export function openCall() {
+  const way = (cls, ic, title, sub, attrs) => h(attrs.href ? 'a' : 'button', { class: `callway ${cls}`, ...attrs }, [
+    h('span', { class: 'callway__ic' }, icon(ic)), h('span', { class: 'callway__t' }, [h('b', { text: title }), h('small', { text: sub })]), h('span', { class: 'callway__go', 'aria-hidden': 'true' }, icon('right'))
+  ]);
+  modal('Talk to us', 'A person at the showroom, or the concierge by voice.', h('div', { class: 'callways' }, [
+    way('callway--ring', 'phone', 'Call the showroom', '+971 55 244 6000', { href: `tel:${PHONE}` }),
+    way('', 'chat', 'WhatsApp', 'Message or send a voice note', { href: `https://wa.me/${WHATSAPP}`, target: '_blank', rel: 'noopener noreferrer' }),
+    way('callway--ai', 'spark', 'Voice call with the concierge', 'Ask out loud and hear the answer', { type: 'button', onclick: () => { closePanel(); openVoiceCall(); } })
+  ]));
 }

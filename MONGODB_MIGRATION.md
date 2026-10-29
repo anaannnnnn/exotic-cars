@@ -1,18 +1,11 @@
-# Move Exotic Cars to MongoDB
+# MongoDB runtime and DevX Control
 
-Opened by DevX Control after the data was copied into **db / exotic_cars**.
+The server implements the same storage interface on MongoDB, PostgreSQL, and the local Netlify blob store. MongoDB is selected when `MONGO_URI`, `MONGODB_URI`, or `MONGO_URL` is set, or when `DATABASE_URL` / `POSTGRES_URL` begins with `mongodb://` or `mongodb+srv://`. An explicit Mongo variable takes precedence over leftover PostgreSQL variables. `useSqlStore()` remains an explicit PostgreSQL override for the PostgreSQL test adapter.
 
-## What changed
-- .env.example: added MONGO_URI with a MongoDB placeholder.
+DevX Control's migration flow supplies `MONGO_URI`; the runtime reads this variable. Keep its connection string in DevX's environment settings, never in Git. Set the URI database name to `exotic_cars`. The Mongo adapter stores app records in the `kv` collection and imports existing `cars`, `brands`, `products`, `meta`, and `system` collections at first connection when the app catalog is not initialized. Catalog changes also refresh those collections.
 
-## Needs a person
-- Nothing flagged automatically.
-- [ ] Look through any code that treats ids as numbers (parseInt of an id, z.number() ids).
-- [ ] Run the tests and click through the app against a MongoDB database before merging.
+## Switching in DevX Control
 
-## Check run by DevX Control
-- No schema check was needed.
+Merging DevX's generated GitHub pull request does not itself change the running database. After this code is deployed, use the app's **Switch to MongoDB** action in DevX Control to copy the current data and set `MONGO_URI`. The app's `/api/v1/health` response reports `storageKind: "mongo"` and `storage: "ok"` when it can read the selected database. Keep the previous database until DevX's migration checks pass.
 
-## Deploying
-1. Put the real connection string in the server's `.env` as `MONGO_URI` (never commit it).
-2. After this is merged, press **Switch to MongoDB** on the app in DevX Control. It copies the latest data, points the app at MongoDB, deploys, runs its checks, and only then offers to remove the old database.
+For manual deployment, set `MONGO_URI` in the server environment before restarting the app. An explicit Mongo variable intentionally prevents fallback to Postgres, so an invalid URI fails health checks instead of silently writing to another database.

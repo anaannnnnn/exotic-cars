@@ -15,7 +15,7 @@ body[data-page='car'] #toast { bottom: 300px; }
   --line: color-mix(in srgb, var(--ink) 16%, transparent);
   --edge: color-mix(in srgb, var(--ink) 88%, transparent);
   --glass: color-mix(in srgb, var(--bg) 80%, transparent);
-  --tint: #c8102e;
+  --tint: #39ff88;
   position: fixed; inset: 0; z-index: 5; overflow: hidden; overflow: clip; background: var(--bg); color: var(--ink);
   height: 100dvh; user-select: none; -webkit-user-select: none;
 }
@@ -177,7 +177,7 @@ body[data-page='car'] #toast { bottom: 300px; }
 .swipe__chev { display: inline-grid; animation: nudge 1.6s ease-in-out infinite; }
 .swipe__chev svg { width: 26px; height: 26px; opacity: 0.85; }
 @keyframes nudge { 0%, 100% { transform: translateX(-3px); opacity: 0.5; } 50% { transform: translateX(4px); opacity: 1; } }
-.swipe__handle { position: absolute; left: 4px; top: 4px; bottom: 4px; width: 64px; border-radius: 26px; background: #fff; color: #0e0e12; display: grid; place-items: center; transform: translateX(var(--x)); cursor: grab; touch-action: none; box-shadow: 0 8px 18px -6px rgba(0, 0, 0, 0.5); }
+.swipe__handle { position: absolute; left: 4px; top: 4px; bottom: 4px; width: 64px; border-radius: 26px; background: #fff; color: #0e0e12; display: grid; place-items: center; transform: translateX(var(--x)); cursor: grab; touch-action: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; box-shadow: 0 8px 18px -6px rgba(0, 0, 0, 0.5); }
 .swipe__handle:active { cursor: grabbing; }
 .swipe__handle svg { width: 30px; height: 30px; fill: currentColor; stroke: none; }
 .swipe__handle svg[stroke], .swipe__handle svg.lucide { fill: none; stroke: currentColor; }
@@ -228,7 +228,7 @@ body[data-page='car'] #toast { bottom: 300px; }
   .cfg__views { bottom: calc(var(--foot) + 20px); }
 }
 
-@media (prefers-reduced-motion: reduce) { .swipe__chev, .opts.swap .opts__list, .opts.swap .opts__tabs { animation: none; } }
+@media not all { .swipe__chev, .opts.swap .opts__list, .opts.swap .opts__tabs { animation: none; } }
 :root[data-theme='dark'] .cfg__bg { background: radial-gradient(85% 62% at 50% 46%, #17181d 0%, #0c0d10 62%, #08080a 100%); }
 :root[data-theme='dark'] .opt__img { background: #f4f4f6; }
 
