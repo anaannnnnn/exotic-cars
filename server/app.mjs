@@ -115,6 +115,8 @@ on('GET', '/stock', async ({ req }) => {
   return cachedJson(req, res);
 });
 
+on('GET', '/ads', async ({ req }) => cachedJson(req, await repo.publicAds()));
+
 on('GET', '/products', async ({ req }) => {
   const res = await repo.publicProducts();
   if (!res) throw new HttpError(404, 'Not imported', 'The live catalogue has not been set up yet; the site uses its built-in copy.');
@@ -258,6 +260,13 @@ on('GET', '/admin/session', async ({ staff }) => ({ email: staff.sub, expiresAt:
 on('DELETE', '/admin/session', async () => noContent({ 'set-cookie': auth.clearCookie(auth.STAFF_COOKIE) }));
 
 on('GET', '/admin/stats', () => repo.stats(), { staff: true });
+
+/* ---------- home advertisements and transaction reports ---------- */
+on('GET', '/admin/ads', () => repo.listAds(), { staff: true });
+on('POST', '/admin/ads', async ({ req }) => json(await repo.addAd(parse(S.adSlide, await readJson(req))), 201), { staff: true });
+on('DELETE', '/admin/ads/:id', async ({ params }) => { await repo.removeAd(id('media', params.id)); return noContent(); }, { staff: true });
+on('GET', '/admin/transactions', ({ query }) => repo.listTransactions(parse(S.transactionQuery, query)), { staff: true });
+on('POST', '/admin/transactions', async ({ req }) => json(await repo.createTransaction(parse(S.transactionCreate, await readJson(req))), 201), { staff: true });
 
 /* ---------- inventory ---------- */
 on('GET', '/admin/cars', ({ query }) => repo.listCars(parse(S.listQuery, query)), { staff: true });

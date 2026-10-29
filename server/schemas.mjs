@@ -150,6 +150,29 @@ export const appointmentPatch = z.object({
 export const note = z.object({ text: str(2000, 1) });
 export const importBody = z.object({ mode: z.enum(['missing', 'replace']).default('missing'), what: z.array(z.enum(['cars', 'products'])).default(['cars', 'products']) });
 
+/* ---------- home advertisements and transaction ledger ---------- */
+export const adSlide = z.object({
+  image: safeUrl,
+  text: optStr(160),
+  font: z.enum(['Instrument Sans Variable', 'Archivo Variable', 'Michroma']).default('Instrument Sans Variable'),
+  active: z.boolean().default(true)
+});
+export const transactionCreate = z.object({
+  type: z.enum(['sale', 'purchase']),
+  carId: z.coerce.number().int().positive(),
+  amount: z.coerce.number().positive().max(1e10),
+  date: z.string().regex(/^\\d{4}-\\d{2}-\\d{2}$/),
+  salesperson: optStr(100),
+  counterparty: optStr(120),
+  notes: optStr(1000)
+});
+export const transactionQuery = z.object({
+  type: z.enum(['sale', 'purchase']).optional(), month: z.coerce.number().int().min(1).max(12).optional(),
+  year: z.coerce.number().int().min(1950).max(thisYear + 2).optional(),
+  car: z.string().trim().max(30).optional(), brand: z.string().trim().max(40).optional(),
+  salesperson: z.string().trim().max(100).optional(), limit: z.coerce.number().int().min(1).max(500).default(500)
+});
+
 /* ---------- queries ---------- */
 export const listQuery = z.object({
   limit: z.coerce.number().int().min(1).max(500).default(50),

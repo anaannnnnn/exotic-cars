@@ -14,6 +14,8 @@ import { mountLeads } from './views/leads.js';
 import { mountAppointments } from './views/appointments.js';
 import { mountCustomers } from './views/customers.js';
 import { mountSettings } from './views/settings.js';
+import { mountAds } from './views/ads.js';
+import { mountTransactions } from './views/transactions.js';
 
 /*
  * Exotic Cars CRM (/admin/). A small single-page app on the same origin as the site: the session is an HttpOnly cookie
@@ -55,6 +57,9 @@ const NAV = [
   { id: 'leads', label: 'Leads', icon: 'leads', href: '#/leads', badge: 'leads' },
   { id: 'appointments', label: 'Bookings', icon: 'calendar', href: '#/appointments', badge: 'appointments' },
   { id: 'inventory', label: 'Inventory', icon: 'car', href: '#/inventory' },
+  { id: 'sales', label: 'Sales', icon: 'money', href: '#/sales' },
+  { id: 'purchases', label: 'Purchases', icon: 'download', href: '#/purchases' },
+  { id: 'ads', label: 'Advertisements', icon: 'photo', href: '#/ads' },
   { id: 'products', label: 'Wheels & kits', icon: 'wheel', href: '#/products' },
   { id: 'customers', label: 'Customers', icon: 'users', href: '#/customers' },
   { id: 'settings', label: 'Settings', icon: 'settings', href: '#/settings' }
@@ -68,6 +73,9 @@ function resolve(hash) {
     case 'dashboard': return { nav: 'dashboard', mount: mountDashboard };
     case 'inventory': return sub ? { nav: 'inventory', mount: mountCarEditor, params: { id: sub } } : { nav: 'inventory', mount: mountInventory };
     case 'products': return sub ? { nav: 'products', mount: mountProductEditor, params: { id: sub } } : { nav: 'products', mount: mountProducts };
+    case 'sales': return { nav: 'sales', mount: mountTransactions, params: { type: 'sale' } };
+    case 'purchases': return { nav: 'purchases', mount: mountTransactions, params: { type: 'purchase' } };
+    case 'ads': return { nav: 'ads', mount: mountAds };
     case 'leads': return { nav: 'leads', mount: mountLeads, params: { id: sub } };
     case 'appointments': return { nav: 'appointments', mount: mountAppointments, params: { id: sub } };
     case 'customers': return { nav: 'customers', mount: mountCustomers, params: { id: sub } };

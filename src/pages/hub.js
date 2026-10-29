@@ -10,6 +10,7 @@ import { shopWithBrand } from './shop.js';
 import { liquidTabs } from '../ui/liquid-tabs.js';
 import { themeToggle } from '../ui/theme-toggle.js';
 import { flowRail } from '../ui/flow.js';
+import { api } from '../data/api.js';
 
 /*
  * Home (after the lock screen): greeting, the day in big numerals, a concierge prompt, make filters, a slideshow of
@@ -74,7 +75,7 @@ export function mountHub(root) {
   const rank = (c) => (stock.configuratorMatch(c) ? 0 : 1);
   const featuredAll = (pool.length >= 6 ? pool : sale).slice().sort((a, b) => rank(a) - rank(b)).slice(0, 24);
   const makes = [...new Set(featuredAll.map((c) => c.brand))].slice(0, 6);
-  let make = '', index = 0, timer = 0, paused = false, alive = true;
+  let make = '', index = 0, timer = 0, paused = false, alive = true, adSlides = [];
 
   /* ---------- header */
   const now = new Date();
@@ -157,12 +158,17 @@ export function mountHub(root) {
     return wrap;
   }
   function renderSlides() {
-    const list = (make ? featuredAll.filter((c) => c.brand === make) : featuredAll).slice(0, 8);
+    const list = adSlides.slice(0, 8);
     clear(track); clear(dots);
-    list.forEach((c, i) => {
-      track.append(slide(c, i, list.length));
-      dots.append(h('button', { class: 'show__dot', type: 'button', role: 'tab', 'aria-label': `Show ${c.title}`, onclick: () => goTo(i, true) }));
+    list.forEach((ad, i) => {
+      const card = h('article', { class: 'slide ad-slide', 'aria-roledescription': 'slide', 'aria-label': `${i + 1} of ${list.length}: advertisement` }, [
+        h('div', { class: 'slide__media' }, h('img', { class: 'slide__img', src: ad.image, alt: ad.text || 'Exotic Cars advertisement', loading: i < 2 ? 'eager' : 'lazy', decoding: 'async' })),
+        ad.text ? h('div', { class: 'ad-slide__caption', style: `font-family:${ad.font || 'Instrument Sans Variable'},sans-serif` }, h('p', { text: ad.text })) : null
+      ]);
+      track.append(h('div', { class: 'slidew' }, card));
+      dots.append(h('button', { class: 'show__dot', type: 'button', role: 'tab', 'aria-label': `Show advertisement ${i + 1}`, onclick: () => goTo(i, true) }));
     });
+    if (!list.length) track.append(h('p', { class: 'ad-empty', text: 'New partner offers will appear here.' }));
     track.scrollLeft = 0;
     sync(0);
     restart();
@@ -178,7 +184,7 @@ export function mountHub(root) {
   function sync(i) {
     index = i;
     [...dots.children].forEach((d, j) => d.setAttribute('aria-selected', String(j === i)));
-    count.textContent = `${String(i + 1).padStart(2, '0')} / ${String(dots.children.length).padStart(2, '0')}`;
+    count.textContent = dots.children.length ? `${String(i + 1).padStart(2, '0')} / ${String(dots.children.length).padStart(2, '0')}` : '';
   }
   let scrollRaf = 0;
   track.addEventListener('scroll', () => {
@@ -204,9 +210,10 @@ export function mountHub(root) {
   track.addEventListener('touchstart', () => { paused = true; dots.classList.add('is-paused'); clearTimeout(track._t); track._t = setTimeout(() => { paused = false; dots.classList.remove('is-paused'); }, 5000); }, { passive: true });
   track.addEventListener('keydown', (e) => { if (e.key === 'ArrowRight') { e.preventDefault(); goTo(index + 1, true); } if (e.key === 'ArrowLeft') { e.preventDefault(); goTo(index - 1, true); } });
 
-  const show = h('section', { class: 'show', 'aria-label': 'Featured cars' }, [
-    h('div', { class: 'sect-head' }, [h('h2', { text: 'Featured' }), h('a', { class: 'sect-head__link', href: '#/shop' }, ['See all', icon('right')])]),
-    chips, track, h('div', { class: 'show__foot' }, [dots, count])
+  chips.hidden = true;
+  const show = h('section', { class: 'show', 'aria-label': 'Advertisements' }, [
+    h('div', { class: 'sect-head' }, [h('h2', { text: 'Discover' }), h('span', { class: 'show__count', text: 'Partner offers' })]),
+    track, h('div', { class: 'show__foot' }, [dots, count])
   ]);
 
   /* ---------- small cards for the rails below */
@@ -367,6 +374,7 @@ export function mountHub(root) {
   if (veil) requestAnimationFrame(() => { veil.classList.add('is-out'); setTimeout(() => veil.remove(), 480); });
   renderChips();
   renderSlides();
+  api('ads', { timeout: 5000 }).then((data) => { if (alive) { adSlides = Array.isArray(data) ? data : []; renderSlides(); } }).catch(() => {});
   const onResize = () => moveThumb();
   window.addEventListener('resize', onResize);
 

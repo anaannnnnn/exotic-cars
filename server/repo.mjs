@@ -230,6 +230,61 @@ export async function deleteProduct(id) {
   await audit('product.delete', { id });
 }
 
+/* ======================================================================================== advertising and transactions */
+export async function publicAds() {
+  const doc = await readDoc('catalog', 'ads');
+  return doc ? { etag: doc.etag, body: (doc.data.slides || []).filter((s) => s.active) } : { body: [] };
+}
+export async function listAds() {
+  const doc = await readDoc('catalog', 'ads');
+  return doc?.data.slides || [];
+}
+export async function addAd(input) {
+  const slide = { id: newId(), ...input, createdAt: now() };
+  const existing = await readDoc('catalog', 'ads');
+  if (!existing) await writeDoc('catalog', 'ads', { slides: [slide], updatedAt: now() });
+  else await updateDoc('catalog', 'ads', (doc) => ({ ...doc, slides: [...(doc.slides || []), slide], updatedAt: now() }));
+  await audit('ad.create', { id: slide.id });
+  return slide;
+}
+export async function removeAd(id) {
+  await updateDoc('catalog', 'ads', (doc) => {
+    const slides = doc.slides || [];
+    if (!slides.some((s) => s.id === id)) throw new HttpError(404, 'Not found', 'There is no advertisement with that id.');
+    return { ...doc, slides: slides.filter((s) => s.id !== id), updatedAt: now() };
+  });
+  await audit('ad.delete', { id });
+}
+export async function listTransactions(filters = {}) {
+  const types = filters.type ? [filters.type] : ['sale', 'purchase'];
+  const keys = (await Promise.all(types.map((t) => listKeys('crm', `transactions/${t}/`)))).flat();
+  const allRows = (await getMany('crm', keys)).filter(Boolean);
+  const rows = allRows.filter((r) => {
+    const d = String(r.date || '');
+    return (!filters.month || Number(d.slice(5, 7)) === filters.month) && (!filters.year || Number(d.slice(0, 4)) === filters.year)
+      && (!filters.car || String(r.carId) === String(filters.car)) && (!filters.brand || r.brand === filters.brand)
+      && (!filters.salesperson || norm(r.salesperson) === norm(filters.salesperson));
+  }).sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt));
+  const data = rows.slice(0, filters.limit || 500);
+  const total = rows.reduce((sum, r) => sum + Number(r.amount || 0), 0);
+  const byBrand = Object.entries(rows.reduce((m, r) => (m[r.brand] = (m[r.brand] || 0) + Number(r.amount || 0), m), {})).sort((a,b) => b[1]-a[1]);
+  const byPerson = Object.entries(rows.reduce((m, r) => (m[r.salesperson || r.counterparty || 'Unassigned'] = (m[r.salesperson || r.counterparty || 'Unassigned'] || 0) + Number(r.amount || 0), m), {})).sort((a,b) => b[1]-a[1]);
+  return { data, truncated: rows.length > data.length, report: { count: rows.length, amount: total, byBrand, byPerson }, filters: { months: [...new Set(allRows.map((r) => Number(r.date.slice(5,7))))].sort((a,b)=>a-b), years: [...new Set(allRows.map((r) => Number(r.date.slice(0,4))))].sort((a,b)=>b-a), brands: [...new Set(allRows.map((r) => r.brand))].sort(), cars: [...new Map(allRows.map((r) => [r.carId, { id:r.carId, title:r.carTitle }])).values()], salespeople: [...new Set(allRows.map((r) => r.salesperson).filter(Boolean))].sort() } };
+}
+export async function createTransaction(input) {
+  const car = await getCar(input.carId);
+  const id = newId();
+  const record = { id, ...input, brand: car.brand, carTitle: car.title, createdAt: now() };
+  if (input.type === 'sale') {
+    const previous = await listTransactions({ type: 'sale', car: String(car.id), limit: 500 });
+    if (previous.data.length) throw new HttpError(409, 'Sale already recorded', 'A sale is already recorded for this car.');
+    if (!car.sold) await patchCar(car.id, { sold: true });
+  }
+  await putRecord('crm', `transactions/${input.type}/${id}`, record);
+  await audit(`transaction.${input.type}`, { id, carId: car.id, amount: input.amount });
+  return record;
+}
+
 /* ======================================================================================== leads */
 /**
  * Write a lead or booking exactly once per reference (EX-…, AA-…). The reference is claimed first (onlyIfNew); a phone
